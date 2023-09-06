@@ -128,7 +128,7 @@ ConfigPrivate::ConfigPrivate()
 	: super("rom-properties.conf")
 	// Download options
 	, palLanguageForGameTDB('en')
-	, extImgDownloadEnabled(true)
+	, extImgDownloadEnabled(false)
 	, useIntIconForSmallSizes(true)
 	, storeFileOriginInfo(true)
 	// Image bandwidth options
@@ -165,7 +165,7 @@ void ConfigPrivate::reset(void)
 #endif
 
 	// Download options
-	extImgDownloadEnabled = true;
+	extImgDownloadEnabled = false;
 	useIntIconForSmallSizes = true;
 	storeFileOriginInfo = true;
 
