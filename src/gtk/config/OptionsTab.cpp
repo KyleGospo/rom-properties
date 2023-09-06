@@ -410,7 +410,7 @@ rp_options_tab_load_defaults(RpOptionsTab *tab)
 	// For now, hard-coding everything here.
 
 	// Downloads
-	static const bool extImgDownloadEnabled_default = false;
+	static const bool extImgDownloadEnabled_default = true;
 	static const bool useIntIconForSmallSizes_default = true;
 	static const bool storeFileOriginInfo_default = true;
 	static const uint32_t palLanguageForGameTDB_default = pal_lc_def;

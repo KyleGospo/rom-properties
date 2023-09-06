@@ -195,7 +195,7 @@ void OptionsTabPrivate::loadDefaults(void)
 	// TODO: Get the defaults from Config.
 	// For now, hard-coding everything here.
 	// Downloads
-	static const bool extImgDownloadEnabled_default = false;
+	static const bool extImgDownloadEnabled_default = true;
 	static const bool useIntIconForSmallSizes_default = true;
 	static const bool storeFileOriginInfo_default = true;
 	static const int palLanguageForGameTDB_default =

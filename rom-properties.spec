@@ -7,6 +7,8 @@ URL:            https://github.com/KyleGospo/%{name}
 
 VCS:            {{{ git_dir_vcs }}}
 Source:         {{{ git_dir_pack }}}
+Patch0:         no_tests.patch
+Patch1:         no_downloads.patch
 
 Requires:       curl
 Requires:       zlib
@@ -57,7 +59,8 @@ This shell extension adds a few nice features to file browsers for managing vide
 
 %prep
 {{{ git_dir_setup_macro }}}
-sed -i 's|ENABLE_TESTING()|# ENABLE_TESTING()|g' CMakeLists.txt
+%patch 0 -p1
+%patch 1 -p1
 
 %build
 %cmake
