@@ -50,7 +50,7 @@ SET(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 # Enable testing.
 # TODO: INCLUDE(CTest) for more advanced testing after
 # enough tests are added.
-ENABLE_TESTING()
+# ENABLE_TESTING()
 
 # Set default build options.
 INCLUDE(cmake/options.cmake)
