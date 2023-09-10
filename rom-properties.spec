@@ -51,6 +51,9 @@ BuildRequires:  gtk4-devel
 BuildRequires:  gdk-pixbuf2-devel
 BuildRequires:  nautilus-devel
 BuildRequires:  gsound-devel
+BuildRequires:  gtk3-devel
+BuildRequires:  cairo-devel
+BuildRequires:  Thunar-devel
 
 %global debug_package %{nil}
 
@@ -71,7 +74,6 @@ This shell extension adds a few nice features to file browsers for managing vide
 kbuildsycoca5 --noincremental
 rm -rf %{buildroot}%{_sysconfdir}/apparmor.d
 rm -rf %{buildroot}%{_prefix}/lib/debug
-rm %{buildroot}%{_libdir}/thunarx-2/rom-properties-xfce.so
 
 %files
 %license %{_defaultdocdir}/%{name}/LICENSE
@@ -136,6 +138,16 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 %{_libdir}/qt5/plugins/kf5/kfilemetadata/kfilemetadata_rom-properties-kf5.so
 %{_libdir}/qt5/plugins/kf5/overlayicon/overlayiconplugin_rom-properties-kf5.so
 %{_libdir}/qt5/plugins/kf5/propertiesdialog/rom-properties-kf5.so
+
+%package xfce
+Summary: XFCE integration for rom-properties
+Requires: %{name}%{?_isa} = %{version}-%{release}
+
+%description xfce
+%{summary}
+
+%files xfce
+%{_libdir}/thunarx-2/rom-properties-xfce.so
 
 %package thumbnailer-dbus
 Summary: Dbus service for rom-properties
