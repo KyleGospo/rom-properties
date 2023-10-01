@@ -11,7 +11,6 @@
 #include "AmiiboData.hpp"
 
 #include "byteswap_rp.h"
-#include "tcharx.h"
 #include "../../amiibo-data/amiibo_bin_structs.h"
 
 // OS-specific includes
@@ -574,7 +573,7 @@ AmiiboData *AmiiboData::instance(void)
  * Used for unit testing.
  * @param filename amiibo-data.bin filename to use
  */
-void AmiiboData::overrideAmiiboDataBinFilename(const char *filename)
+void AmiiboData::overrideAmiiboDataBinFilename(const TCHAR *filename)
 {
 	if (AmiiboDataPrivate::amiibo_data_bin_override_filename) {
 		free(AmiiboDataPrivate::amiibo_data_bin_override_filename);
