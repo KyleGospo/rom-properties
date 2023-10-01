@@ -9,6 +9,7 @@
 #pragma once
 
 #include "common.h"
+#include "dll-macros.h"	// for RP_LIBROMDATA_PUBLIC
 
 // C includes
 #include <stdint.h>
@@ -44,6 +45,14 @@ class AmiiboData
 		 * @return AmiiboData instance.
 		 */
 		static AmiiboData *instance(void);
+
+		/**
+		 * Override the amiibo-data.bin filename.
+		 * Used for unit testing.
+		 * @param filename amiibo-data.bin filename to use
+		 */
+		RP_LIBROMDATA_PUBLIC
+		static void overrideAmiiboDataBinFilename(const char *filename);
 
 	public:
 		/**
