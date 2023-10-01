@@ -33,7 +33,6 @@ using std::unique_ptr;
 #ifdef _WIN32
 #  include "librptext/wchar.hpp"
 #else /* !_WIN32 */
-#  define U82T_c(u8str) (u8str)
 #  define U82T_s(u8str) (u8str)
 #endif /* _WIN32 */
 
@@ -581,7 +580,7 @@ void AmiiboData::overrideAmiiboDataBinFilename(const TCHAR *filename)
 	}
 
 	if (filename) {
-		AmiiboDataPrivate::amiibo_data_bin_override_filename = _tcsdup(U82T_c(filename));
+		AmiiboDataPrivate::amiibo_data_bin_override_filename = _tcsdup(filename);
 	}
 }
 
