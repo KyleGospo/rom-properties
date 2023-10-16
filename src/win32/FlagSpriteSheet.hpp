@@ -16,8 +16,9 @@ public:
 	/**
 	 * Flags sprite sheet
 	 * @param iconSize Icon size
+	 * @param flipH If true, flip horizontally for RTL.
 	 */
-	FlagSpriteSheet(int iconSize);
+	FlagSpriteSheet(int iconSize, bool flipH = false);
 
 private:
 	typedef ISpriteSheet super;
@@ -25,22 +26,21 @@ private:
 
 protected:
 	/**
-	 * Get the gresource filename for a sprite sheet.
-	 * @param buf		[out] Filename buffer
-	 * @param size		[in] Size of buf
+	 * Get the RT_PNG resource ID for a sprite sheet.
 	 * @param width		[in] Icon width
 	 * @param height	[in] Icon height
 	 * @param gray		[in] If true, load the grayscale version
-	 * @return 0 on success; non-zero on error.
+	 * @return Resource ID, or nullptr on error.
 	 */
-	int getFilename(char *buf, size_t size, int width, int height, bool gray = false) const final;
+	LPCTSTR getResourceID(int width, int height, bool gray = false) const final;
 
 public:
 	/**
 	* Get a flag icon.
 	* @param lc		[in]  Language code
 	* @param forcePAL	[in,opt] If true, force PAL regions, e.g. always use the 'gb' flag for English.
+	* @param dpi		[in,opt] DPI value to set in the HBITMAP
 	* @return Flag icon, or nullptr on error. (caller must free the icon)
 	*/
-	PIMGTYPE getIcon(uint32_t lc, bool forcePAL = false) const;
+	HBITMAP getIcon(uint32_t lc, bool forcePAL = false, UINT dpi = 96) const;
 };

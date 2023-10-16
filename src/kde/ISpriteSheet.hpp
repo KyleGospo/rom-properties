@@ -1,5 +1,5 @@
 /***************************************************************************
- * ROM Properties Page shell extension. (GTK+)                             *
+ * ROM Properties Page shell extension. (KDE)                              *
  * ISpriteSheet.hpp: Generic sprite sheets loader.                         *
  *                                                                         *
  * Copyright (c) 2020-2023 by David Korth.                                 *
@@ -9,10 +9,8 @@
 #pragma once
 
 #include "common.h"
-#include "PIMGTYPE.hpp"
 
-// librptexture
-#include "librptexture/img/rp_image.hpp"
+#include <QPixmap>
 
 class ISpriteSheet {
 protected:
@@ -30,7 +28,7 @@ private:
 
 protected:
 	/**
-	 * Get the gresource filename for a sprite sheet.
+	 * Get the qresource filename for a sprite sheet.
 	 * @param buf		[out] Filename buffer
 	 * @param size		[in] Size of buf
 	 * @param width		[in] Icon width
@@ -45,12 +43,12 @@ protected:
 	 * @param col Column
 	 * @param row Row
 	 * @param gray If true, load the grayscale version
-	 * @return Icon, or nullptr on error. (caller must free the icon)
+	 * @return Icon, or null QImage on error.
 	 */
-	PIMGTYPE getIcon(int col, int row, bool gray = false) const;
+	QPixmap getIcon(int col, int row, bool gray = false) const;
 
 private:
-	LibRpTexture::rp_image_ptr m_img, m_imgGray;
+	QPixmap m_img, m_imgGray;
 	int m_cols, m_rows;
 	int m_width, m_height;
 };

@@ -1,5 +1,5 @@
 /***************************************************************************
- * ROM Properties Page shell extension. (GTK+)                             *
+ * ROM Properties Page shell extension. (KDE)                              *
  * FlagSpriteSheet.hpp: Flag sprite sheets loader.                         *
  *                                                                         *
  * Copyright (c) 2020-2023 by David Korth.                                 *
@@ -37,7 +37,7 @@ int FlagSpriteSheet::getFilename(char *buf, size_t size, int width, int height, 
 	// NOTE: Gray is not used for flags.
 	RP_UNUSED(gray);
 	snprintf(buf, size,
-		"/com/gerbilsoft/rom-properties/flags/flags-%dx%d.png",
+		":/flags/flags-%dx%d.png",
 		width, height);
 	return 0;
 }
@@ -46,14 +46,14 @@ int FlagSpriteSheet::getFilename(char *buf, size_t size, int width, int height, 
  * Get a flag icon.
  * @param lc		[in]  Language code
  * @param forcePAL	[in,opt] If true, force PAL regions, e.g. always use the 'gb' flag for English.
- * @return Flag icon, or nullptr on error. (caller must free the icon)
+ * @return Flag icon, or nullptr on error.
  */
-PIMGTYPE FlagSpriteSheet::getIcon(uint32_t lc, bool forcePAL) const
+QPixmap FlagSpriteSheet::getIcon(uint32_t lc, bool forcePAL) const
 {
 	assert(lc != 0);
 	if (lc == 0) {
 		// Invalid language code.
-		return nullptr;
+		return {};
 	}
 
 	// Determine row and column.
@@ -65,5 +65,5 @@ PIMGTYPE FlagSpriteSheet::getIcon(uint32_t lc, bool forcePAL) const
 	}
 
 	// No matching icon...
-	return nullptr;
+	return {};
 }

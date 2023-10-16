@@ -1,6 +1,6 @@
 /***************************************************************************
- * ROM Properties Page shell extension. (GTK+)                             *
- * AchSpriteSheet.hpp: Achievement sprite sheets loader.                   *
+ * ROM Properties Page shell extension. (KDE)                              *
+ * FlagSpriteSheet.hpp: Flag sprite sheets loader.                         *
  *                                                                         *
  * Copyright (c) 2020-2023 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
@@ -10,21 +10,18 @@
 
 #include "common.h"
 
-// librpbase
-#include "librpbase/Achievements.hpp"
-
 #include "ISpriteSheet.hpp"
-class AchSpriteSheet : public ISpriteSheet {
+class FlagSpriteSheet : public ISpriteSheet {
 public:
 	/**
-	 * Achievements sprite sheet
+	 * Flags sprite sheet
 	 * @param iconSize Icon size
 	 */
-	AchSpriteSheet(int iconSize);
+	FlagSpriteSheet(int iconSize);
 
 private:
 	typedef ISpriteSheet super;
-	RP_DISABLE_COPY(AchSpriteSheet)
+	RP_DISABLE_COPY(FlagSpriteSheet)
 
 protected:
 	/**
@@ -40,10 +37,10 @@ protected:
 
 public:
 	/**
-	 * Get an Achievements icon.
-	 * @param id Achievement ID
-	 * @param gray If true, load the grayscale version
-	 * @return Achievements icon, or nullptr on error. (caller must free the icon)
-	 */
-	PIMGTYPE getIcon(LibRpBase::Achievements::ID id, bool gray = false) const;
+	* Get a flag icon.
+	* @param lc		[in]  Language code
+	* @param forcePAL	[in,opt] If true, force PAL regions, e.g. always use the 'gb' flag for English.
+	* @return Flag icon, or nullptr on error.
+	*/
+	QPixmap getIcon(uint32_t lc, bool forcePAL = false) const;
 };

@@ -1,5 +1,5 @@
 /***************************************************************************
- * ROM Properties Page shell extension. (GTK+)                             *
+ * ROM Properties Page shell extension. (KDE)                              *
  * AchSpriteSheet.hpp: Achievement sprite sheets loader.                   *
  *                                                                         *
  * Copyright (c) 2020-2023 by David Korth.                                 *
@@ -28,7 +28,7 @@ private:
 
 protected:
 	/**
-	 * Get the gresource filename for a sprite sheet.
+	 * Get the qresource filename for a sprite sheet.
 	 * @param buf		[out] Filename buffer
 	 * @param size		[in] Size of buf
 	 * @param width		[in] Icon width
@@ -43,7 +43,7 @@ public:
 	 * Get an Achievements icon.
 	 * @param id Achievement ID
 	 * @param gray If true, load the grayscale version
-	 * @return Achievements icon, or nullptr on error. (caller must free the icon)
+	 * @return Achievements icon, or nullptr on error.
 	 */
-	PIMGTYPE getIcon(LibRpBase::Achievements::ID id, bool gray = false) const;
+	QPixmap getIcon(LibRpBase::Achievements::ID id, bool gray = false) const;
 };
