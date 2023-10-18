@@ -23,80 +23,101 @@ namespace LibRpBase {
 
 class ConfigPrivate : public ConfReaderPrivate
 {
-	public:
-		ConfigPrivate();
+public:
+	ConfigPrivate();
 
-	private:
-		typedef ConfReaderPrivate super;
-		RP_DISABLE_COPY(ConfigPrivate)
+private:
+	typedef ConfReaderPrivate super;
+	RP_DISABLE_COPY(ConfigPrivate)
 
-	public:
-		// Static Config instance.
-		// TODO: Q_GLOBAL_STATIC() equivalent, though we
-		// may need special initialization if the compiler
-		// doesn't support thread-safe statics.
-		static Config instance;
+public:
+	// Static Config instance.
+	// TODO: Q_GLOBAL_STATIC() equivalent, though we
+	// may need special initialization if the compiler
+	// doesn't support thread-safe statics.
+	static Config instance;
 
-	public:
-		/**
-		 * Reset the configuration to the default values.
-		 */
-		void reset(void) final;
+public:
+	/**
+	 * Reset the configuration to the default values.
+	 */
+	void reset(void) final;
 
-		/**
-		 * Process a configuration line.
-		 * Virtual function; must be reimplemented by subclasses.
-		 *
-		 * @param section Section.
-		 * @param name Key.
-		 * @param value Value.
-		 * @return 1 on success; 0 on error.
-		 */
-		int processConfigLine(const char *section,
-			const char *name, const char *value) final;
+	/**
+	 * Process a configuration line.
+	 * Virtual function; must be reimplemented by subclasses.
+	 *
+	 * @param section Section.
+	 * @param name Key.
+	 * @param value Value.
+	 * @return 1 on success; 0 on error.
+	 */
+	int processConfigLine(const char *section,
+		const char *name, const char *value) final;
 
-	public:
-		/**
-		 * Default image type priority.
-		 * Used if a custom configuration is not defined
-		 * for a given system.
-		 */
-		static const uint8_t defImgTypePrio[];
+public:
+	/**
+	 * Default image type priority.
+	 * Used if a custom configuration is not defined
+	 * for a given system.
+	 */
+	static const uint8_t defImgTypePrio[];
 
-		// Image type priority data.
-		// Managed as a single block in order to reduce
-		// memory allocations.
-		rp::uvector<uint8_t> vImgTypePrio;
+	// Image type priority data.
+	// Managed as a single block in order to reduce
+	// memory allocations.
+	rp::uvector<uint8_t> vImgTypePrio;
 
-		/**
-		 * Map of RomData subclass names to vImgTypePrio indexes.
-		 * - Key: RomData subclass name.
-		 * - Value: vImgTypePrio information.
-		 *   - High byte: Data length.
-		 *   - Low 3 bytes: Data offset.
-		 */
-		unordered_map<string, uint32_t> mapImgTypePrio;
+	/**
+	 * Map of RomData subclass names to vImgTypePrio indexes.
+	 * - Key: RomData subclass name.
+	 * - Value: vImgTypePrio information.
+	 *   - High byte: Data length.
+	 *   - Low 3 bytes: Data offset.
+	 */
+	unordered_map<string, uint32_t> mapImgTypePrio;
 
-		// Download options
-		uint32_t palLanguageForGameTDB;
-		bool extImgDownloadEnabled;
-		bool useIntIconForSmallSizes;
-		bool storeFileOriginInfo;
+	// Download options
+	uint32_t palLanguageForGameTDB;
+	bool extImgDownloadEnabled;
+	bool useIntIconForSmallSizes;
+	bool storeFileOriginInfo;
 
-		// Image bandwidth options
-		Config::ImgBandwidth imgBandwidthUnmetered;
-		Config::ImgBandwidth imgBandwidthMetered;
-		// Compatibility with older settings
-		bool isNewBandwidthOptionSet;
-		bool downloadHighResScans;
+	// Image bandwidth options
+	Config::ImgBandwidth imgBandwidthUnmetered;
+	Config::ImgBandwidth imgBandwidthMetered;
+	// Compatibility with older settings
+	bool isNewBandwidthOptionSet;
+	bool downloadHighResScans;
 
-		// DMG title screen mode. [index is ROM type]
-		Config::DMG_TitleScreen_Mode dmgTSMode[Config::DMG_TitleScreen_Mode::DMG_TS_MAX];
+	// DMG title screen mode [index is ROM type]
+	Config::DMG_TitleScreen_Mode dmgTSMode[Config::DMG_TitleScreen_Mode::DMG_TS_MAX];
 
-		// Other options.
-		bool showDangerousPermissionsOverlayIcon;
-		bool enableThumbnailOnNetworkFS;
-		bool showXAttrView;
+	// Other options
+	bool showDangerousPermissionsOverlayIcon;
+	bool enableThumbnailOnNetworkFS;
+	bool showXAttrView;
+
+public:
+	/** Default values **/
+
+	// Download options
+	static const constexpr uint32_t palLanguageForGameTDB_default = 'en';
+	static const constexpr bool extImgDownloadEnabled_default = true;
+	static const constexpr bool useIntIconForSmallSizes_default = true;
+	static const constexpr bool storeFileOriginInfo_default = true;
+
+	// Image bandwidth options
+	static const constexpr Config::ImgBandwidth imgBandwidthUnmetered_default = Config::ImgBandwidth::HighRes;
+	static const constexpr Config::ImgBandwidth imgBandwidthMetered_default = Config::ImgBandwidth::NormalRes;
+
+	// DMG title screen mode [index is ROM type]
+	static const Config::DMG_TitleScreen_Mode dmgTSMode_default[Config::DMG_TitleScreen_Mode::DMG_TS_MAX];
+
+	// Other options
+	static const constexpr bool showDangerousPermissionsOverlayIcon_default = true;
+	static const constexpr bool enableThumbnailOnNetworkFS_default = false;
+	static const constexpr bool showXAttrView_default = true;
 };
 
 /** ConfigPrivate **/
@@ -124,28 +145,35 @@ const uint8_t ConfigPrivate::defImgTypePrio[] = {
 	RomData::IMG_INT_BANNER,
 };
 
+// DMG title screen mode [index is ROM type]
+const Config::DMG_TitleScreen_Mode ConfigPrivate::dmgTSMode_default[Config::DMG_TitleScreen_Mode::DMG_TS_MAX] = {
+	Config::DMG_TitleScreen_Mode::DMG_TS_DMG,
+	Config::DMG_TitleScreen_Mode::DMG_TS_SGB,
+	Config::DMG_TitleScreen_Mode::DMG_TS_CGB
+};
+
 ConfigPrivate::ConfigPrivate()
 	: super("rom-properties.conf")
 	// Download options
-	, palLanguageForGameTDB('en')
-	, extImgDownloadEnabled(true)
-	, useIntIconForSmallSizes(true)
-	, storeFileOriginInfo(true)
+	, palLanguageForGameTDB(palLanguageForGameTDB_default)
+	, extImgDownloadEnabled(extImgDownloadEnabled_default)
+	, useIntIconForSmallSizes(useIntIconForSmallSizes_default)
+	, storeFileOriginInfo(storeFileOriginInfo_default)
 	// Image bandwidth options
-	, imgBandwidthUnmetered(Config::ImgBandwidth::HighRes)
-	, imgBandwidthMetered(Config::ImgBandwidth::NormalRes)
+	, imgBandwidthUnmetered(imgBandwidthUnmetered_default)
+	, imgBandwidthMetered(imgBandwidthMetered_default)
 	// Compatibility with older settings
 	, isNewBandwidthOptionSet(false)
 	, downloadHighResScans(true)
 	// Overlay icon
-	, showDangerousPermissionsOverlayIcon(true)
+	, showDangerousPermissionsOverlayIcon(showDangerousPermissionsOverlayIcon_default)
 	// Enable thumbnailing and metadata on network FS
-	, enableThumbnailOnNetworkFS(false)
+	, enableThumbnailOnNetworkFS(enableThumbnailOnNetworkFS_default)
 	// Show the Extended Attributes tab
-	, showXAttrView(true)
+	, showXAttrView(showXAttrView_default)
 {
 	// NOTE: Configuration is also initialized in the reset() function.
-	memset(dmgTSMode, 0, sizeof(dmgTSMode));
+	memcpy(dmgTSMode, dmgTSMode_default, sizeof(dmgTSMode));
 }
 
 /**
@@ -165,9 +193,9 @@ void ConfigPrivate::reset(void)
 #endif
 
 	// Download options
-	extImgDownloadEnabled = true;
-	useIntIconForSmallSizes = true;
-	storeFileOriginInfo = true;
+	extImgDownloadEnabled = extImgDownloadEnabled_default;
+	useIntIconForSmallSizes = useIntIconForSmallSizes_default;
+	storeFileOriginInfo = storeFileOriginInfo_default;
 
 	// Image bandwidth options
 	imgBandwidthUnmetered = Config::ImgBandwidth::HighRes;
@@ -176,17 +204,15 @@ void ConfigPrivate::reset(void)
 	isNewBandwidthOptionSet = false;
 	downloadHighResScans = false;
 
-	// DMG title screen mode.
-	dmgTSMode[Config::DMG_TitleScreen_Mode::DMG_TS_DMG] = Config::DMG_TitleScreen_Mode::DMG_TS_DMG;
-	dmgTSMode[Config::DMG_TitleScreen_Mode::DMG_TS_SGB] = Config::DMG_TitleScreen_Mode::DMG_TS_SGB;
-	dmgTSMode[Config::DMG_TitleScreen_Mode::DMG_TS_CGB] = Config::DMG_TitleScreen_Mode::DMG_TS_CGB;
+	// DMG title screen mode
+	memcpy(dmgTSMode, dmgTSMode_default, sizeof(dmgTSMode));
 
 	// Overlay icon
-	showDangerousPermissionsOverlayIcon = true;
+	showDangerousPermissionsOverlayIcon = showDangerousPermissionsOverlayIcon_default;
 	// Enable thumbnail and metadata on network FS
-	enableThumbnailOnNetworkFS = false;
+	enableThumbnailOnNetworkFS = enableThumbnailOnNetworkFS_default;
 	// Show the Extended Attributes tab
-	showXAttrView = true;
+	showXAttrView = showXAttrView_default;
 }
 
 /**
@@ -713,5 +739,39 @@ bool Config::showXAttrView(void) const
 	RP_D(const Config);
 	return d->showXAttrView;
 }
+
+/**** Default values ****/
+
+/** Download options **/
+
+#define DEFAULT_VALUE_IMPL(T, name) \
+T Config::name##_default(void) \
+{ \
+	return ConfigPrivate::name##_default; \
+}
+DEFAULT_VALUE_IMPL(bool, extImgDownloadEnabled)
+DEFAULT_VALUE_IMPL(bool, useIntIconForSmallSizes)
+DEFAULT_VALUE_IMPL(bool, storeFileOriginInfo)
+DEFAULT_VALUE_IMPL(uint32_t, palLanguageForGameTDB)
+DEFAULT_VALUE_IMPL(Config::ImgBandwidth, imgBandwidthUnmetered)
+DEFAULT_VALUE_IMPL(Config::ImgBandwidth, imgBandwidthMetered)
+
+Config::DMG_TitleScreen_Mode Config::dmgTitleScreenMode_default(DMG_TitleScreen_Mode romType)
+{
+	assert(romType >= DMG_TitleScreen_Mode::DMG_TS_DMG);
+	assert(romType <  DMG_TitleScreen_Mode::DMG_TS_MAX);
+	if (romType <  DMG_TitleScreen_Mode::DMG_TS_DMG ||
+	    romType >= DMG_TitleScreen_Mode::DMG_TS_MAX)
+	{
+		// Invalid ROM type. Return DMG.
+		return DMG_TitleScreen_Mode::DMG_TS_DMG;
+	}
+
+	return ConfigPrivate::dmgTSMode_default[romType];
+}
+
+DEFAULT_VALUE_IMPL(bool, showDangerousPermissionsOverlayIcon)
+DEFAULT_VALUE_IMPL(bool, enableThumbnailOnNetworkFS)
+DEFAULT_VALUE_IMPL(bool, showXAttrView)
 
 }

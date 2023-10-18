@@ -194,9 +194,10 @@ void RomDataViewPrivate::doRomOp_stdop(int id)
 	switch (id) {
 		case OPTION_COPY_TEXT: {
 			ostringstream oss;
-			oss << "== " << rp_sprintf(C_("RomDataView", "File: '%s'"), rom_filename) << std::endl;
+			oss << "== " << rp_sprintf(C_("RomDataView", "File: '%s'"), rom_filename) << '\n';
 			ROMOutput ro(romData.get(), sel_lc);
 			oss << ro;
+			oss.flush();
 			QApplication::clipboard()->setText(U82Q(oss.str()));
 			// Nothing else to do here.
 			return;
@@ -205,7 +206,8 @@ void RomDataViewPrivate::doRomOp_stdop(int id)
 		case OPTION_COPY_JSON: {
 			ostringstream oss;
 			JSONROMOutput jsro(romData.get());
-			oss << jsro << std::endl;
+			oss << jsro << '\n';
+			oss.flush();
 			QApplication::clipboard()->setText(U82Q(oss.str()));
 			// Nothing else to do here.
 			return;
@@ -262,15 +264,17 @@ void RomDataViewPrivate::doRomOp_stdop(int id)
 
 	switch (id) {
 		case OPTION_EXPORT_TEXT: {
-			ofs << "== " << rp_sprintf(C_("RomDataView", "File: '%s'"), rom_filename) << std::endl;
+			ofs << "== " << rp_sprintf(C_("RomDataView", "File: '%s'"), rom_filename) << '\n';
 			ROMOutput ro(romData.get(), sel_lc);
 			ofs << ro;
+			ofs.flush();
 			break;
 		}
 
 		case OPTION_EXPORT_JSON: {
 			JSONROMOutput jsro(romData.get());
-			ofs << jsro << std::endl;
+			ofs << jsro << '\n';
+			ofs.flush();
 			break;
 		}
 
@@ -331,7 +335,7 @@ void RomDataView::btnOptions_triggered(int id)
 		params.save_filename = ba_save_filename.constData();
 	}
 
-	int ret = d->romData->doRomOp(id, &params);
+	const int ret = d->romData->doRomOp(id, &params);
 	const QString qs_msg = U82Q(params.msg);
 	QMessageBox::Icon messageType;
 	if (ret == 0) {
