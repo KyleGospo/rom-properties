@@ -788,7 +788,7 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 		uint32_t crc;
 		const char *name;
 	};
-	static const logo_crc_tbl_t logo_crc_tbl[] = {
+	static const std::array<logo_crc_tbl_t, 7> logo_crc_tbl = {{
 		// Official logos
 		// NOTE: Not translatable!
 		{0xCFD0EB8BU,	"Nintendo"},
@@ -808,19 +808,18 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 		// Uses the Homebrew Launcher theme.
 		// Reference: https://gbatemp.net/threads/release-default-homebrew-custom-logo-bin.457611/
 		{0xF257BD67U,	"Homebrew (animated)"},
-	};
+	}};
 
 	// If CRC is zero, we don't have a valid logo section.
 	// Otherwise, search for a matching logo.
 	const char *logo_name = nullptr;
 	if (crc != 0) {
 		// Search for a matching logo.
-		static const logo_crc_tbl_t *const p_logo_crc_tbl_end = &logo_crc_tbl[ARRAY_SIZE(logo_crc_tbl)];
-		auto iter = std::find_if(logo_crc_tbl, p_logo_crc_tbl_end,
+		auto iter = std::find_if(logo_crc_tbl.cbegin(), logo_crc_tbl.cend(),
 			[crc](const logo_crc_tbl_t &p) noexcept -> bool {
 				return (p.crc == crc);
 			});
-		if (iter != p_logo_crc_tbl_end) {
+		if (iter != logo_crc_tbl.cend()) {
 			// Found a matching logo.
 			logo_name = iter->name;
 		}
@@ -1878,7 +1877,7 @@ int Nintendo3DS::loadFieldData(void)
 			// TODO: Check if platform != 1 on New3DS-only cartridges.
 
 			// Card type.
-			static const char *const media_type_tbl[4] = {
+			static const std::array<const char*, 4> media_type_tbl = {
 				"Inner Device",
 				"Card1",
 				"Card2",
@@ -1886,7 +1885,7 @@ int Nintendo3DS::loadFieldData(void)
 			};
 			const uint8_t media_type = ncsd_header->cci.partition_flags[N3DS_NCSD_PARTITION_FLAG_MEDIA_TYPE_INDEX];
 			const char *const media_type_title = C_("Nintendo3DS", "Media Type");
-			if (media_type < ARRAY_SIZE(media_type_tbl)) {
+			if (media_type < media_type_tbl.size()) {
 				d->fields.addField_string(media_type_title,
 					media_type_tbl[media_type]);
 			} else {
@@ -1913,14 +1912,14 @@ int Nintendo3DS::loadFieldData(void)
 				card_dev_id = ncsd_header->cci.partition_flags[N3DS_NCSD_PARTITION_FLAG_MEDIA_CARD_DEVICE_SDK3];
 			}
 
-			static const char *const card_dev_tbl[4] = {
+			static const std::array<const char*, 4> card_dev_tbl = {
 				nullptr,
 				NOP_C_("Nintendo3DS|CDev", "NOR Flash"),
 				NOP_C_("Nintendo3DS|CDev", "None"),
 				NOP_C_("Nintendo3DS|CDev", "Bluetooth"),
 			};
 			const char *const card_device_title = C_("Nintendo3DS", "Card Device");
-			if (card_dev_id >= 1 && card_dev_id < ARRAY_SIZE(card_dev_tbl)) {
+			if (card_dev_id >= 1 && card_dev_id < card_dev_tbl.size()) {
 				d->fields.addField_string(card_device_title,
 					dpgettext_expr(RP_I18N_DOMAIN, "Nintendo3DS|CDev", card_dev_tbl[card_dev_id]));
 			} else {
@@ -2297,24 +2296,24 @@ int Nintendo3DS::loadFieldData(void)
 
 		// Old3DS System Mode.
 		// NOTE: Mode names are NOT translatable!
-		static const ModeTbl_t old3ds_sys_mode_tbl[6] = {
+		static const std::array<ModeTbl_t, 6> old3ds_sys_mode_tbl = {{
 			{"Prod", 64},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Prod
 			{"", 0},
 			{"Dev1", 96},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Dev1
 			{"Dev2", 80},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Dev2
 			{"Dev3", 72},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Dev3
 			{"Dev4", 32},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Dev4
-		};
+		}};
 		const char *const old3ds_sys_mode_title = C_("Nintendo3DS", "Old3DS Sys Mode");
 		const uint8_t old3ds_sys_mode = (ncch_exheader->aci.arm11_local.flags[2] &
 			N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Mask) >> 4;
-		if (old3ds_sys_mode < ARRAY_SIZE(old3ds_sys_mode_tbl) &&
+		if (old3ds_sys_mode < old3ds_sys_mode_tbl.size() &&
 		    old3ds_sys_mode_tbl[old3ds_sys_mode].name[0] != '\0')
 		{
-			const auto &ptbl = &old3ds_sys_mode_tbl[old3ds_sys_mode];
+			const auto &ptbl = old3ds_sys_mode_tbl[old3ds_sys_mode];
 			d->fields.addField_string(old3ds_sys_mode_title,
 				// tr: %1$s == Old3DS system mode; %2$u == RAM allocation, in megabytes
-				rp_sprintf_p(C_("Nintendo3DS", "%1$s (%2$u MiB)"), ptbl->name, ptbl->mb));
+				rp_sprintf_p(C_("Nintendo3DS", "%1$s (%2$u MiB)"), ptbl.name, ptbl.mb));
 		} else {
 			d->fields.addField_string(old3ds_sys_mode_title,
 				rp_sprintf(C_("Nintendo3DS", "Invalid (0x%02X)"), old3ds_sys_mode));
@@ -2322,20 +2321,20 @@ int Nintendo3DS::loadFieldData(void)
 
 		// New3DS System Mode.
 		// NOTE: Mode names are NOT translatable!
-		static const ModeTbl_t new3ds_sys_mode_tbl[4] = {
+		static const std::array<ModeTbl_t, 4> new3ds_sys_mode_tbl = {{
 			{"Legacy", 64},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Legacy
 			{"Prod",  124},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Prod
 			{"Dev1",  178},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Dev1
 			{"Dev2",  124},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Dev2
-		};
+		}};
 		const char *const new3ds_sys_mode_title = C_("Nintendo3DS", "New3DS Sys Mode");
 		const uint8_t new3ds_sys_mode = ncch_exheader->aci.arm11_local.flags[1] &
 			N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Mask;
-		if (new3ds_sys_mode < ARRAY_SIZE(new3ds_sys_mode_tbl)) {
-			const auto &ptbl = &new3ds_sys_mode_tbl[new3ds_sys_mode];
+		if (new3ds_sys_mode < new3ds_sys_mode_tbl.size()) {
+			const auto &ptbl = new3ds_sys_mode_tbl[new3ds_sys_mode];
 			d->fields.addField_string(new3ds_sys_mode_title,
 				// tr: %1$s == New3DS system mode; %2$u == RAM allocation, in megabytes
-				rp_sprintf_p(C_("Nintendo3DS", "%1$s (%2$u MiB)"), ptbl->name, ptbl->mb));
+				rp_sprintf_p(C_("Nintendo3DS", "%1$s (%2$u MiB)"), ptbl.name, ptbl.mb));
 		} else {
 			d->fields.addField_string(new3ds_sys_mode_title,
 				rp_sprintf(C_("Nintendo3DS", "Invalid (0x%02X)"), new3ds_sys_mode));

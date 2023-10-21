@@ -52,6 +52,36 @@ SET(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 # enough tests are added.
 ENABLE_TESTING()
 
+# Set the standards versions: C11, C++17
+# C17 was added in CMake 3.21; for older versions, use C11.
+# C++17 was added in CMake 3.8; for older versions, use C++14.
+# NOTE: These aren't set as hard requirements, though if the compiler
+# doesn't support them, code will either be less optimal or will fail
+# to compile.
+SET(CMAKE_C_STANDARD_REQUIRED OFF)
+SET(CMAKE_C_EXTENSIONS ON)
+SET(CMAKE_CXX_STANDARD_REQUIRED OFF)
+SET(CMAKE_CXX_EXTENSIONS ON)
+IF(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+	SET(CMAKE_C_STANDARD 17)
+	SET(CMAKE_CXX_STANDARD 17)
+ELSEIF(CMAKE_VERSION VERSION_GREATER_EQUAL 3.8)
+	SET(CMAKE_C_STANDARD 11)
+	SET(CMAKE_CXX_STANDARD 17)
+ELSE()
+	SET(CMAKE_C_STANDARD 11)
+	SET(CMAKE_CXX_STANDARD 14)
+ENDIF()
+IF(MSVC)
+	# FIXME: Windows SDK prior to 10.0.18362.0 has issues when compiling as either C11 or C17.
+	# C:\Program Files (x86)\Windows Kits\8.1\Include\um\winbase.h(8816,5): warning C5105: macro expansion producing 'defined' has undefined behavior
+	# C:\Program Files (x86)\Windows Kits\8.1\Include\um\oaidl.h(473,17): warning C5103: pasting '/' and '/' does not result in a valid preprocessing token
+	# C:\Program Files (x86)\Windows Kits\8.1\Include\shared\wtypes.h(742,1): message : in expansion of macro '_VARIANT_BOOL'
+	# C:\Program Files (x86)\Windows Kits\8.1\Include\um\oaidl.h(473,17): error C2059: syntax error: '/'
+	# Reference: https://github.com/microsoft/vcpkg/issues/15035
+	SET(CMAKE_C_STANDARD 99)
+ENDIF(MSVC)
+
 # Set default build options.
 INCLUDE(cmake/options.cmake)
 # Check for platform-specific functionality.

@@ -307,7 +307,7 @@ struct NESSubmapperEntry {
 };
 
 #define NES2_SUBMAPPER(num, arr) {num, (uint16_t)ARRAY_SIZE(arr), arr}
-static const NESSubmapperEntry submappers[] = {
+static const std::array<NESSubmapperEntry, 31> submappers = {{
 	NES2_SUBMAPPER(  1, mmc1_submappers),			// MMC1
 	NES2_SUBMAPPER(  2, discrete_logic_submappers),		// UxROM
 	NES2_SUBMAPPER(  3, discrete_logic_submappers),		// CNROM
@@ -339,7 +339,7 @@ static const NESSubmapperEntry submappers[] = {
 	NES2_SUBMAPPER(458, mapper458_submappers),		// K-3102 / GN-23 multicart (MMC3-based)
 	NES2_SUBMAPPER(561, mapper006_submappers),		// Bung Super Game Doctor
 	NES2_SUBMAPPER(562, mapper006_submappers),		// Venus Turbo Game Doctor
-};
+}};
 
 /**
  * Look up an iNES mapper number.
@@ -382,13 +382,11 @@ const NESSubmapperInfo *lookup_nes2_submapper_info(int mapper, int submapper)
 	}
 
 	// Do a binary search in submappers[].
-	static const NESSubmapperEntry *const pSubmappers_end =
-		&submappers[ARRAY_SIZE(submappers)];
-	auto pSubmapper = std::lower_bound(submappers, pSubmappers_end, static_cast<uint16_t>(mapper),
+	auto pSubmapper = std::lower_bound(submappers.cbegin(), submappers.cend(), static_cast<uint16_t>(mapper),
 		[](const NESSubmapperEntry &submapper, uint16_t mapper) noexcept -> bool {
 			return (submapper.mapper < mapper);
 		});
-	if (pSubmapper == pSubmappers_end || pSubmapper->mapper != mapper ||
+	if (pSubmapper == submappers.cend() || pSubmapper->mapper != mapper ||
 	    !pSubmapper->info || pSubmapper->info_size == 0)
 	{
 		return nullptr;
@@ -442,7 +440,7 @@ const char *lookup_ines(int mapper)
 int tnesMapperToInesMapper(int tnes_mapper)
 {
 	// 255 == not supported
-	static const uint8_t ines_mappers[] = {
+	static const std::array<uint8_t, 52> ines_mappers = {
 		// 0
 		0,	// NROM
 		1,	// SxROM (MMC1)
@@ -508,7 +506,7 @@ int tnesMapperToInesMapper(int tnes_mapper)
 		185,	// VROM-disable
 	};
 
-	if (tnes_mapper < 0 || tnes_mapper >= ARRAY_SIZE_I(ines_mappers)) {
+	if (tnes_mapper < 0 || tnes_mapper >= static_cast<int>(ines_mappers.size())) {
 		// Undefined TNES mapper.
 		return -1;
 	} else if (ines_mappers[tnes_mapper] == 255) {

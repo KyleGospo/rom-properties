@@ -86,7 +86,7 @@ class DMGPrivate final : public RomDataPrivate
 
 			Max
 		};
-		static const char *const dmg_hardware_names[];
+		static const std::array<const char*, 14> dmg_hardware_names;
 
 		struct dmg_cart_type {
 			DMG_Hardware hardware;
@@ -97,8 +97,8 @@ class DMGPrivate final : public RomDataPrivate
 		// Sparse array setup:
 		// - "start" starts at 0x00.
 		// - "end" ends at 0xFF.
-		static const dmg_cart_type dmg_cart_types_start[];
-		static const dmg_cart_type dmg_cart_types_end[];
+		static const std::array<dmg_cart_type, 35> dmg_cart_types_start;
+		static const std::array<dmg_cart_type,  4> dmg_cart_types_end;
 
 	public:
 		/**
@@ -132,9 +132,9 @@ class DMGPrivate final : public RomDataPrivate
 
 	public:
 		/**
-		 * DMG RAM size array.
+		 * DMG RAM size array
 		 */
-		static const uint8_t dmg_ram_size[];
+		static const std::array<uint8_t, 6> dmg_ram_size;
 
 		/**
 		 * Nintendo's logo which is checked by bootrom.
@@ -245,8 +245,8 @@ const RomDataInfo DMGPrivate::romDataInfo = {
 
 /** Internal ROM data. **/
 
-// Cartrige hardware.
-const char *const DMGPrivate::dmg_hardware_names[] = {
+// Cartridge hardware
+const std::array<const char*, 14> DMGPrivate::dmg_hardware_names = {
 	"Unknown",
 	"ROM",
 	"MBC1",
@@ -263,7 +263,7 @@ const char *const DMGPrivate::dmg_hardware_names[] = {
 	"POCKET CAMERA", // ???
 };
 
-const DMGPrivate::dmg_cart_type DMGPrivate::dmg_cart_types_start[] = {
+const std::array<DMGPrivate::dmg_cart_type, 35> DMGPrivate::dmg_cart_types_start = {{
 	{DMG_Hardware::ROM,	0},
 	{DMG_Hardware::MBC1,	0},
 	{DMG_Hardware::MBC1,	DMG_FEATURE_RAM},
@@ -299,14 +299,14 @@ const DMGPrivate::dmg_cart_type DMGPrivate::dmg_cart_types_start[] = {
 	{DMG_Hardware::MBC6,	0},
 	{DMG_Hardware::Unknown,	0},
 	{DMG_Hardware::MBC7,	DMG_FEATURE_TILT|DMG_FEATURE_RAM|DMG_FEATURE_BATTERY},
-};
+}};
 
-const DMGPrivate::dmg_cart_type DMGPrivate::dmg_cart_types_end[] = {
+const std::array<DMGPrivate::dmg_cart_type, 4> DMGPrivate::dmg_cart_types_end = {{
 	{DMG_Hardware::Camera, 0},
 	{DMG_Hardware::TAMA5, 0},
 	{DMG_Hardware::HUC3, 0},
 	{DMG_Hardware::HUC1, DMG_FEATURE_RAM|DMG_FEATURE_BATTERY},
-};
+}};
 
 DMGPrivate::DMGPrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -357,13 +357,13 @@ uint32_t DMGPrivate::systemID(const DMG_RomHeader *pRomHeader)
 inline DMGPrivate::dmg_cart_type DMGPrivate::CartType(uint8_t type)
 {
 	// Check for low cartridge types.
-	if (type < ARRAY_SIZE(dmg_cart_types_start)) {
+	if (type < dmg_cart_types_start.size()) {
 		return dmg_cart_types_start[type];
 	}
 
 	// Check for high cartridge types. (closer to 0xFF)
-	const unsigned end_offset = 0x100u-ARRAY_SIZE(dmg_cart_types_end);
-	if (type>=end_offset) {
+	const unsigned end_offset = 0x100u - dmg_cart_types_end.size();
+	if (type >= end_offset) {
 		return dmg_cart_types_end[type-end_offset];
 	}
 
@@ -378,20 +378,20 @@ inline DMGPrivate::dmg_cart_type DMGPrivate::CartType(uint8_t type)
  */
 inline int DMGPrivate::RomSize(uint8_t type)
 {
-	static const uint16_t rom_size[] = {32, 64, 128, 256, 512, 1024, 2048, 4096};
-	static const uint16_t rom_size_52[] = {1152, 1280, 1536};
-	if (type < ARRAY_SIZE(rom_size)) {
+	static const std::array<uint16_t, 8> rom_size = {32, 64, 128, 256, 512, 1024, 2048, 4096};
+	static const std::array<uint16_t, 4> rom_size_52 = {1152, 1280, 1536};
+	if (type < rom_size.size()) {
 		return rom_size[type];
-	} else if (type >= 0x52 && type < 0x52+ARRAY_SIZE(rom_size_52)) {
+	} else if (type >= 0x52 && type < 0x52+rom_size_52.size()) {
 		return rom_size_52[type-0x52];
 	}
 	return -1;
 }
 
 /**
- * DMG RAM size array.
+ * DMG RAM size array
  */
-const uint8_t DMGPrivate::dmg_ram_size[] = {
+const std::array<uint8_t, 6> DMGPrivate::dmg_ram_size = {
 	0, 2, 8, 32, 128, 64
 };
 
@@ -688,9 +688,7 @@ void DMGPrivate::addFields_romHeader(const DMG_RomHeader *pRomHeader)
 
 	// RAM Size
 	const char *const ram_size_title = C_("DMG", "RAM Size");
-	if (pRomHeader->ram_size >= ARRAY_SIZE(DMGPrivate::dmg_ram_size)) {
-		fields.addField_string(ram_size_title, C_("RomData", "Unknown"));
-	} else {
+	if (pRomHeader->ram_size < DMGPrivate::dmg_ram_size.size()) {
 		const uint8_t ram_size = DMGPrivate::dmg_ram_size[pRomHeader->ram_size];
 		if (ram_size == 0 && cart_type.hardware == DMGPrivate::DMG_Hardware::MBC2) {
 			fields.addField_string(ram_size_title,
@@ -710,6 +708,8 @@ void DMGPrivate::addFields_romHeader(const DMG_RomHeader *pRomHeader)
 					rp_sprintf(C_("DMG", "%u KiB"), static_cast<unsigned int>(ram_size)));
 			}
 		}
+	} else {
+		fields.addField_string(ram_size_title, C_("RomData", "Unknown"));
 	}
 
 	// Region Code
@@ -1178,7 +1178,7 @@ int DMG::loadFieldData(void)
 		};
 
 		// TODO: Localization?
-		static const gbx_mapper_tbl_t gbx_mapper_tbl[] = {
+		static const std::array<gbx_mapper_tbl_t, 21> gbx_mapper_tbl = {{
 			// Nintendo
 			{GBX_MAPPER_ROM_ONLY,		"ROM only"},
 			{GBX_MAPPER_MBC1,		"Nintendo MBC1"},
@@ -1205,16 +1205,15 @@ int DMG::loadFieldData(void)
 			{GBX_MAPPER_LI_CHENG,		"Li Cheng"},
 			{GBX_MAPPER_LAST_BIBLE,		"\"Last Bible\" multicart"},
 			{GBX_MAPPER_LIEBAO,		"Liebao Technology"},
-		};
-		static const gbx_mapper_tbl_t *const p_gbx_mapper_tbl_end = &gbx_mapper_tbl[ARRAY_SIZE(gbx_mapper_tbl)];
+		}};
 
 		const char *s_mapper = nullptr;
 		const uint32_t lkup = be32_to_cpu(gbxFooter->mapper_id);
-		auto iter = std::find_if(gbx_mapper_tbl, p_gbx_mapper_tbl_end,
+		auto iter = std::find_if(gbx_mapper_tbl.cbegin(), gbx_mapper_tbl.cend(),
 			[lkup](const gbx_mapper_tbl_t &p) noexcept -> bool {
 				return (p.mapper_id == lkup);
 			});
-		if (iter != p_gbx_mapper_tbl_end) {
+		if (iter != gbx_mapper_tbl.cend()) {
 			// Found the mapper.
 			s_mapper = iter->desc;
 		}

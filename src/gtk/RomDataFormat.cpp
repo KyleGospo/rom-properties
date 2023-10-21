@@ -47,7 +47,7 @@ rom_data_format_datetime(time_t date_time, unsigned int flags)
 		"%b %d\0"	// [14] Date (no year)
 		"%X\0"		// [20] Time
 		"%b %d %X\0";	// [23] Date Time (no year)
-	static const uint8_t formats_offtbl[8] = {0, 1, 4, 7, 13, 14, 20, 23};
+	static const std::array<uint8_t, 8> formats_offtbl = {0, 1, 4, 7, 13, 14, 20, 23};
 	static_assert(sizeof(formats_strtbl) == 33, "formats_offtbl[] needs to be recalculated");
 
 	const unsigned int offset = (flags & RomFields::RFT_DATETIME_HAS_DATETIME_NO_YEAR_MASK);
