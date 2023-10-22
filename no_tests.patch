@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 975907907..65d3fd793 100644
+index 59749bcd3..01c187dfc 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -50,7 +50,7 @@ SET(CMAKE_LINK_DEPENDS_NO_SHARED ON)
@@ -9,5 +9,5 @@ index 975907907..65d3fd793 100644
 -ENABLE_TESTING()
 +# ENABLE_TESTING()
  
- # Set default build options.
- INCLUDE(cmake/options.cmake)
+ # Set the standards versions: C11, C++17
+ # C17 was added in CMake 3.21; for older versions, use C11.
