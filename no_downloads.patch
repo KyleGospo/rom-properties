@@ -1,61 +1,13 @@
-diff --git a/src/gtk/config/OptionsTab.cpp b/src/gtk/config/OptionsTab.cpp
-index 34799146a..aa4317a57 100644
---- a/src/gtk/config/OptionsTab.cpp
-+++ b/src/gtk/config/OptionsTab.cpp
-@@ -410,7 +410,7 @@ rp_options_tab_load_defaults(RpOptionsTab *tab)
- 	// For now, hard-coding everything here.
- 
- 	// Downloads
--	static const bool extImgDownloadEnabled_default = true;
-+	static const bool extImgDownloadEnabled_default = false;
- 	static const bool useIntIconForSmallSizes_default = true;
- 	static const bool storeFileOriginInfo_default = true;
- 	static const uint32_t palLanguageForGameTDB_default = pal_lc_def;
-diff --git a/src/kde/config/OptionsTab.cpp b/src/kde/config/OptionsTab.cpp
-index e3246abf0..559db0503 100644
---- a/src/kde/config/OptionsTab.cpp
-+++ b/src/kde/config/OptionsTab.cpp
-@@ -134,7 +134,7 @@ void OptionsTab::loadDefaults(void)
- 	// For now, hard-coding everything here.
- 
- 	// Downloads
--	static const bool extImgDownloadEnabled_default = true;
-+	static const bool extImgDownloadEnabled_default = false;
- 	static const bool useIntIconForSmallSizes_default = true;
- 	static const bool storeFileOriginInfo_default = true;
- 	static const int palLanguageForGameTDB_default =
 diff --git a/src/librpbase/config/Config.cpp b/src/librpbase/config/Config.cpp
-index dec11b9e9..c14c550e2 100644
+index 048ba9629..ae72f63c8 100644
 --- a/src/librpbase/config/Config.cpp
 +++ b/src/librpbase/config/Config.cpp
-@@ -128,7 +128,7 @@ ConfigPrivate::ConfigPrivate()
- 	: super("rom-properties.conf")
- 	// Download options
- 	, palLanguageForGameTDB('en')
--	, extImgDownloadEnabled(true)
-+	, extImgDownloadEnabled(false)
- 	, useIntIconForSmallSizes(true)
- 	, storeFileOriginInfo(true)
- 	// Image bandwidth options
-@@ -165,7 +165,7 @@ void ConfigPrivate::reset(void)
- #endif
+@@ -103,7 +103,7 @@ public:
  
  	// Download options
--	extImgDownloadEnabled = true;
-+	extImgDownloadEnabled = false;
- 	useIntIconForSmallSizes = true;
- 	storeFileOriginInfo = true;
+ 	static const constexpr uint32_t palLanguageForGameTDB_default = 'en';
+-	static const constexpr bool extImgDownloadEnabled_default = true;
++	static const constexpr bool extImgDownloadEnabled_default = false;
+ 	static const constexpr bool useIntIconForSmallSizes_default = true;
+ 	static const constexpr bool storeFileOriginInfo_default = true;
  
-diff --git a/src/win32/config/OptionsTab.cpp b/src/win32/config/OptionsTab.cpp
-index 0efe0521b..3da122723 100644
---- a/src/win32/config/OptionsTab.cpp
-+++ b/src/win32/config/OptionsTab.cpp
-@@ -195,7 +195,7 @@ void OptionsTabPrivate::loadDefaults(void)
- 	// TODO: Get the defaults from Config.
- 	// For now, hard-coding everything here.
- 	// Downloads
--	static const bool extImgDownloadEnabled_default = true;
-+	static const bool extImgDownloadEnabled_default = false;
- 	static const bool useIntIconForSmallSizes_default = true;
- 	static const bool storeFileOriginInfo_default = true;
- 	static const int palLanguageForGameTDB_default =
