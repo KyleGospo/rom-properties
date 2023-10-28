@@ -13,7 +13,9 @@ jobs:
       - name: Run Ninja
         run: ninja
       - name: Run tests
-        run: LD_LIBRARY_PATH=./lib ctest -V -C Release
+        run: ctest -V -C Release
+        env:
+          LD_LIBRARY_PATH: ./lib
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         env:
