@@ -488,6 +488,13 @@ INSTANTIATE_TEST_SUITE_P(ADX_SADX, RomHeaderTest,
 
 /* Console */
 
+INSTANTIATE_TEST_SUITE_P(DreamcastSave, RomHeaderTest,
+	testing::ValuesIn(RomHeaderTest::ReadTestCasesFromDisk(
+		"Console/DreamcastSave.bin.tar.zst",
+		"Console/DreamcastSave.txt.tar.zst",
+		"Console/DreamcastSave.json.tar.zst"))
+	, RomHeaderTest::test_case_suffix_generator);
+
 // GameCube: A few WIA/RVZ headers to ensure they don't break again.
 INSTANTIATE_TEST_SUITE_P(GameCubeWiaRvz, RomHeaderTest,
 	testing::ValuesIn(RomHeaderTest::ReadTestCasesFromDisk(
@@ -596,6 +603,20 @@ INSTANTIATE_TEST_SUITE_P(GameBoyAdvance, RomHeaderTest,
 		"Handheld/GameBoyAdvance.json.tar.zst"))
 	, RomHeaderTest::test_case_suffix_generator);
 
+INSTANTIATE_TEST_SUITE_P(Nintendo3DS_3DSident, RomHeaderTest,
+	testing::ValuesIn(RomHeaderTest::ReadTestCasesFromDisk(
+		"Handheld/Nintendo3DS-3DSident.bin.tar.zst",
+		"Handheld/Nintendo3DS-3DSident.txt.tar.zst",
+		"Handheld/Nintendo3DS-3DSident.json.tar.zst"))
+	, RomHeaderTest::test_case_suffix_generator);
+
+INSTANTIATE_TEST_SUITE_P(NintendoDS, RomHeaderTest,
+	testing::ValuesIn(RomHeaderTest::ReadTestCasesFromDisk(
+		"Handheld/NintendoDS.bin.tar.zst",
+		"Handheld/NintendoDS.txt.tar.zst",
+		"Handheld/NintendoDS.json.tar.zst"))
+	, RomHeaderTest::test_case_suffix_generator);
+
 /* Other */
 
 INSTANTIATE_TEST_SUITE_P(Amiibo, RomHeaderTest,
@@ -603,6 +624,13 @@ INSTANTIATE_TEST_SUITE_P(Amiibo, RomHeaderTest,
 		"Other/Amiibo.bin.tar.zst",
 		"Other/Amiibo.txt.tar.zst",
 		"Other/Amiibo.json.tar.zst"))
+	, RomHeaderTest::test_case_suffix_generator);
+
+INSTANTIATE_TEST_SUITE_P(DirectDrawSurface, RomHeaderTest,
+	testing::ValuesIn(RomHeaderTest::ReadTestCasesFromDisk(
+		"Other/DirectDrawSurface.bin.tar.zst",
+		"Other/DirectDrawSurface.txt.tar.zst",
+		"Other/DirectDrawSurface.json.tar.zst"))
 	, RomHeaderTest::test_case_suffix_generator);
 
 } }

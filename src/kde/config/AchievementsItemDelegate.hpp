@@ -11,25 +11,25 @@
 // Qt includes.
 #include <QStyledItemDelegate>
 
-class AchievementsItemDelegatePrivate;
 class AchievementsItemDelegate : public QStyledItemDelegate
 {
-	Q_OBJECT
-	typedef QStyledItemDelegate super;
+Q_OBJECT
+typedef QStyledItemDelegate super;
 
-	public:
-		explicit AchievementsItemDelegate(QObject *parent);
-		~AchievementsItemDelegate() override;
+public:
+	explicit AchievementsItemDelegate(QObject *parent);
 
-	protected:
-		AchievementsItemDelegatePrivate *const d_ptr;
-		Q_DECLARE_PRIVATE(AchievementsItemDelegate)
-	private:
-		Q_DISABLE_COPY(AchievementsItemDelegate)
+private:
+	Q_DISABLE_COPY(AchievementsItemDelegate)
 
-	public:
-		void paint(QPainter *painter, const QStyleOptionViewItem &option,
-			   const QModelIndex &index) const final;
-		QSize sizeHint(const QStyleOptionViewItem &option,
-			       const QModelIndex &index) const final;
+private:
+	// Font retrieval
+	static QFont fontName(const QWidget *widget = nullptr);
+	static QFont fontDesc(const QWidget *widget = nullptr);
+
+public:
+	void paint(QPainter *painter, const QStyleOptionViewItem &option,
+		   const QModelIndex &index) const final;
+	QSize sizeHint(const QStyleOptionViewItem &option,
+		       const QModelIndex &index) const final;
 };

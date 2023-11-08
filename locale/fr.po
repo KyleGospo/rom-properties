@@ -3489,7 +3489,7 @@ msgstr ""
 
 #: ../src/libromdata/Console/NES.cpp:1393
 msgctxt "NES|Expansion"
-msgid "Pokkun Moguraa"
+msgid "Pokkun Mogura"
 msgstr ""
 
 #: ../src/libromdata/Console/NES.cpp:1394
@@ -9371,7 +9371,7 @@ msgid "Premultipled Alpha"
 msgstr ""
 
 #: ../src/librptexture/fileformat/PowerVR3.cpp:1036
-msgctxt "PowerVR"
+msgctxt "PowerVR3"
 msgid "Flags"
 msgstr ""
 

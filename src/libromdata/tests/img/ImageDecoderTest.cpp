@@ -455,33 +455,13 @@ void ImageDecoderTest::decodeTest_internal(void)
 		const RpTextureWrapper *const rptw = static_cast<RpTextureWrapper*>(m_romData.get());
 		EXPECT_NE(rptw, nullptr);
 		if (rptw) {
-			// To avoid having to add test-only functions to RpTextureWrapper,
-			// we'll search the RomFields for the matching fields.
+			const char *actual_pixel_format = rptw->pixelFormat();
 
-			// NOTE: The string is localized, but our Google Test initializer
-			// sets LC_ALL=C, which disables localization.
-			const char *actual_pixel_format = nullptr;
-			const RomFields *const fields = rptw->fields();
-			for (auto iter = fields->cbegin(); iter != fields->cend(); ++iter) {
-				if (iter->type == RomFields::RFT_STRING && !strcmp(iter->name, "Pixel Format")) {
-					// Found the DX10 format.
-					actual_pixel_format = iter->data.str;
-					break;
-				}
-			}
-
-			if (actual_pixel_format && !strcmp(actual_pixel_format, "DX10")) {
-				// Find "DX10 Format".
-				for (auto iter = fields->cbegin(); iter != fields->cend(); ++iter) {
-					if (iter->type == RomFields::RFT_STRING && !strcmp(iter->name, "DX10 Format")) {
-						// Found the DX10 format.
-						actual_pixel_format = iter->data.str;
-						break;
-					}
-				}
-
-				// NOTE: If the DX10 format wasn't found, then actual_pixel_format
-				// will stay as "DX10".
+			// NOTE: If this is a DX10 format, but the format name wasn't found.
+			// then actual_pixel_format will stay as "DX10".
+			const char *const dx10Format = rptw->dx10Format();
+			if (dx10Format) {
+				actual_pixel_format = dx10Format;
 			}
 
 			EXPECT_NE(actual_pixel_format, nullptr);
@@ -665,23 +645,13 @@ INSTANTIATE_TEST_SUITE_P(DDS_S3TC, ImageDecoderTest,
 		S3TC_IMAGE_TEST("dxt5-rgb", "DXT5"),
 		S3TC_IMAGE_TEST("dxt5-argb", "DXT5"),
 		S3TC_IMAGE_TEST("bc4", "ATI1"),
-		S3TC_IMAGE_TEST("bc5", "ATI2"),
-
-		// from Blender T101405
-		// https://developer.blender.org/T101405
-		S3TC_IMAGE_TEST2("tex_cmp_bc3rxgb", "RXGB"))
-	, ImageDecoderTest::test_case_suffix_generator);
-
-// DirectDrawSurface tests (Uncompressed 8-bit RGB)
-#define RGB_IMAGE_TEST(file, format) ImageDecoderTest_mode( \
-			"RGB/" file ".dds.gz", \
-			"RGB/" file ".png", (format))
-INSTANTIATE_TEST_SUITE_P(DDS_RGB8, ImageDecoderTest,
-	::testing::Values(
-		RGB_IMAGE_TEST("tex_dds_rgb332", "RGB332"))
+		S3TC_IMAGE_TEST("bc5", "ATI2"))
 	, ImageDecoderTest::test_case_suffix_generator);
 
 // DirectDrawSurface tests (Uncompressed 16-bit RGB)
+#define RGB_IMAGE_TEST(file, format) ImageDecoderTest_mode( \
+			"RGB/" file ".dds.gz", \
+			"RGB/" file ".png", (format))
 INSTANTIATE_TEST_SUITE_P(DDS_RGB16, ImageDecoderTest,
 	::testing::Values(
 		RGB_IMAGE_TEST("RGB565", "RGB565"),
@@ -760,6 +730,43 @@ INSTANTIATE_TEST_SUITE_P(DDS_Luma, ImageDecoderTest,
 INSTANTIATE_TEST_SUITE_P(DDS_Alpha, ImageDecoderTest,
 	::testing::Values(
 		Alpha_IMAGE_TEST("A8", "A8"))
+	, ImageDecoderTest::test_case_suffix_generator);
+
+// DirectDrawSurface tests (Blender DDS tests)
+// From Blender T101405: https://developer.blender.org/T101405
+#define DDS_Blender_TEST(file, format) ImageDecoderTest_mode( \
+			"DDS_Blender/" file ".dds.gz", \
+			"DDS_Blender/" file ".dds.png", (format))
+INSTANTIATE_TEST_SUITE_P(DDS_Blender, ImageDecoderTest,
+	::testing::Values(
+		DDS_Blender_TEST("tex_cmp_bc1", "DXT1"),
+		DDS_Blender_TEST("tex_cmp_bc2", "DXT3"),
+		DDS_Blender_TEST("tex_cmp_bc3", "DXT5"),
+		DDS_Blender_TEST("tex_cmp_bc3_mips", "DXT5"),	// TODO: Mipmaps
+		DDS_Blender_TEST("tex_cmp_bc3nm", "DXT5"),
+		DDS_Blender_TEST("tex_cmp_bc3rxgb", "RXGB"),
+		DDS_Blender_TEST("tex_cmp_bc3ycocg", "DXT5"),
+		DDS_Blender_TEST("tex_cmp_bc4_ati1", "ATI1"),
+		DDS_Blender_TEST("tex_cmp_bc4", "BC4_UNORM"),
+		DDS_Blender_TEST("tex_cmp_bc5_ati2", "ATI2"),
+		DDS_Blender_TEST("tex_cmp_bc5", "BC5_UNORM"),
+		//DDS_Blender_TEST("tex_cmp_bc6u_hdr", "BC6H_UF16"),	// TODO: BC6H isn't implemented.
+		//DDS_Blender_TEST("tex_cmp_bc6u_ldr", "BC6H_UF16"),	// TODO: BC6H isn't implemented.
+		DDS_Blender_TEST("tex_cmp_bc7", "BC7_UNORM"),
+		DDS_Blender_TEST("tex_dds_a8", "A8"),
+		DDS_Blender_TEST("tex_dds_abgr8", "ABGR8888"),
+		DDS_Blender_TEST("tex_dds_bgr8", "BGR888"),
+		DDS_Blender_TEST("tex_dds_l8a8", "A8L8"),
+		DDS_Blender_TEST("tex_dds_l8", "L8"),
+		DDS_Blender_TEST("tex_dds_rgb10a2", "A2B10G10R10"),
+		DDS_Blender_TEST("tex_dds_rgb332", "RGB332"),
+		DDS_Blender_TEST("tex_dds_rgb565", "RGB565"),
+		DDS_Blender_TEST("tex_dds_rgb5a1", "ARGB1555"),
+		DDS_Blender_TEST("tex_dds_rgb8", "RGB888"),
+		DDS_Blender_TEST("tex_dds_rgba4", "ARGB4444"),
+		DDS_Blender_TEST("tex_dds_rgba8", "ARGB8888"),
+		DDS_Blender_TEST("tex_dds_rgba8_mips", "ARGB8888"),	// TODO: Mipmaps
+		DDS_Blender_TEST("tex_dds_ycocg", "ARGB8888"))
 	, ImageDecoderTest::test_case_suffix_generator);
 
 // PVR tests (square twiddled)
