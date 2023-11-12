@@ -55,7 +55,7 @@ RP_XAttrView_Private::RP_XAttrView_Private(RP_XAttrView *q, LPTSTR tfilename)
 	, tfilename(tfilename)
 	, xattrReader(nullptr)
 	, dwExStyleRTL(LibWin32UI::isSystemRTL())
-	, colorAltRow(LibWin32UI::getAltRowColor())
+	, colorAltRow(0)	// initialized later
 	, isFullyInit(false)
 {}
 
@@ -260,14 +260,17 @@ void RP_XAttrView_Private::initDialog(void)
 	LVCOLUMN lvColumn;
 	lvColumn.mask = LVCF_TEXT | LVCF_FMT;
 	lvColumn.fmt = LVCFMT_LEFT;
-	lvColumn.pszText = _T("Name");
+	lvColumn.pszText = const_cast<LPTSTR>(_T("Name"));
 	ListView_InsertColumn(hListViewADS, 0, &lvColumn);
-	lvColumn.pszText = _T("Value");
+	lvColumn.pszText = const_cast<LPTSTR>(_T("Value"));
 	ListView_InsertColumn(hListViewADS, 1, &lvColumn);
 
 	// Auto-size columns
 	ListView_SetColumnWidth(hListViewADS, 0, LVSCW_AUTOSIZE_USEHEADER);
 	ListView_SetColumnWidth(hListViewADS, 1, LVSCW_AUTOSIZE_USEHEADER);
+
+	// Initialize the alternate row color.
+	colorAltRow = LibWin32UI::ListView_GetBkColor_AltRow(hListViewADS);
 
 	// Load attributes.
 	// TODO: Cancel tab loading if it fails?
@@ -627,7 +630,9 @@ INT_PTR CALLBACK RP_XAttrView_Private::DlgProc(HWND hDlg, UINT uMsg, WPARAM wPar
 			}
 
 			// Update the alternate row color.
-			d->colorAltRow = LibWin32UI::getAltRowColor();
+			HWND hListViewADS = GetDlgItem(hDlg, IDC_XATTRVIEW_LISTVIEW_ADS);
+			assert(hListViewADS != nullptr);
+			d->colorAltRow = LibWin32UI::ListView_GetBkColor_AltRow(hListViewADS);
 			break;
 		}
 
@@ -643,6 +648,7 @@ INT_PTR CALLBACK RP_XAttrView_Private::DlgProc(HWND hDlg, UINT uMsg, WPARAM wPar
 			switch (wParam) {
 				case WTS_CONSOLE_CONNECT: {
 					HWND hListViewADS = GetDlgItem(hDlg, IDC_XATTRVIEW_LISTVIEW_ADS);
+					assert(hListViewADS != nullptr);
 					if (hListViewADS) {
 						DWORD dwExStyle = ListView_GetExtendedListViewStyle(hListViewADS);
 						dwExStyle |= LVS_EX_DOUBLEBUFFER;

@@ -81,7 +81,6 @@ RP_ShellPropSheetExt_Private::RP_ShellPropSheetExt_Private(RP_ShellPropSheetExt 
 	, def_lc(0)
 	, cboLanguage(nullptr)
 	, dwExStyleRTL(LibWin32UI::isSystemRTL())
-	, colorAltRow(LibWin32UI::getAltRowColor())
 	, isFullyInit(false)
 {
 	// Initialize structs.
@@ -888,7 +887,7 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 			} else {
 				// Don't show this column.
 				// FIXME: Zero-width column is a bad hack...
-				lvColumn.pszText = _T("");
+				lvColumn.pszText = const_cast<LPTSTR>(_T(""));
 				lvColumn.mask |= LVCF_WIDTH;
 				lvColumn.cx = 0;
 				ListView_InsertColumn(hListView, col, &lvColumn);
@@ -1042,8 +1041,8 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 			// NOTE: ListView uses LVSIL_SMALL for LVS_REPORT.
 			ListView_SetImageList(hListView, himl, LVSIL_SMALL);
 			const uint32_t lvBgColor[2] = {
-				LibWin32UI::GetSysColor_ARGB32(COLOR_WINDOW),
-				LibWin32UI::getAltRowColor_ARGB32()
+				ListView_GetBkColor(hListView) | 0xFF000000,
+				LibWin32UI::ListView_GetBkColor_AltRow(hListView) | 0xFF000000
 			};
 
 			// Add icons.
@@ -1106,16 +1105,16 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 				}
 
 				int iImage = -1;
-				HICON hIcon = RpImageWin32::toHICON(icon);
-				assert(hIcon != nullptr);
-				if (hIcon) {
-					const int idx = ImageList_AddIcon(himl, hIcon);
+				HBITMAP hbmIcon = RpImageWin32::toHBITMAP_alpha(icon);
+				assert(hbmIcon != nullptr);
+				if (hbmIcon) {
+					const int idx = ImageList_Add(himl, hbmIcon, nullptr);
 					if (idx >= 0) {
 						// Icon added.
 						iImage = idx;
 					}
 					// ImageList makes a copy of the icon.
-					DestroyIcon(hIcon);
+					DeleteBitmap(hbmIcon);
 				}
 
 				// Save the ImageList index for later.
@@ -2476,7 +2475,8 @@ inline int RP_ShellPropSheetExt_Private::ListView_CustomDraw(NMLVCUSTOMDRAW *plv
 				// FIXME: On Windows 7:
 				// - Standard row colors are 19px high.
 				// - Alternate row colors are 17px high. (top and bottom lines ignored?)
-				plvcd->clrTextBk = colorAltRow;
+				// TODO: Cache the alternate row color in each ListView.
+				plvcd->clrTextBk = LibWin32UI::ListView_GetBkColor_AltRow(plvcd->nmcd.hdr.hwndFrom);
 				result = CDRF_NEWFONT;
 			}
 			break;
@@ -2816,30 +2816,23 @@ INT_PTR CALLBACK RP_ShellPropSheetExt_Private::DlgProc(HWND hDlg, UINT uMsg, WPA
 				return false;
 			}
 
-			// Did the background color change?
-			// NOTE: Assuming the main background color changed if
-			// the alternate row color changed.
-			const COLORREF colorAltRow = LibWin32UI::getAltRowColor();
-			if (colorAltRow != d->colorAltRow) {
-				// Alternate row color changed.
-				d->colorAltRow = colorAltRow;
+			// Assuming the main background color may have changed.
 
-				// Reload images with the new row color.
-				d->loadImages();
+			// Reload images with the new background color.
+			d->loadImages();
 
-				// Invalidate the banner and icon rectangles.
-				if (d->lblBanner) {
-					d->lblBanner->invalidateRect();
-				}
-				if (d->lblIcon) {
-					d->lblIcon->invalidateRect();
-				}
-
-				// TODO: Check for RFT_LISTDATA with icons and reinitialize
-				// the icons if the background color changed.
-				// Alternatively, maybe store them as ARGB32 bitmaps?
-				// That method works for ComboBoxEx...
+			// Invalidate the banner and icon rectangles.
+			if (d->lblBanner) {
+				d->lblBanner->invalidateRect();
 			}
+			if (d->lblIcon) {
+				d->lblIcon->invalidateRect();
+			}
+
+			// TODO: Check for RFT_LISTDATA with icons and reinitialize
+			// the icons if the background color changed.
+			// Alternatively, maybe store them as ARGB32 bitmaps?
+			// That method works for ComboBoxEx...
 
 			// Update the fonts.
 			d->fontHandler.updateFonts(true);
