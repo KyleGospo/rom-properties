@@ -54,6 +54,9 @@
 #ifndef IMAGE_FILE_MACHINE_ARM64
 #  define IMAGE_FILE_MACHINE_ARM64 0xAA64
 #endif
+#ifndef IMAGE_FILE_MACHINE_ARM64EC
+#  define IMAGE_FILE_MACHINE_ARM64EC 0xA641
+#endif
 
 // Application resources.
 #include "resource.h"
@@ -95,6 +98,7 @@ typedef enum {
 	CPU_ia64	= 3,
 	CPU_arm		= 4,
 	CPU_arm64	= 5,
+	CPU_arm64ec	= 6,
 
 	CPU_MAX
 } SysArch;
@@ -111,6 +115,7 @@ static const s_arch_tbl_t s_arch_tbl[] = {
 	{_T("ia64"),	NULL},		// CPU_ia64
 	{_T("arm"),	NULL},		// CPU_arm
 	{_T("arm64"),	_T("arm64")},	// CPU_arm64
+	{_T("arm64ec"),	_T("arm64ec")},	// CPU_arm64ec
 };
 
 // Array of architectures to check
@@ -277,6 +282,7 @@ static int GetSystemDirFilePath(TCHAR *pszPath, size_t cchPath, const TCHAR *fil
 		HOST_ARCH_DIR(_T("Sysnative"), _T("System32")),	// CPU_ia64
 		HOST_ARCH_DIR(_T("System32"), _T("SysWOW64")),	// CPU_arm [TODO: Verify]
 		HOST_ARCH_DIR(_T("Sysnative"), _T("System32")),	// CPU_arm64 [TODO: Verify]
+		HOST_ARCH_DIR(_T("Sysnative"), _T("System32")),	// CPU_arm64ec [TODO: Verify]
 	};
 	static_assert(ARRAY_SIZE(system32_dir_tbl) == CPU_MAX, "system32_dir_tbl[] is out of sync with g_archs[]!");
 	system32_dir = system32_dir_tbl[arch];
@@ -1057,6 +1063,7 @@ static SysArch ifm_to_SysArch(USHORT ifm)
 		{IMAGE_FILE_MACHINE_THUMB,	CPU_arm},	// TODO: Verify
 		{IMAGE_FILE_MACHINE_ARMNT,	CPU_arm},	// TODO: Verify
 		{IMAGE_FILE_MACHINE_ARM64,	CPU_arm64},
+		{IMAGE_FILE_MACHINE_ARM64EC,	CPU_arm64ec},
 	};
 	static const ifm_to_cpu_tbl_t *const p_end = &ifm_to_cpu_tbl[ARRAY_SIZE(ifm_to_cpu_tbl)];
 	for (const ifm_to_cpu_tbl_t *p = ifm_to_cpu_tbl; p < p_end; p++) {
@@ -1134,13 +1141,32 @@ static int check_system_architectures(void)
 				g_archs[g_arch_count++] = CPU_arm;
 				break;
 			case CPU_arm64:
-				// NOTE: amd64 was added starting with Windows 10 Build 21277.
+				// NOTE: Support for 32-bit ARM applications was dropped as of Windows 11 build 25905.
+				// https://blogs.windows.com/windows-insider/2023/07/12/announcing-windows-11-insider-preview-build-25905/
+				// For earlier versions, register 32-bit ARM.
+				if (!IsWindows11Build25905OrGreater()) {
+					g_archs[g_arch_count++] = CPU_arm;
+				}
+
+				// Windows 10 on ARM only supports i386 emulation.
+				// Windows 11 added amd64 emulation and arm64ec.
 				// https://blogs.windows.com/windows-insider/2020/12/10/introducing-x64-emulation-in-preview-for-windows-10-on-arm-pcs-to-the-windows-insider-program/
-				// TODO: Check for it!
-				g_archs[g_arch_count++] = CPU_amd64;
-				g_archs[g_arch_count++] = CPU_arm64;
+				if (IsWindows11Build21262OrGreater()) {
+					// Windows 11 with amd64 emulation: Add arm64 and arm64ec.
+					g_archs[g_arch_count++] = CPU_arm64;
+					g_archs[g_arch_count++] = CPU_arm64ec;
+				} else {
+					// Windows 10 with i386 emulation only: Just add arm64.
+					g_archs[g_arch_count++] = CPU_arm64;
+				}
+				break;
+			case CPU_arm64ec:
+				// Should not happen...
+				assert(!"System native architecture cannot be ARM64EC.");
 				break;
 		}
+
+		assert(g_arch_count <= _countof(g_archs));
 		return 0;
 	}
 

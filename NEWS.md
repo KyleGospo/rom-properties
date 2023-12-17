@@ -25,6 +25,14 @@
       * Notepad++: https://github.com/notepad-plus-plus/notepad-plus-plus/tree/master/PowerEditor/src/WinControls [GPLv3]
     * Due to Notepad++ using GPLv3, any Windows builds that use Dark Mode
       will also be considered GPLv3.
+  * Sparse disc images, e.g. CISO and GCZ, are now handled by the RomDataFactory
+    class instead of requiring each RomData subclass to handle it. This means
+    that all supported sparse disc images can be used for any console.
+    * This was originally implemented to support ZISO and PSP CISO for PS2 disc
+      images, but it also allows unusual combinations like DAX and JISO for
+      GameCube disc images.
+    * Fixes #397: Could you add support for PS2 ISO's compressed to zso and cso?
+      * Reported by @60fpshacksrock.
 
 * New parsers:
   * Wim: Microsoft Windows Images, used by the Windows installer starting with
@@ -109,6 +117,9 @@
     ROM images) on Windows XP.
   * Fix a crash when decoding PNGs or other zlib-encoded data on Windows XP.
     * Affects: v2.2 - v2.2.1
+  * NASOSReader: Fix detection of dual-layer Wii NASOS images.
+  * GameCubeSave: Allow files with no icon or comment. (address == 0xFFFFFFFF)
+    * Reported by RedBees.
 
 * Other changes:
   * Nintendo3DS: The "Options" menu no longer shows a grayed-out "Extract SRL"
@@ -126,6 +137,13 @@
     overhead for both code and RAM, but it significantly simplifies the code.
   * Windows: The "xattr" tab now respects the LC_ALL and/or LC_MESSAGES
     environment variable to allow for easier multi-language testing.
+  * Windows: On ARM64 Windows 11, register for i386, arm64, and arm64ec.
+    * Only if using build 21262 or later. (RTM is 22000)
+    * On earlier versions, only arm64 will be registered, since ARM64EC
+      was added at the same time as amd64 emulation.
+    * Also, support for 32-bit ARM applications was dropped in build 25905.
+    * Fixes #398: Installing on ARM64 shows an error that the AMD64 version of the DLL couldn't be registered
+      * Reported by @kristibektashi.
 
 ## v2.2.1 (released 2023/07/30)
 
