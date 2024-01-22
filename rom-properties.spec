@@ -8,7 +8,7 @@ URL:            https://github.com/KyleGospo/%{name}
 VCS:            {{{ git_dir_vcs }}}
 Source:         {{{ git_dir_pack }}}
 Patch0:         no_tests.patch
-Patch1:         no_downloads.patch
+Patch1:         defaults.patch
 
 Requires:       curl
 Requires:       zlib
