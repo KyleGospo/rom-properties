@@ -71,7 +71,7 @@ This shell extension adds a few nice features to file browsers for managing vide
 
 %install
 %cmake_install
-kbuildsycoca5 --noincremental
+kbuildsycoca6 --noincremental
 rm -rf %{buildroot}%{_sysconfdir}/apparmor.d
 rm -rf %{buildroot}%{_prefix}/lib/debug
 
