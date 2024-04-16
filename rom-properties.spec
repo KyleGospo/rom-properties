@@ -40,12 +40,12 @@ BuildRequires:  tinyxml2-devel
 BuildRequires:  libpng-devel
 BuildRequires:  libjpeg-turbo-devel
 BuildRequires:  gsound-devel
-BuildRequires:  qt5-qtbase-devel
-BuildRequires:  qt5-qttools
+BuildRequires:  qt6-qtbase-devel
+BuildRequires:  qt6-qttools
 BuildRequires:  extra-cmake-modules
-BuildRequires:  kf5-kio-devel
-BuildRequires:  kf5-kwidgetsaddons-devel
-BuildRequires:  kf5-kfilemetadata-devel
+BuildRequires:  kf6-kio-devel
+BuildRequires:  kf6-kwidgetsaddons-devel
+BuildRequires:  kf6-kfilemetadata-devel
 BuildRequires:  glib2-devel
 BuildRequires:  gtk4-devel
 BuildRequires:  gdk-pixbuf2-devel
@@ -124,20 +124,20 @@ Requires: %{name}%{?_isa} = %{version}-%{release}
 %{_libdir}/nemo/extensions-3.0/rom-properties-gtk3.so
 %{_libdir}/thunarx-3/rom-properties-gtk3.so
 
-%package kf5
-Summary: KDE5 integration for rom-properties
+%package kf6
+Summary: KDE6 integration for rom-properties
 Requires: %{name}%{?_isa} = %{version}-%{release}
 
-%description kf5
+%description kf6
 %{summary}
 
-%files kf5
+%files kf6
 %{_datadir}/kio/servicemenus/rp-convert-to-png.desktop
-%{_libdir}/qt5/plugins/kf5/thumbcreator/rom-properties-kf5.so
-%{_libdir}/qt5/plugins/kf5/propertiesdialog/xattrview-kf5.so
-%{_libdir}/qt5/plugins/kf5/kfilemetadata/kfilemetadata_rom-properties-kf5.so
-%{_libdir}/qt5/plugins/kf5/overlayicon/overlayiconplugin_rom-properties-kf5.so
-%{_libdir}/qt5/plugins/kf5/propertiesdialog/rom-properties-kf5.so
+%{_libdir}/qt6/plugins/kf6/thumbcreator/rom-properties-kf6.so
+%{_libdir}/qt6/plugins/kf6/propertiesdialog/xattrview-kf6.so
+%{_libdir}/qt6/plugins/kf6/kfilemetadata/kfilemetadata_rom-properties-kf6.so
+%{_libdir}/qt6/plugins/kf6/overlayicon/overlayiconplugin_rom-properties-kf6.so
+%{_libdir}/qt6/plugins/kf6/propertiesdialog/rom-properties-kf6.so
 
 %package xfce
 Summary: XFCE integration for rom-properties
