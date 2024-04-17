@@ -7,11 +7,11 @@ URL:            https://github.com/KyleGospo/%{name}
 
 Source:         https://github.com/GerbilSoft/rom-properties/archive/refs/tags/v%{version}.tar.gz
 Patch0:         no_tests.patch
-Patch1:         defaults.patch
+Patch1:         no_zlibng.patch
+Patch2:         defaults.patch
 
 Requires:       curl
 Requires:       zlib
-Requires:       zlib-ng
 Requires:       libpng
 Requires:       libjpeg-turbo
 Requires:       nettle
@@ -33,7 +33,6 @@ BuildRequires:  libseccomp-devel
 BuildRequires:  libcurl-devel
 BuildRequires:  nettle-devel
 BuildRequires:  zlib-devel
-BuildRequires:  zlib-ng-devel
 BuildRequires:  lz4-devel
 BuildRequires:  lzo-devel
 BuildRequires:  libzstd-devel
@@ -65,7 +64,7 @@ This shell extension adds a few nice features to file browsers for managing vide
 %autosetup -p1 -n %{name}-%{version}
 
 %build
-%cmake -DUSE_INTERNAL_ZLIB=false
+%cmake
 %cmake_build
 
 %install
