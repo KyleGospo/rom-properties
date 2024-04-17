@@ -11,6 +11,7 @@ Patch1:         defaults.patch
 
 Requires:       curl
 Requires:       zlib
+Requires:       zlib-ng
 Requires:       libpng
 Requires:       libjpeg-turbo
 Requires:       nettle
@@ -32,6 +33,7 @@ BuildRequires:  libseccomp-devel
 BuildRequires:  libcurl-devel
 BuildRequires:  nettle-devel
 BuildRequires:  zlib-devel
+BuildRequires:  zlib-ng-devel
 BuildRequires:  lz4-devel
 BuildRequires:  lzo-devel
 BuildRequires:  libzstd-devel
