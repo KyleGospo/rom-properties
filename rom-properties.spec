@@ -65,7 +65,7 @@ This shell extension adds a few nice features to file browsers for managing vide
 %autosetup -p1 -n %{name}-%{version}
 
 %build
-%cmake
+%cmake -DUSE_INTERNAL_ZLIB=false
 %cmake_build
 
 %install
