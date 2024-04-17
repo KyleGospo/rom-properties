@@ -5,7 +5,7 @@ Summary:        File browser extension for managing video game ROM and disc imag
 License:        GPLv2
 URL:            https://github.com/KyleGospo/%{name}
 
-Source:         https://github.com/GerbilSoft/rom-properties/archive/refs/tags/v2.3.tar.gz
+Source:         https://github.com/GerbilSoft/rom-properties/archive/refs/tags/v%{version}.tar.gz
 Patch0:         no_tests.patch
 Patch1:         defaults.patch
 
@@ -60,9 +60,7 @@ BuildRequires:  Thunar-devel
 This shell extension adds a few nice features to file browsers for managing video game ROM and disc images.
 
 %prep
-%autosetup -n %{name}-%{version}
-%patch 0 -p1
-%patch 1 -p1
+%autosetup -p1 -n %{name}-%{version}
 
 %build
 %cmake
