@@ -1,18 +1,16 @@
 Name:           rom-properties
-Version:        {{{ git_dir_version }}}
+Version:        2.3
 Release:        1%{?dist}
 Summary:        File browser extension for managing video game ROM and disc images
 License:        GPLv2
 URL:            https://github.com/KyleGospo/%{name}
 
-VCS:            {{{ git_dir_vcs }}}
-Source:         {{{ git_dir_pack }}}
+Source:         https://github.com/GerbilSoft/rom-properties/archive/refs/tags/v2.3.tar.gz
 Patch0:         no_tests.patch
 Patch1:         defaults.patch
 
 Requires:       curl
 Requires:       zlib
-Requires:		zlib-ng
 Requires:       libpng
 Requires:       libjpeg-turbo
 Requires:       nettle
@@ -34,7 +32,6 @@ BuildRequires:  libseccomp-devel
 BuildRequires:  libcurl-devel
 BuildRequires:  nettle-devel
 BuildRequires:  zlib-devel
-BuildRequires:  zlib-ng-devel
 BuildRequires:  lz4-devel
 BuildRequires:  lzo-devel
 BuildRequires:  libzstd-devel
@@ -63,7 +60,7 @@ BuildRequires:  Thunar-devel
 This shell extension adds a few nice features to file browsers for managing video game ROM and disc images.
 
 %prep
-{{{ git_dir_setup_macro }}}
+%autosetup -n %{name}-%{version}
 %patch 0 -p1
 %patch 1 -p1
 
