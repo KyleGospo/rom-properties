@@ -1,10 +1,4 @@
 # rom-properties base library
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rptext LANGUAGES C CXX)
 
 IF(NOT WIN32)
@@ -54,6 +48,9 @@ SET(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS} -D_GNU_SOURCE)
 CHECK_SYMBOL_EXISTS(memmem "string.h" HAVE_MEMMEM)
 UNSET(CMAKE_REQUIRED_DEFINITIONS)
 
+# Added in glibc-2.38; also the various BSDs and Mac OS X.
+CHECK_SYMBOL_EXISTS(strlcat "string.h" HAVE_STRLCAT)
+
 # wcwidth() requires _XOPEN_SOURCE.
 SET(CMAKE_REQUIRED_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS} -D_XOPEN_SOURCE)
 CHECK_SYMBOL_EXISTS(wcwidth "wchar.h" HAVE_WCWIDTH)
@@ -62,6 +59,7 @@ UNSET(CMAKE_REQUIRED_DEFINITIONS)
 # Sources
 SET(${PROJECT_NAME}_SRCS
 	conversion.cpp
+	fourCC.cpp
 	libc.c
 	printf.cpp
 	specialized.cpp
@@ -69,6 +67,7 @@ SET(${PROJECT_NAME}_SRCS
 # Headers
 SET(${PROJECT_NAME}_H
 	conversion.hpp
+	fourCC.hpp
 	libc.h
 	NULL-check.hpp
 	printf.hpp
@@ -152,7 +151,7 @@ FOREACH(_target ${TARGETS})
 	ENDIF(HAVE_WCWIDTH)
 
 	# Other libraries
-	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpthreads${_target_suffix} rpcpu${_target_suffix})
+	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpthreads${_target_suffix} rpbyteswap${_target_suffix})
 
 	IF(Iconv_LIBRARY AND NOT Iconv_IS_BUILT_IN)
 		TARGET_LINK_LIBRARIES(${_target} PRIVATE Iconv::Iconv)

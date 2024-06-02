@@ -1,8 +1,8 @@
 /***************************************************************************
  * ROM Properties Page shell extension. (GTK+ common)                      *
- * KeyManagerTab_gtk3.hpp: Key Manager tab for rp-config. (GTK2/GTK3)      *
+ * KeyManagerTab_gtk4.cpp: Key Manager tab for rp-config. (GTK4)           *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,6 +13,7 @@
 #include "KeyStoreItem.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -176,7 +177,7 @@ bind_listitem_cb(GtkListItemFactory *factory, GtkListItem *list_item, gpointer u
 {
 	RP_UNUSED(factory);
 
-	static const std::array<const char*, 5> is_valid_icon_name_tbl = {{
+	static const array<const char*, 5> is_valid_icon_name_tbl = {{
 		nullptr,		// Empty
 		"dialog-question",	// Unknown
 		"dialog-error",		// NotAKey
@@ -263,7 +264,7 @@ void rp_key_manager_tab_class_init_gtkver(RpKeyManagerTabClass *klass)
 		GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 
 	// Reference: https://discourse.gnome.org/t/setting-text-colour-in-gtkeditable-label-while-its-being-edited-gtk4/6979/5
-	static const char css_EditableLabel[] =
+	static constexpr char css_EditableLabel[] =
 		"editablelabel.gsrp_monospace stack text,\n"
 		"editablelabel.gsrp_monospace stack text selection,\n"
 		"editablelabel.gsrp_monospace stack label {\n"
@@ -309,13 +310,14 @@ void rp_key_manager_tab_create_GtkTreeView(RpKeyManagerTab *tab)
 	// a GtkSingleSelection to wrap around the GListStore.
 	GtkSingleSelection *const selModel = gtk_single_selection_new(G_LIST_MODEL(tab->treeListModel));
 	gtk_column_view_set_model(GTK_COLUMN_VIEW(tab->columnView), GTK_SELECTION_MODEL(selModel));
+	g_object_unref(selModel);
 
 	// Column titles
-	static const char *const column_titles[KEY_COL_MAX] = {
+	static const array<const char*, KEY_COL_MAX> column_titles = {{
 		NOP_C_("KeyManagerTab", "Key Name"),
 		NOP_C_("KeyManagerTab", "Value"),
 		NOP_C_("KeyManagerTab", "Valid?"),
-	};
+	}};
 
 	// NOTE: Regarding object ownership:
 	// - GtkColumnViewColumn takes ownership of the GtkListItemFactory
@@ -330,7 +332,7 @@ void rp_key_manager_tab_create_GtkTreeView(RpKeyManagerTab *tab)
 		g_signal_connect(factory, "bind", G_CALLBACK(bind_listitem_cb), GINT_TO_POINTER(i));
 
 		GtkColumnViewColumn *const column = gtk_column_view_column_new(
-			dpgettext_expr(RP_I18N_DOMAIN, "KeyManagerTab", column_titles[i]), factory);
+			pgettext_expr("KeyManagerTab", column_titles[i]), factory);
 		gtk_column_view_column_set_resizable(column, true);
 		gtk_column_view_append_column(GTK_COLUMN_VIEW(tab->columnView), column);
 	}
@@ -392,12 +394,16 @@ void rp_key_manager_tab_init_keys(RpKeyManagerTab *tab)
 			const KeyStoreUI::Key *const key = keyStoreUI->getKey(sectIdx, keyIdx);
 			// NOTE: Only key name and flat key index are added here.
 			// Value and Valid? are set by the KeyStoreGTK signal handlers.
-			g_list_store_append(listStore, rp_key_store_item_new_key(key->name.c_str(), nullptr, false, idx));
+			RpKeyStoreItem *const item = rp_key_store_item_new_key(key->name.c_str(), nullptr, false, idx);
+			g_list_store_append(listStore, item);
+			g_object_unref(item);
 		}
 		tab->vSectionListStore->emplace_back(listStore);
 
 		// Add the root list node now that the child node has been created.
-		g_list_store_append(tab->rootListStore, rp_key_store_item_new_section(keyStoreUI->sectName(sectIdx), nullptr, sectIdx));
+		RpKeyStoreItem *const section = rp_key_store_item_new_section(keyStoreUI->sectName(sectIdx), nullptr, sectIdx);
+		g_list_store_append(tab->rootListStore, section);
+		g_object_unref(section);
 	}
 
 	// Expand all of the sections initially.

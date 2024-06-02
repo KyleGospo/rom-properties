@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * AchievementsTab.cpp: Achievements tab for rp-config.                    *
  *                                                                         *
- * Copyright (c) 2017-2022 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,7 +13,7 @@
 #include "../AchSpriteSheet.hpp"
 
 #include "gtk-compat.h"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
 
 #ifdef USE_GTK_COLUMN_VIEW
 #  include "AchievementItem.h"
@@ -24,6 +24,7 @@
 using namespace LibRpBase;
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 /* Column identifiers */
@@ -207,13 +208,13 @@ rp_achievements_tab_init(RpAchievementsTab *tab)
 #endif /* GTK_CHECK_VERSION(2,91,1) */
 
 	// Column titles
-	static const char *const column_titles[ACH_COL_MAX] = {
+	static const array<const char*, ACH_COL_MAX> column_titles = {{
 		NOP_C_("AchievementsTab", "Icon"),
 		NOP_C_("AchievementsTab", "Achievement"),
 		NOP_C_("AchievementsTab", "Unlock Time"),
-	};
+	}};
 	// Column resizability
-	static const bool column_resizable[ACH_COL_MAX] = {false, true, true};
+	static constexpr array<bool, ACH_COL_MAX> column_resizable = {{false, true, true}};
 
 #ifdef USE_GTK_COLUMN_VIEW
 	// Create the GListStore and GtkColumnView.
@@ -227,6 +228,7 @@ rp_achievements_tab_init(RpAchievementsTab *tab)
 	// a GtkSingleSelection to wrap around the GListStore.
 	GtkSingleSelection *const selModel = gtk_single_selection_new(G_LIST_MODEL(tab->listStore));
 	gtk_column_view_set_model(GTK_COLUMN_VIEW(tab->columnView), GTK_SELECTION_MODEL(selModel));
+	g_object_unref(selModel);
 
 	// NOTE: Regarding object ownership:
 	// - GtkColumnViewColumn takes ownership of the GtkListItemFactory
@@ -240,8 +242,9 @@ rp_achievements_tab_init(RpAchievementsTab *tab)
 		g_signal_connect(factory, "bind", G_CALLBACK(bind_listitem_cb), GINT_TO_POINTER(i));
 
 		GtkColumnViewColumn *const column = gtk_column_view_column_new(
-			dpgettext_expr(RP_I18N_DOMAIN, "AchievementsTab", column_titles[i]), factory);
+			pgettext_expr("AchievementsTab", column_titles[i]), factory);
 		gtk_column_view_column_set_resizable(column, static_cast<gboolean>(column_resizable[i]));
+		gtk_column_view_column_set_expand(column, (i == ACH_COL_DESCRIPTION));
 		gtk_column_view_append_column(GTK_COLUMN_VIEW(tab->columnView), column);
 	}
 #else /* !USE_GTK_COLUMN_VIEW */
@@ -253,16 +256,16 @@ rp_achievements_tab_init(RpAchievementsTab *tab)
 	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolledWindow), tab->treeView);
 
 	// Property to use for each column
-	static const char *const column_property_names[ACH_COL_MAX] = {
+	static const array<const char*, ACH_COL_MAX> column_property_names = {{
 		GTK_CELL_RENDERER_PIXBUF_PROPERTY, "markup", "text"
-	};
+	}};
 
 	// Create the columns.
 	// NOTE: Unlock Time is stored as a string, not as a GDateTime or Unix timestamp.
 	for (int i = 0; i < ACH_COL_MAX; i++) {
 		GtkTreeViewColumn *const column = gtk_tree_view_column_new();
 		gtk_tree_view_column_set_title(column,
-			dpgettext_expr(RP_I18N_DOMAIN, "AchievementsTab", column_titles[i]));
+			pgettext_expr("AchievementsTab", column_titles[i]));
 		gtk_tree_view_column_set_resizable(column, static_cast<gboolean>(column_resizable[i]));
 
 		GtkCellRenderer *const renderer = (i == 0 ? gtk_cell_renderer_pixbuf_new() : gtk_cell_renderer_text_new());
@@ -313,7 +316,7 @@ rp_achievements_tab_reset(RpAchievementsTab *tab)
 	// Load the Achievements icon sprite sheet.
 	// NOTE: Assuming 32x32 icons for now.
 	// TODO: Check DPI and adjust on DPI changes?
-	static const gint iconSize = 32;
+	static constexpr gint iconSize = 32;
 	AchSpriteSheet achSpriteSheet(iconSize);
 
 	// Pango 1.49.0 [2021/08/22] added percentage sizes.
@@ -348,8 +351,10 @@ rp_achievements_tab_reset(RpAchievementsTab *tab)
 
 		// Add the list item.
 #ifdef USE_GTK_COLUMN_VIEW
-		g_list_store_append(tab->listStore, rp_achievement_item_new(icon, s_ach.c_str(), timestamp));
+		RpAchievementItem *const item = rp_achievement_item_new(icon, s_ach.c_str(), timestamp);
+		g_list_store_append(tab->listStore, item);
 		PIMGTYPE_unref(icon);
+		g_object_unref(item);
 
 		// TODO: Unlock time.
 #else /* !USE_GTK_COLUMN_VIEW */

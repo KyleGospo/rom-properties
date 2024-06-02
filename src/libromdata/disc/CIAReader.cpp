@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * CIAReader.cpp: Nintendo 3DS CIA reader.                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -88,9 +88,9 @@ CIAReaderPrivate::CIAReaderPrivate(CIAReader *q,
 		titleKeyEncIdx = N3DS_TICKET_TITLEKEY_ISSUER_RETAIL;
 		if (ticket->keyY_index < 6) {
 			// Verification data is available.
-			keyX_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Retail_Slot0x3DKeyX);
-			keyY_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_0 + ticket->keyY_index);
-			keyNormal_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_0 + ticket->keyY_index);
+			keyX_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyX);
+			keyY_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_0 + ticket->keyY_index);
+			keyNormal_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_0 + ticket->keyY_index);
 		}
 	} else if (!strncmp(ticket->issuer, N3DS_TICKET_ISSUER_DEBUG, sizeof(ticket->issuer))) {
 		// Debug issuer.
@@ -98,9 +98,9 @@ CIAReaderPrivate::CIAReaderPrivate(CIAReader *q,
 		titleKeyEncIdx = N3DS_TICKET_TITLEKEY_ISSUER_DEBUG;
 		if (ticket->keyY_index < 6) {
 			// Verification data is available.
-			keyX_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Debug_Slot0x3DKeyX);
-			keyY_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_0 + ticket->keyY_index);
-			keyNormal_verify = N3DSVerifyKeys::encryptionVerifyData_static(N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_0 + ticket->keyY_index);
+			keyX_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyX);
+			keyY_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_0 + ticket->keyY_index);
+			keyNormal_verify = N3DSVerifyKeys::encryptionVerifyData_static((int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_0 + ticket->keyY_index);
 		}
 	} else {
 		// Unknown issuer.
@@ -128,45 +128,47 @@ CIAReaderPrivate::CIAReaderPrivate(CIAReader *q,
 	KeyManager::VerifyResult res = N3DSVerifyKeys::loadKeyNormal(&keyNormal,
 		keyNormal_name, keyX_name, keyY_name,
 		keyNormal_verify, keyX_verify, keyY_verify);
-	if (res == KeyManager::VerifyResult::OK) {
-		// Create a cipher to decrypt the title key.
-		IAesCipher *cipher = AesCipherFactory::create();
-
-		// Initialize parameters for title key decryption.
-		// TODO: Error checking.
-		// Parameters:
-		// - Keyslot: 0x3D
-		// - Chaining mode: CBC
-		// - IV: Title ID (little-endian)
-		cipher->setChainingMode(IAesCipher::ChainingMode::CBC);
-		cipher->setKey(keyNormal.u8, sizeof(keyNormal.u8));
-		// CIA IV is the title ID in big-endian.
-		// The ticket title ID is already in big-endian,
-		// so copy it over directly.
-		u128_t cia_iv;
-		memcpy(cia_iv.u8, &ticket->title_id.id, sizeof(ticket->title_id.id));
-		memset(&cia_iv.u8[8], 0, 8);
-		cipher->setIV(cia_iv.u8, sizeof(cia_iv.u8));
-
-		// Decrypt the title key.
-		uint8_t title_key[16];
-		memcpy(title_key, ticket->title_key, sizeof(title_key));
-		cipher->decrypt(title_key, sizeof(title_key));
-		delete cipher;
-
-		// Data area: IV is the TMD content index.
-		cia_iv.u8[0] = tmd_content_index >> 8;
-		cia_iv.u8[1] = tmd_content_index & 0xFF;
-		memset(&cia_iv.u8[2], 0, sizeof(cia_iv.u8)-2);
-
-		// Create a CBC reader to decrypt the CIA.
-		cbcReader = std::make_shared<CBCReader>(q->m_file, content_offset, content_length, title_key, cia_iv.u8);
-	} else {
+	if (res != KeyManager::VerifyResult::OK) {
 		// Unable to get the CIA encryption keys.
 		// TODO: Set an error.
 		//verifyResult = res;
 		q->m_file.reset();
+		return;
 	}
+
+	// Create a cipher to decrypt the title key.
+	IAesCipher *cipher = AesCipherFactory::create();
+
+	// Initialize parameters for title key decryption.
+	// TODO: Error checking.
+	// Parameters:
+	// - Keyslot: 0x3D
+	// - Chaining mode: CBC
+	// - IV: Title ID (little-endian)
+	cipher->setChainingMode(IAesCipher::ChainingMode::CBC);
+	cipher->setKey(keyNormal.u8, sizeof(keyNormal.u8));
+
+	// CIA IV is the title ID in big-endian.
+	// The ticket title ID is already in big-endian,
+	// so copy it over directly.
+	u128_t cia_iv;
+	memcpy(cia_iv.u8, &ticket->title_id.id, sizeof(ticket->title_id.id));
+	memset(&cia_iv.u8[8], 0, 8);
+	cipher->setIV(cia_iv.u8, sizeof(cia_iv.u8));
+
+	// Decrypt the title key.
+	uint8_t title_key[16];
+	memcpy(title_key, ticket->title_key, sizeof(title_key));
+	cipher->decrypt(title_key, sizeof(title_key));
+	delete cipher;
+
+	// Data area: IV is the TMD content index.
+	cia_iv.u8[0] = tmd_content_index >> 8;
+	cia_iv.u8[1] = tmd_content_index & 0xFF;
+	memset(&cia_iv.u8[2], 0, sizeof(cia_iv.u8)-2);
+
+	// Create a CBC reader to decrypt the CIA.
+	cbcReader = std::make_shared<CBCReader>(q->m_file, content_offset, content_length, title_key, cia_iv.u8);
 #else /* !ENABLE_DECRYPTION */
 	// Cannot decrypt the CIA.
 	// TODO: Set an error.
@@ -294,34 +296,6 @@ off64_t CIAReader::size(void)
 	off64_t ret = d->cbcReader->size();
 	m_lastError = d->cbcReader->lastError();
 	return ret;
-}
-
-/** IPartition **/
-
-/**
- * Get the partition size.
- * This size includes the partition header and hashes.
- * @return Partition size, or -1 on error.
- */
-off64_t CIAReader::partition_size(void) const
-{
-	// TODO: Handle errors.
-	RP_D(const CIAReader);
-	return (d->cbcReader ? d->cbcReader->partition_size() : -1);
-}
-
-/**
- * Get the used partition size.
- * This size includes the partition header and hashes,
- * but does not include "empty" sectors.
- * @return Used partition size, or -1 on error.
- */
-off64_t CIAReader::partition_size_used(void) const
-{
-	// NOTE: For CIAReader, this is the same as partition_size().
-	// TODO: Handle errors.
-	RP_D(const CIAReader);
-	return (d->cbcReader ? d->cbcReader->partition_size_used() : -1);
 }
 
 }

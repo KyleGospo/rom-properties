@@ -11,42 +11,46 @@ video game ROM and disc images.
 [![CodeFactor](https://www.codefactor.io/repository/github/gerbilsoft/rom-properties/badge)](https://www.codefactor.io/repository/github/gerbilsoft/rom-properties/overview)
 [![codecov](https://codecov.io/gh/GerbilSoft/rom-properties/graph/badge.svg?token=oIiL6oVPwZ)](https://codecov.io/gh/GerbilSoft/rom-properties)
 
-## v2.2.1
+## v2.3
 
-![KDE Dolphin showing some PS1 and PS2 cover art thumbnails.](doc/img/rp-v2.2-kde5.PlayStationDisc.cover-art.png)
+![KDE Dolphin showing a Commodore 1541 disk image from GEOS.](doc/img/rp-v2.3-kde5.CBMDOS.png)
 
-v2.2.1 is a bugfix release for v2.2. Major changes include:
+Major changes in v2.3 include:
 
-* Handle JPEG images using Exif containers. A good number of boxarts from the
-  PS1/PS2 section of RPDB use Exif containers, so this ensures they can be
-  loaded properly.
+* xattrs tab on Linux now shows XFS attributes.
 
-* Windows: Fix weird thumbnail aspect ratios for non-square images on current
-  Windows versions.
+* rpcli now supports extracting mipmap levels from most supported texture formats.
+  * Mipmaps are now supported for DirectDrawSurface and KhronosKTX.
 
-* KDE: Fix metadata extraction.
+* Windows: Dark Mode is now supported on Windows 10 1809 and later in the
+  installation program and rp-config.
+  * Dark Mode is also partially supported in the properties pages when using
+    tools such as StartAllBack, though it has some issues right now.
 
-* Preliminary support for Windows on ARM. The Windows distribution includes
-  DLLs compiled for ARM, ARM64, and ARM64EC, and svrplus has been updated
-  to register these DLLs if an ARM system is detected. Note that svrplus
-  has *not* been tested on any ARM systems yet.
+* Sparse disc images, e.g. CISO and GCZ, are now handled by the RomDataFactory
+  class instead of requiring each RomData subclass to handle it. This means
+  that all supported sparse disc images can be used for any console.
+  * This was originally implemented to support ZISO and PSP CISO for PS2 disc
+    images, but it also allows unusual combinations like DAX and JISO for
+    GameCube disc images.
 
-Major changes in v2.2 include:
+* Windows Image files (.wim) are now supported. Contributed by @ecumber.
 
-* PlayStation 1 and 2 cover art images using RPDB, mirrored from the following
-  GitHub repositories:
-  * https://github.com/xlenore/psx-covers
-  * https://github.com/xlenore/ps2-covers
+* Game Boy now has special handling MMC01 and MBC1M multicarts. The main header
+  is now detected correctly and used for the thumbnail image. All games in the
+  multicart are now shown as individual tabs.
 
-* Extended attribute viewer tab. Supports viewing MS-DOS and (on Linux)
-  EXT2 attributes on supported file systems, plus POSIX extended attributes.
-  * On Windows, alternate data streams are displayed as extended attributes.
-  * Windows xattr functionality currently does not work on Windows XP.
+* Commodore DOS disk images (e.g. for Commodore 1541) are now supported,
+  including icons for GEOS files. File formats supported currently include
+  D64, D71, D80, D82, D81, D67, G64, and G71.
 
-* GodotSTEX: Update v4 support for changes in the final version of Godot 4.
+* ColecoVision ROM images are now supported, including the text displayed
+  on the ColecoVision logo screen.
 
-* New RomHeaderTest unit test to verify `rpcli` output against a set of known
-  ROM headers and reference text and JSON output.
+* Intellivision ROM images are now supported, including the game title
+  and copyright year.
+
+* New translations: Romanian and Italian
 
 Translators wanted; if you can translate rom-properties from English to another
 language, check out the [Crowdin project](https://crowdin.com/project/rom-properties).
@@ -54,7 +58,7 @@ language, check out the [Crowdin project](https://crowdin.com/project/rom-proper
 Crowdin project page, file an issue here on GitHub with the requested
 language.)
 
-See [`NEWS.md`](NEWS.md) for a full list of changes in v2.2.
+See [`NEWS.md`](NEWS.md) for a full list of changes in v2.3.
 
 ## Feedback
 
@@ -68,7 +72,7 @@ Or use the Mibbit Web IRC client: http://mibbit.com/?server=irc.badnik.zone&chan
 
 Currently, the ROM Properties Page shell extension is compatible with the
 following platforms:
-* KDE Frameworks 5.x
+* KDE Frameworks 5.x and 6.x
 * XFCE (GTK+ 2.x, GTK+ 3.x)
 * GNOME and Unity (GTK+ 3.x)
 * GNOME 43 (GTK 4.x)
@@ -125,7 +129,9 @@ button.
 
 |           System          | Properties Tab | Metadata | Internal Images | External Images |
 |:-------------------------:|:--------------:|:--------:|:---------------:|:---------------:|
+| ColecoVision              |       Yes      |    Yes   |       N/A       |        No       |
 | Commodore 64/128 .CRT     |       Yes      |    Yes   |       N/A       |      Title      |
+| Intellivision             |       Yes      |    Yes   |       N/A       |        No       |
 | iQue Player ticket files  |       Yes      |    Yes   |   Icon, Banner  |        No       |
 | Microsoft Xbox (XBE)      |       Yes      |    Yes   |       Icon      |        No       |
 | Microsoft Xbox 360 (XEX)  |       Yes      |    Yes   |       Icon      |        No       |
@@ -137,9 +143,10 @@ button.
 | Nintendo GameCube Discs   |       Yes      |    Yes   |      Banner     |   Disc, Covers  |
 | Nintendo GameCube Banners |       Yes      |    Yes   |      Banner     |        No       |
 | Nintendo GameCube Saves   |       Yes      |    Yes   |       Icon      |       N/A       |
+| Nintendo Wii Banners      |       Yes      |    Yes   |        No       |        No       |
 | Nintendo Wii Discs        |       Yes      |    Yes   |        No       |   Disc, Covers  |
 | Nintendo Wii WADs         |       Yes      |    Yes   |       Yes*      |  Title, Covers  |
-| Nintendo Wii Saves        |       Yes      |    No    |       Yes       |       N/A       |
+| Nintendo Wii Saves        |       Yes      |    Yes   |       Yes       |       N/A       |
 | Nintendo Wii U            |       Yes      |    No    |        No       |   Disc, Covers  |
 | Sega 8-bit (SMS, GG)      |       Yes      |    Yes   |       N/A       |        No       |
 | Sega Mega Drive           |       Yes      |    Yes   |       N/A       |      Title      |
@@ -158,11 +165,11 @@ button.
 
 |             System            | Properties Tab | Metadata | Internal Images | External Images |
 |:-----------------------------:|:--------------:|:--------:|:---------------:|:---------------:|
-| Atari Lynx                    |       Yes      |    No    |       N/A       |        No       |
+| Atari Lynx                    |       Yes      |    Yes   |       N/A       |        No       |
 | Bandai WonderSwan (Color)     |       Yes      |    Yes   |       N/A       |      Title      |
 | Neo Geo Pocket (Color)        |       Yes      |    Yes   |       N/A       |      Title      |
 | Nintendo Game Boy (Color)     |       Yes      |    Yes   |       N/A       |      Title      |
-| Nintendo Virtual Boy          |       Yes      |    No    |       N/A       |        No       |
+| Nintendo Virtual Boy          |       Yes      |    Yes   |       N/A       |        No       |
 | Nintendo Game Boy Advance     |       Yes      |    Yes   |       N/A       |      Title      |
 | Nintendo DS(i)                |       Yes      |    Yes   |       Icon      |   Covers, Box   |
 | Nintendo DSi TADs*            |     Partial    |    No    |        No       |        No       |
@@ -232,17 +239,29 @@ button.
 | Super NES SPC Format          |       Yes      |    Yes   |       N/A       |       N/A      |
 | Video Game Music              |       Yes      |    Yes   |       N/A       |       N/A      |
 
+### Media Formats
+
+|             System             | Properties Tab | Metadata | Internal Images | External Scans |
+|:------------------------------:|:--------------:|:--------:|:---------------:|:--------------:|
+| Commodore DOS Disk Images      |       Yes      |   Yes    |       GEOS*     |       N/A      |
+| ISO-9660 Disc Images           |       Yes      |   Yes    |        No       |       N/A      |
+| Windows Image (.wim)           |       Yes      |    No    |       N/A       |       N/A      |
+
+Notes:
+* Commodore DOS currently includes the 2040, 3040, 4040, 8050, 8250, 1540/1541,
+  1571, and 1581 disk drives, in D64, D71, D80, D82, D81, D67, G64, and G71 formats.
+  * File icons for GEOS files are supported.
+
 ### Other
 
 |             System             | Properties Tab | Metadata | Internal Images | External Scans |
 |:------------------------------:|:--------------:|:--------:|:---------------:|:--------------:|
 | Executable and Linkable Format |       Yes      |    No    |       N/A       |       N/A      |
-| ISO-9660 Disc Images           |       Yes      |   Yes    |        No       |       N/A      |
 | PUC Lua binaries               |       Yes      |    No    |       N/A       |       N/A      |
 | Mach-O Binaries                |       Yes      |    No    |       N/A       |       N/A      |
 | Nintendo amiibo                |       Yes      |    No    |       N/A       |      Media     |
-| Nintendo Badge Arcade          |       Yes      |    No    |      Image      |       N/A      |
-| Windows/DOS Executables        |       Yes      |    No    |        No       |       N/A      |
+| Nintendo Badge Arcade          |       Yes      |   Yes    |      Image      |       N/A      |
+| Windows/DOS Executables        |       Yes      |   Yes    |        No       |       N/A      |
 
 Notes:
 * Internal image refers to artwork contained within the ROM and/or disc image.
@@ -386,6 +405,10 @@ is currently always enabled, so Windows builds are always GPL-3+ at the moment.
 * @NotaInutilis: French
 * @xxmichibxx: German
 * @ThePBone: German
+* @ionuttbara: Romanian
+* @MaRod92: Italian
+* Motwera: Arabic
+* Chipsum: Arabic
 
 ### Other Contributions
 
@@ -458,3 +481,5 @@ is currently always enabled, so Windows builds are always GPL-3+ at the moment.
 * [NEZ Plug](https://nezplug.sourceforge.net/) for basic GBR specifications.
 * [xlenore](https://github.com/xlenore) for the PlayStation 1 and 2 cover art
   repository.
+* [unusedino.de](http://unusedino.de/ec64/technical3.html) for its archive of
+  C64 emulator file format documentation by Peter Schepers.

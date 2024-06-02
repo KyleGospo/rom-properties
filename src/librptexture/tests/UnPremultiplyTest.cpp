@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture/tests)               *
  * UnPremutiplyTest.cpp: Test un_premultiply().                            *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -54,7 +54,7 @@ class UnPremultiplyTest : public ::testing::Test
 
 	public:
 		// Number of iterations for benchmarks
-		static const unsigned int BENCHMARK_ITERATIONS = 1000;
+		static constexpr unsigned int BENCHMARK_ITERATIONS = 1000U;
 
 		// Image
 		rp_image_ptr m_img;
@@ -106,7 +106,7 @@ TEST_F(UnPremultiplyTest, un_premultiply_dispatch_benchmark)
 /**
  * Benchmark the ImageDecoder::premultiply() function. (Standard version)
  */
-TEST_F(UnPremultiplyTest, premultiply_cpp)
+TEST_F(UnPremultiplyTest, premultiply_cpp_benchmark)
 {
 	for (unsigned int i = BENCHMARK_ITERATIONS; i > 0; i--) {
 		m_img->premultiply();

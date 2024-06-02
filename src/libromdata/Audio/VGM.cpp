@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * VGM.hpp: VGM audio reader.                                              *
  *                                                                         *
- * Copyright (c) 2018-2023 by David Korth.                                 *
+ * Copyright (c) 2018-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -389,7 +389,7 @@ int VGM::loadFieldData(void)
 #endif /* ENABLE_NLS */
 
 			// TODO: Multiple composer handling.
-			static const std::array<gd3_tag_field_tbl_t, 7> gd3_tag_field_tbl = {{
+			static const array<gd3_tag_field_tbl_t, 7> gd3_tag_field_tbl = {{
 				GD3_TAG_FIELD_TBL_ENTRY("RomData|Audio",	NOP_C_("RomData|Audio", "Track Name"),	GD3_TAG_TRACK_NAME_EN),
 				GD3_TAG_FIELD_TBL_ENTRY("VGM",			NOP_C_("VGM", "Game Name"),		GD3_TAG_GAME_NAME_EN),
 				GD3_TAG_FIELD_TBL_ENTRY("VGM",			NOP_C_("VGM", "System Name"),		GD3_TAG_SYSTEM_NAME_EN),
@@ -403,7 +403,7 @@ int VGM::loadFieldData(void)
 				const string &str = (*gd3_tags)[p.idx];
 				if (!str.empty()) {
 					d->fields.addField_string(
-						dpgettext_expr(RP_I18N_DOMAIN, p.ctx, p.desc), str);
+						pgettext_expr(p.ctx, p.desc), str);
 				}
 			}
 
@@ -644,20 +644,24 @@ int VGM::loadFieldData(void)
 			const unsigned int clk_full = le32_to_cpu(vgmHeader->ay8910_clk);
 			const unsigned int clk = clk_full & ~(VGM_CLK_FLAG_ALTMODE | VGM_CLK_FLAG_DUALCHIP);
 			if (clk != 0) {
-				const char *chip_name;
+				const char *chip_name = nullptr;
 				// Use a lookup table.
-				// Valid bits: xxxCxxBA
-				if (!(vgmHeader->ay8910_type & ~0x13)) {
-					// Convert to xxxxxCBA.
+				// Valid bits: xxxDxCBA
+				if (!(vgmHeader->ay8910_type & ~0x17)) {
+					// Convert to xxxxDCBA.
 					uint8_t lkup = vgmHeader->ay8910_type;
-					lkup = (lkup >> 2) | (lkup & 3);
+					lkup = ((lkup >> 1) & 0x08) | (lkup & 7);
 
-					static const char chip_name_tbl[8][8] = {
+					static constexpr char chip_name_tbl[12][8] = {
 						"AY8910", "AY8912", "AY8913", "AY8930",
-						"YM2139", "YM3439", "YMZ284", "YMZ294",
+						"AY8914", "", "", "",
+						"YM2149", "YM3439", "YMZ284", "YMZ294",
 					};
-					chip_name = chip_name_tbl[lkup];
-				} else {
+					if (lkup < ARRAY_SIZE(chip_name_tbl)) {
+						chip_name = chip_name_tbl[lkup];
+					}
+				}
+				if (!chip_name) {
 					// TODO: Print the type ID?
 					chip_name = "AYxxxx";
 				}
@@ -867,7 +871,7 @@ int VGM::loadMetaData(void)
 				Property prop;	// Metadata property index
 				uint8_t idx;	// GD3 tag index (GD3_TAG_ID)
 			};
-			static const std::array<gd3_tag_prop_tbl_t, 5> gd3_tag_prop_tbl = {{
+			static const array<gd3_tag_prop_tbl_t, 5> gd3_tag_prop_tbl = {{
 				{Property::Title,	GD3_TAG_TRACK_NAME_EN},
 				{Property::Album,	GD3_TAG_GAME_NAME_EN},		// NOTE: Not exactly "album"...
 				//{Property::SystemName,	GD3_TAG_SYSTEM_NAME_EN),	// FIXME: No property for this...

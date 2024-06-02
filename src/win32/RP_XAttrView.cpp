@@ -32,7 +32,9 @@ using LibWin32UI::LoadDialog_i18n;
 #include "librpfile/xattr/dos_attrs.h"
 
 // C++ STL classes
+using std::array;
 using std::tstring;
+using std::unique_ptr;
 
 // Win32 dark mode
 #include "libwin32darkmode/DarkMode.hpp"
@@ -56,7 +58,6 @@ RP_XAttrView_Private::RP_XAttrView_Private(RP_XAttrView *q, LPTSTR tfilename)
 	: q_ptr(q)
 	, hDlgSheet(nullptr)
 	, tfilename(tfilename)
-	, xattrReader(nullptr)
 	, dwExStyleRTL(LibWin32UI::isSystemRTL())
 	, colorAltRow(0)	// initialized later
 	, isDarkModeEnabled(false)
@@ -66,7 +67,6 @@ RP_XAttrView_Private::RP_XAttrView_Private(RP_XAttrView *q, LPTSTR tfilename)
 RP_XAttrView_Private::~RP_XAttrView_Private()
 {
 	free(tfilename);
-	delete xattrReader;
 }
 
 /**
@@ -83,7 +83,7 @@ int RP_XAttrView_Private::loadDosAttrs(void)
 		uint16_t id;
 		uint16_t attr;
 	};
-	static const std::array<res_map_t, 6> res_map = {{
+	static const array<res_map_t, 6> res_map = {{
 		{IDC_XATTRVIEW_DOS_READONLY, FILE_ATTRIBUTE_READONLY},
 		{IDC_XATTRVIEW_DOS_HIDDEN, FILE_ATTRIBUTE_HIDDEN},
 		{IDC_XATTRVIEW_DOS_ARCHIVE, FILE_ATTRIBUTE_ARCHIVE},
@@ -184,23 +184,19 @@ int RP_XAttrView_Private::loadADS(void)
  */
 int RP_XAttrView_Private::loadAttributes(void)
 {
-	// Close the XAttrReader if it's already open.
-	delete xattrReader;
-
 	if (!tfilename) {
 		// No filename.
-		xattrReader = nullptr;
+		xattrReader.reset();
 		return -EIO;
 	}
 
 	// Open an XAttrReader.
-	xattrReader = new XAttrReader(tfilename);
+	xattrReader.reset(new XAttrReader(tfilename));
 	int err = xattrReader->lastError();
 	if (err != 0) {
 		// Error reading attributes.
 		// TODO: Cancel tab loading?
-		delete xattrReader;
-		xattrReader = nullptr;
+		xattrReader.reset();
 		return err;
 	}
 
@@ -340,7 +336,7 @@ IFACEMETHODIMP RP_XAttrView::Initialize(
 
 	// Check if XAttrView is enabled.
 	const Config *const config = Config::instance();
-	if (!config->showXAttrView()) {
+	if (!config->getBoolConfigOption(Config::BoolConfig::Options_ShowXAttrView)) {
 		// XAttrView is disabled.
 		return E_FAIL;
 	}
@@ -399,7 +395,7 @@ IFACEMETHODIMP RP_XAttrView::Initialize(
 	// TODO: Check for "bad" file systems before checking ADS?
 #if 0
 	config = Config::instance();
-	if (FileSystem::isOnBadFS(tfilename.c_str(), config->enableThumbnailOnNetworkFS())) {
+	if (FileSystem::isOnBadFS(tfilename.c_str(), config->getBoolConfigOption(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS))) {
 		// This file is on a "bad" file system.
 		goto cleanup;
 	}

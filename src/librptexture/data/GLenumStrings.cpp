@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * GLenumStrings.cpp: OpenGL string tables.                                *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -12,6 +12,7 @@
 
 // C++ includes
 #include <limits>
+using std::array;
 
 namespace LibRpTexture { namespace GLenumStrings {
 
@@ -26,7 +27,7 @@ struct OffTbl_t {
 /**
  * OpenGL enumerations.
  */
-static const char glEnum_strtbl[] =
+static constexpr char glEnum_strtbl[] =
 	"\0"
 
 	"BYTE\0"
@@ -272,7 +273,7 @@ static const char glEnum_strtbl[] =
 	"COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV2_IMG\0"
 	"COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV2_IMG\0";
 
-static const std::array<OffTbl_t, 227> glEnum_offtbl = {{
+static const array<OffTbl_t, 227> glEnum_offtbl = {{
 	{GL_BYTE, 1},
 	{GL_UNSIGNED_BYTE, 6},
 	{GL_SHORT, 20},

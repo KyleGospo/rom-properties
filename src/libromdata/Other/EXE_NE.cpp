@@ -3,7 +3,7 @@
  * EXE_NE.cpp: DOS/Windows executable reader.                              *
  * 16-bit New Executable format.                                           *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2022 by Egor.                                             *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -18,6 +18,7 @@ using namespace LibRpBase;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -204,7 +205,7 @@ int EXEPrivate::findNERuntimeDLL(string &refDesc, string &refLink, bool &refHasK
 		const char dll_name[8];	// NOT NULL-terminated!
 		const char *url;
 	};
-	static const std::array<msvb_dll_t, 5> msvb_dll_tbl = {{
+	static const array<msvb_dll_t, 5> msvb_dll_tbl = {{
 		{4,0, {'V','B','R','U','N','4','0','0'}, nullptr},
 		{4,0, {'V','B','R','U','N','4','1','6'}, nullptr},	// TODO: Is this a thing?
 		{3,0, {'V','B','R','U','N','3','0','0'}, nullptr},
@@ -326,14 +327,14 @@ void EXEPrivate::addFields_NE(void)
 	}
 
 	// DGroup type.
-	static const std::array<const char*, 4> dgroupTypes = {
+	static const array<const char*, 4> dgroupTypes = {{
 		NOP_C_("EXE|DGroupType", "None"),
 		NOP_C_("EXE|DGroupType", "Single Shared"),
 		NOP_C_("EXE|DGroupType", "Multiple"),
 		NOP_C_("EXE|DGroupType", "(null)"),
-	};
+	}};
 	fields.addField_string(C_("EXE", "DGroup Type"),
-		dpgettext_expr(RP_I18N_DOMAIN, "EXE|DGroupType", dgroupTypes[hdr.ne.ProgFlags & 3]));
+		pgettext_expr("EXE|DGroupType", dgroupTypes[hdr.ne.ProgFlags & 3]));
 
 	// Program flags
 	static const char *const ProgFlags_names[] = {
@@ -354,25 +355,25 @@ void EXEPrivate::addFields_NE(void)
 	const char *applType;
 	if (hdr.ne.targOS == NE_OS_OS2) {
 		// Only mentioning Presentation Manager for OS/2 executables.
-		static const std::array<const char*, 4> applTypes_OS2 = {
+		static const array<const char*, 4> applTypes_OS2 = {{
 			NOP_C_("EXE|ApplType", "None"),
 			NOP_C_("EXE|ApplType", "Full Screen (not aware of Presentation Manager)"),
 			NOP_C_("EXE|ApplType", "Presentation Manager compatible"),
 			NOP_C_("EXE|ApplType", "Presentation Manager application"),
-		};
+		}};
 		applType = applTypes_OS2[hdr.ne.ApplFlags & 3];
 	} else {
 		// Assume Windows for everything else.
-		static const std::array<const char*, 4> applTypes_Win = {
+		static const array<const char*, 4> applTypes_Win = {{
 			NOP_C_("EXE|ApplType", "None"),
 			NOP_C_("EXE|ApplType", "Full Screen (not aware of Windows)"),
 			NOP_C_("EXE|ApplType", "Windows compatible"),
 			NOP_C_("EXE|ApplType", "Windows application"),
-		};
+		}};
 		applType = applTypes_Win[hdr.ne.ApplFlags & 3];
 	}
 	fields.addField_string(C_("EXE", "Application Type"),
-		dpgettext_expr(RP_I18N_DOMAIN, "EXE|ApplType", applType));
+		pgettext_expr("EXE|ApplType", applType));
 
 	// Application flags
 	static const char *const ApplFlags_names[] = {
@@ -482,7 +483,7 @@ void EXEPrivate::addFields_NE(void)
 		ret = rsrcReader->load_VS_VERSION_INFO(VS_VERSION_INFO, -1, &vsffi, &vssfi);
 		if (ret == 0) {
 			// Add the version fields.
-			fields.setTabName(1, C_("EXE", "Version"));
+			fields.setTabName(1, C_("RomData", "Version"));
 			fields.setTabIndex(1);
 			addFields_VS_VERSION_INFO(&vsffi, &vssfi);
 		}
@@ -718,6 +719,9 @@ int EXEPrivate::addFields_NE_Entry(void)
 		params.data.single = vv_data;
 		// TODO: Header alignment?
 		params.col_attrs.align_data = AFLD_ALIGN4(TXA_R, TXA_D, TXA_D, TXA_D);
+		params.col_attrs.sorting    = AFLD_ALIGN4(COLSORT_NUM, COLSORT_NC, COLSORT_STD, COLSORT_STD);
+		params.col_attrs.sort_col   = 0;	// Ordinal
+		params.col_attrs.sort_dir   = RomFields::COLSORTORDER_ASCENDING;
 		fields.addField_listData(C_("EXE", "Entries"), &params);
 	} else {
 		delete vv_data;
@@ -860,16 +864,12 @@ int EXEPrivate::addFields_NE_Import(void)
 			// Vector index 2: Module
 
 			int res = strcasecmp(lhs[2].c_str(), rhs[2].c_str());
-			if (res < 0)
-				return true;
-			else if (res > 0)
-				return false;
+			if (res < 0) return true;
+			if (res > 0) return false;
 
 			res = strcasecmp(lhs[0].c_str(), rhs[0].c_str());
-			if (res < 0)
-				return true;
-			else if (res > 0)
-				return false;
+			if (res < 0) return true;
+			if (res > 0) return false;
 
 			// Numeric sort for ordinals.
 			const unsigned long ord1 = strtoul(lhs[1].c_str(), nullptr, 10);
@@ -901,6 +901,9 @@ int EXEPrivate::addFields_NE_Import(void)
 	params.data.single = vv_data;
 	// TODO: Header alignment?
 	params.col_attrs.align_data = AFLD_ALIGN3(TXA_D, TXA_R, TXA_D);
+	params.col_attrs.sorting    = AFLD_ALIGN3(COLSORT_NC, COLSORT_NUM, COLSORT_NC);
+	params.col_attrs.sort_col   = 0;	// Ordinal
+	params.col_attrs.sort_dir   = RomFields::COLSORTORDER_ASCENDING;
 	fields.addField_listData(C_("EXE", "Imports"), &params);
 	return 0;
 }

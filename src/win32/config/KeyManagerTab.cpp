@@ -41,7 +41,8 @@ using namespace LibRpText;
 // libromdata
 using namespace LibRomData;
 
-// C++ STL classes.
+// C++ STL classes
+using std::array;
 using std::locale;
 using std::ostringstream;
 using std::string;
@@ -49,14 +50,14 @@ using std::wostringstream;
 using std::wstring;
 
 // KeyStoreUI::ImportFileID
-static const std::array<LPCTSTR, 4> import_menu_actions = {{
+static const array<LPCTSTR, 4> import_menu_actions = {{
 	_T("Wii keys.bin"),
 	_T("Wii U otp.bin"),
 	_T("3DS boot9.bin"),
 	_T("3DS aeskeydb.bin"),
 }};
 
-static const std::array<uint16_t, 4> import_menu_actions_ids = {{
+static constexpr array<uint16_t, 4> import_menu_actions_ids = {{
 	IDM_KEYMANAGER_IMPORT_WII_KEYS_BIN,
 	IDM_KEYMANAGER_IMPORT_WIIU_OTP_BIN,
 	IDM_KEYMANAGER_IMPORT_3DS_BOOT9_BIN,
@@ -444,8 +445,8 @@ void KeyManagerTabPrivate::initDialog(void)
 	// 8,12 seems to be right on both XP and 7...
 	// TODO: If the user double-clicks the column splitter, it will
 	// resize based on the displayed rows, not all rows.
-	static const int column_padding[2] = {8, 12};
-	int column_width[2] = {0, 0};
+	static constexpr array<int, 2> column_padding = {{8, 12}};
+	array<int, 2> column_width = {{0, 0}};
 
 	// Make sure the "Value" column is at least 32 characters wide.
 	// NOTE: ListView_GetStringWidth() doesn't adjust for the monospaced font.
@@ -1666,7 +1667,7 @@ void KeyManagerTabPrivate::showKeyImportReturnStatus(
 	}
 
 	// U+2022 (BULLET) == \xE2\x80\xA2
-	static const wchar_t nl_bullet[] = L"\r\n\x2022 ";
+	static constexpr wchar_t nl_bullet[] = L"\r\n\x2022 ";
 
 	// TODO: Numeric formatting.
 	if (showKeyStats) {
@@ -1811,7 +1812,7 @@ void KeyManagerTabPrivate::importKeysFromBin(KeyStoreUI::ImportFileID id)
 	    id > KeyStoreUI::ImportFileID::N3DSaeskeydb)
 		return;
 
-	static const char dialog_titles_tbl[][32] = {
+	static constexpr char dialog_titles_tbl[][32] = {
 		// tr: Wii keys.bin dialog title
 		NOP_C_("KeyManagerTab", "Select Wii keys.bin File"),
 		// tr: Wii U otp.bin dialog title
@@ -1822,7 +1823,7 @@ void KeyManagerTabPrivate::importKeysFromBin(KeyStoreUI::ImportFileID id)
 		NOP_C_("KeyManagerTab", "Select 3DS aeskeydb.bin File"),
 	};
 
-	static const char file_filters_tbl[][88] = {
+	static constexpr char file_filters_tbl[][88] = {
 		// tr: Wii keys.bin file filter (RP format)
 		NOP_C_("KeyManagerTab", "keys.bin|keys.bin|-|Binary Files|*.bin|-|All Files|*|-"),
 		// tr: Wii U otp.bin file filter (RP format)
@@ -1833,10 +1834,8 @@ void KeyManagerTabPrivate::importKeysFromBin(KeyStoreUI::ImportFileID id)
 		NOP_C_("KeyManagerTab", "aeskeydb.bin|aeskeydb.bin|-|Binary Files|*.bin|-|All Files|*|-"),
 	};
 
-	const char *const s_title = dpgettext_expr(
-		RP_I18N_DOMAIN, "KeyManagerTab", dialog_titles_tbl[(int)id]);
-	const char *const s_filter = dpgettext_expr(
-		RP_I18N_DOMAIN, "KeyManagerTab", file_filters_tbl[(int)id]);
+	const char *const s_title = pgettext_expr("KeyManagerTab", dialog_titles_tbl[(int)id]);
+	const char *const s_filter = pgettext_expr("KeyManagerTab", file_filters_tbl[(int)id]);
 
 	assert(hWndPropSheet != nullptr);
 	if (!hWndPropSheet)

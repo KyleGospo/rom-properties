@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE)                              *
  * AchievementsTab.cpp: Achievements tab for rp-config.                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -31,7 +31,7 @@ public:
 /** AchievementsTab **/
 
 AchievementsTab::AchievementsTab(QWidget *parent)
-	: super(parent)
+	: super(parent, false)
 	, d_ptr(new AchievementsTabPrivate())
 {
 	Q_D(AchievementsTab);
@@ -77,7 +77,7 @@ void AchievementsTab::reset(void)
 
 	// TODO: Ideal icon size?
 	// Using 32x32 for now.
-	static const int iconSize = 32;
+	static constexpr int iconSize = 32;
 	const AchSpriteSheet achSpriteSheet(iconSize);
 	treeWidget->setIconSize(QSize(iconSize, iconSize));
 

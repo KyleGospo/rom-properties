@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE4)                             *
  * XAttrViewPluginFactoryKDE4.cpp: XAttrView plugin factory class          *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -22,17 +22,10 @@
 // KDE
 #include <kpluginfactory.h>
 
-static QObject *createXAttrViewPropertiesPage(QWidget *w, QObject *parent, const QVariantList &args)
-{
-	// NOTE: RomPropertiesDialogPlugin will verify that parent is an
-	// instance of KPropertiesDialog*, so we don't have to do that here.
-	Q_UNUSED(w)
-	return new XAttrViewPropertiesDialogPlugin(parent, args);
-}
-
-K_PLUGIN_FACTORY(RomPropertiesDialogFactory,
-	registerPlugin<XAttrViewPropertiesDialogPlugin>(QString(), createXAttrViewPropertiesPage);
+K_PLUGIN_FACTORY(XAttrViewPropertiesDialogFactory,
+	registerPlugin<XAttrViewPropertiesDialogPlugin>();
 )
+K_EXPORT_PLUGIN(XAttrViewPropertiesDialogFactory("xattrview-kde4"))
 
 // automoc4 works correctly without any special handling.
 // automoc5 doesn't notice that K_PLUGIN_FACTORY() has a

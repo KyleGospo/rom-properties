@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * Nintendo3DSFirm.hpp: Nintendo 3DS firmware reader.                      *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -12,6 +12,7 @@
 #include "data/Nintendo3DSFirmData.hpp"
 
 // Other rom-properties libraries
+#include "librpbase/crypto/Hash.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
@@ -20,22 +21,11 @@ using namespace LibRpText;
 #include "librptext/libc.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 
-// zlib for crc32()
-#include <zlib.h>
-#ifdef _MSC_VER
-// MSVC: Exception handling for /DELAYLOAD.
-#  include "libwin32common/DelayLoadHelper.h"
-#endif /* _MSC_VER */
-
 namespace LibRomData {
-
-#ifdef _MSC_VER
-// DelayLoad test implementation.
-DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
-#endif /* _MSC_VER */
 
 class Nintendo3DSFirmPrivate final : public RomDataPrivate
 {
@@ -239,25 +229,12 @@ int Nintendo3DSFirm::loadFieldData(void)
 	bool checkCustomFIRM = false;	// Check for a custom FIRM, e.g. Boot9Strap.
 	bool checkARM9 = false;		// Check for ARM9 homebrew.
 	if (arm11_entrypoint != 0 && arm9_entrypoint != 0) {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-		// Delay load verification.
-		// TODO: Only if linked with /DELAYLOAD?
-		bool has_zlib = true;
-		if (DelayLoad_test_get_crc_table() != 0) {
-			// Delay load failed.
-			// Can't calculate the CRC32.
-			has_zlib = false;
-		}
-#else /* !defined(_MSC_VER) || !defined(ZLIB_IS_DLL) */
-		// zlib isn't in a DLL, but we need to ensure that the
-		// CRC table is initialized anyway.
-		static const bool has_zlib = true;
-		get_crc_table();
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
 		// Calculate the CRC32 and look it up.
-		if (has_zlib && firmBuf) {
-			const uint32_t crc = crc32(0, firmBuf.get(), static_cast<unsigned int>(szFile));
+		// TODO: Check firmBuf before initializing CRC32?
+		Hash crc32Hash(Hash::Algorithm::CRC32);
+		if (crc32Hash.isUsable() && firmBuf) {
+			crc32Hash.process(firmBuf.get(), szFile);
+			const uint32_t crc = crc32Hash.getHash32();;
 			firmBin = Nintendo3DSFirmData::lookup_firmBin(crc);
 			if (firmBin != nullptr) {
 				// Official firmware binary.
@@ -290,7 +267,7 @@ int Nintendo3DSFirm::loadFieldData(void)
 		} else if (firmBuf) {
 			// Check for sighax installer.
 			// NOTE: String has a NULL terminator.
-			static const char sighax_magic[] = "3DS BOOTHAX INS";
+			static constexpr char sighax_magic[] = "3DS BOOTHAX INS";
 			if (!memcmp(&firmBuf[0x208], sighax_magic, sizeof(sighax_magic))) {
 				// Found derrek's sighax installer.
 				firmBinDesc = "sighax installer";
@@ -300,7 +277,7 @@ int Nintendo3DSFirm::loadFieldData(void)
 
 	if (firmBin) {
 		// Official firmware binary fields.
-		d->fields.addField_string(C_("Nintendo3DSFirm", "Type"),
+		d->fields.addField_string(C_("RomData", "Type"),
 			(firmBinDesc ? firmBinDesc : C_("RomData", "Unknown")));
 
 		// FIRM version.
@@ -320,7 +297,7 @@ int Nintendo3DSFirm::loadFieldData(void)
 			const char *searchstr;	// Search string.
 			unsigned int searchlen;	// Search string length, without the NULL terminator.
 		};
-		static const std::array<arm9VerStr_t, 9> arm9VerStr_tbl = {{
+		static constexpr array<arm9VerStr_t, 9> arm9VerStr_tbl = {{
 			{"Luma3DS",		"Luma3DS v", 9},
 			{"GodMode9",		"GodMode9 Explorer v", 19},	// Older versions
 			{"GodMode9",		"GodMode9 v", 10},		// Newer versions (v1.9.1; TODO check for first one?)
@@ -366,12 +343,12 @@ int Nintendo3DSFirm::loadFieldData(void)
 		// Sighax status.
 		// TODO: If it's SPI, we need to decrypt the FIRM contents.
 		// Reference: https://github.com/TuxSH/firmtool/blob/master/firmtool/__main__.py
-		const uint32_t first4 = be32_to_cpu(*(reinterpret_cast<const uint32_t*>(firmHeader->signature)));
+		const uint32_t first4 = be32_to_cpu(firmHeader->signature32[0]);
 		struct sighaxStatus_tbl_t {
 			uint32_t first4;
 			char status[12];
 		};
-		static const std::array<sighaxStatus_tbl_t, 7> sighaxStatus_tbl = {{
+		static constexpr array<sighaxStatus_tbl_t, 7> sighaxStatus_tbl = {{
 			{0xB6724531,	"NAND retail"},		// SciresM
 			{0x6EFF209C,	"NAND retail"},		// sighax.com
 			{0x88697CDC,	"NAND devkit"},		// SciresM
@@ -401,7 +378,7 @@ int Nintendo3DSFirm::loadFieldData(void)
 		}
 
 		// Add the firmware type field.
-		d->fields.addField_string(C_("Nintendo3DSFirm", "Type"),
+		d->fields.addField_string(C_("RomData", "Type"),
 			(firmBinDesc ? firmBinDesc : C_("RomData", "Unknown")));
 
 		if (arm9VerStr_title) {
@@ -416,7 +393,7 @@ int Nintendo3DSFirm::loadFieldData(void)
 		d->fields.addField_string(C_("Nintendo3DSFirm", "Sighax Status"), s_sighax_status);
 	} else {
 		// Add the firmware type field.
-		d->fields.addField_string(C_("Nintendo3DSFirm", "Type"),
+		d->fields.addField_string(C_("RomData", "Type"),
 			(firmBinDesc ? firmBinDesc : C_("RomData", "Unknown")));
 	}
 

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * PSP.hpp: PlayStation Portable disc image reader.                        *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -25,7 +25,7 @@ using namespace LibRpTexture;
 #include "disc/PartitionFile.hpp"
 
 // Other RomData subclasses
-#include "Other/ISO.hpp"
+#include "Media/ISO.hpp"
 #include "Other/ELF.hpp"
 
 // C++ STL classes

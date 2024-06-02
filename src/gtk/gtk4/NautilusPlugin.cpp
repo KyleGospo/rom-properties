@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK4)                             *
  * NautilusPlugin.cpp: Nautilus GTK4 Plugin Definition.                    *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -10,15 +10,15 @@
 #include "config.gtk.h"
 #include "NautilusPlugin.hpp"
 
-#include "../gtk3/NautilusMenuProvider.hpp"
+#include "../gtk3/NautilusMenuProvider.h"
 #include "AchGDBus.hpp"
 #include "plugin-helper.h"
 #include "NautilusPropertiesModelProvider.hpp"
 
 static GType type_list[2];
 
-// C includes
-#include <assert.h>
+// C includes (C++ namespace)
+#include <cassert>
 
 // Function pointers
 static void *libextension_so;

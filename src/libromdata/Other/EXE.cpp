@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * EXE.cpp: DOS/Windows executable reader.                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,6 +17,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -57,6 +58,8 @@ const char *const EXEPrivate::exts[] = {
 const char *const EXEPrivate::mimeTypes[] = {
 	// Unofficial MIME types from FreeDesktop.org.
 	"application/x-ms-dos-executable",
+	"application/x-ms-ne-executable",
+	"application/x-dosexec",
 
 	// Unofficial MIME types from Microsoft.
 	// Reference: https://technet.microsoft.com/en-us/library/cc995276.aspx?f=255&MSPPError=-2147217396
@@ -74,14 +77,14 @@ const RomDataInfo EXEPrivate::romDataInfo = {
 
 // NE target OSes.
 // Also used for LE.
-const std::array<const char*, 6> EXEPrivate::NE_TargetOSes = {
+const array<const char*, 6> EXEPrivate::NE_TargetOSes = {{
 	nullptr,			// NE_OS_UNKNOWN
 	"IBM OS/2",			// NE_OS_OS2
 	"Microsoft Windows",		// NE_OS_WIN
 	"European MS-DOS 4.x",		// NE_OS_DOS4
 	"Microsoft Windows (386)",	// NE_OS_WIN386 (TODO)
 	"Borland Operating System Services",	// NE_OS_BOSS
-};
+}};
 
 EXEPrivate::EXEPrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -145,7 +148,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 		uint32_t dwFileOS;
 		const char *s_fileOS;
 	};
-	static const std::array<fileOS_tbl_t, 14> fileOS_tbl = {{
+	static const array<fileOS_tbl_t, 14> fileOS_tbl = {{
 		// TODO: Reorder based on how common each OS is?
 		// VOS_NT_WINDOWS32 is probably the most common nowadays.
 
@@ -188,7 +191,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 	}
 
 	// File type
-	static const std::array<const char*, 8> fileTypes_tbl = {
+	static const array<const char*, 8> fileTypes_tbl = {{
 		// VFT_UNKNOWN
 		nullptr,
 		// tr: VFT_APP
@@ -205,13 +208,13 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 		nullptr,
 		// tr: VFT_STATIC_LIB
 		NOP_C_("EXE|FileType", "Static Library"),
-	};
+	}};
 	const char *const fileType_title = C_("EXE", "File Type");
 	if (pVsFfi->dwFileType < fileTypes_tbl.size() &&
 	    fileTypes_tbl[pVsFfi->dwFileType] != nullptr)
 	{
 		fields.addField_string(fileType_title,
-			dpgettext_expr(RP_I18N_DOMAIN, "EXE|FileType", fileTypes_tbl[pVsFfi->dwFileType]));
+			pgettext_expr("EXE|FileType", fileTypes_tbl[pVsFfi->dwFileType]));
 	} else {
 		if (pVsFfi->dwFileType == VFT_UNKNOWN) {
 			fields.addField_string(fileType_title, C_("RomData", "Unknown"));
@@ -227,7 +230,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 	switch (pVsFfi->dwFileType) {
 		case VFT_DRV: {
 			hasSubtype = true;
-			static const std::array<const char*, 13> fileSubtypes_DRV = {
+			static const array<const char*, 13> fileSubtypes_DRV = {{
 				// VFT2_UNKNOWN
 				nullptr,
 				// tr: VFT2_DRV_PRINTER
@@ -254,7 +257,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 				NOP_C_("EXE|FileSubType", "Input Method"),
 				// tr: VFT2_DRV_VERSIONED_PRINTER
 				NOP_C_("EXE|FileSubType", "Versioned Printer"),
-			};
+			}};
 			if (pVsFfi->dwFileSubtype < fileSubtypes_DRV.size()) {
 				fileSubtype = fileSubtypes_DRV[pVsFfi->dwFileSubtype];
 			}
@@ -263,7 +266,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 
 		case VFT_FONT: {
 			hasSubtype = true;
-			static const std::array<const char*, 4> fileSubtypes_FONT = {
+			static const array<const char*, 4> fileSubtypes_FONT = {{
 				// VFT2_UNKNOWN
 				nullptr,
 				// tr: VFT2_FONT_RASTER
@@ -272,7 +275,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 				NOP_C_("EXE|FileSubType", "Vector"),
 				// tr: VFT2_FONT_TRUETYPE
 				NOP_C_("EXE|FileSubType", "TrueType"),
-			};
+			}};
 			if (pVsFfi->dwFileSubtype < fileSubtypes_FONT.size()) {
 				fileSubtype = fileSubtypes_FONT[pVsFfi->dwFileSubtype];
 			}
@@ -287,7 +290,7 @@ void EXEPrivate::addFields_VS_VERSION_INFO(const VS_FIXEDFILEINFO *pVsFfi, const
 		const char *const fileSubType_title = C_("EXE", "File Subtype");
 		if (fileSubtype) {
 			fields.addField_string(fileSubType_title,
-				dpgettext_expr(RP_I18N_DOMAIN, "EXE|FileSubType", fileSubtype));
+				pgettext_expr("EXE|FileSubType", fileSubtype));
 		} else {
 			fields.addField_string(fileSubType_title,
 				rp_sprintf(C_("RomData", "Unknown (0x%02X)"), pVsFfi->dwFileSubtype));
@@ -611,7 +614,9 @@ EXE::EXE(const IRpFilePtr &file)
 	// NOTE: MSVC handles 'PE\0\0' as 0x00504500,
 	// probably due to the embedded NULL bytes.
 	if (d->hdr.pe.Signature == cpu_to_be32(0x50450000) /*'PE\0\0'*/) {
-		// This is a PE executable.
+		// Portable Executable (Win32/Win64)
+		d->mimeType = "application/vnd.microsoft.portable-executable";
+
 		// Check if it's PE or PE32+.
 		// (.NET is checked in loadFieldData().)
 		switch (le16_to_cpu(d->hdr.pe.OptionalHeader.Magic)) {
@@ -656,8 +661,9 @@ EXE::EXE(const IRpFilePtr &file)
 			}
 		}
 	} else if (d->hdr.ne.sig == cpu_to_be16('NE')) {
-		// New Executable.
+		// New Executable
 		d->exeType = EXEPrivate::ExeType::NE;
+		d->mimeType = "application/x-ms-ne-executable";
 
 		// Check if this is a resource library.
 		// (All segment size values are 0.)
@@ -888,7 +894,7 @@ const char *EXE::systemName(unsigned int type) const
 				case IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER:
 				case IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER:
 				case IMAGE_SUBSYSTEM_EFI_ROM: {
-					// EFI executable.
+					// EFI executable
 					static const char *const sysNames_EFI[4] = {
 						"Extensible Firmware Interface", "EFI", "EFI", nullptr
 					};
@@ -945,7 +951,7 @@ int EXE::loadFieldData(void)
 		// File isn't open.
 		return -EBADF;
 	} else if (!d->isValid || (int)d->exeType < 0) {
-		// Unknown ROM image type.
+		// Unknown EXE type.
 		return -EIO;
 	}
 
@@ -959,7 +965,7 @@ int EXE::loadFieldData(void)
 
 	// Executable type.
 	// NOTE: Not translatable.
-	static const char exeTypes_strtbl[] =
+	static constexpr char exeTypes_strtbl[] =
 		"MS-DOS Executable\0"			// ExeType::MZ
 		"16-bit New Executable\0"		// ExeType::NE
 		"16-bit COM/NE Hybrid\0"		// ExeType::COM_NE
@@ -968,13 +974,13 @@ int EXE::loadFieldData(void)
 		"32-bit Linear Executable\0"		// ExeType::LX
 		"32-bit Portable Executable\0"		// ExeType::PE
 		"64-bit Portable Executable\0";		// ExeType::PE32PLUS
-	static const std::array<uint8_t, 8> exeTypes_offtbl = {
+	static constexpr array<uint8_t, 8> exeTypes_offtbl = {{
 		0, 18, 40, 61, 90, 109, 134, 161
-	};
+	}};
 	static_assert(sizeof(exeTypes_strtbl) == 189, "exeTypes_offtbl[] needs to be recalculated");
 	static_assert(exeTypes_offtbl.size() == static_cast<size_t>(EXEPrivate::ExeType::Max), "Update exeTypes[]!");
 
-	const char *const type_title = C_("EXE", "Type");
+	const char *const type_title = C_("RomData", "Type");
 	if (d->exeType >= EXEPrivate::ExeType::MZ && d->exeType < EXEPrivate::ExeType::Max) {
 		const unsigned int offset = exeTypes_offtbl[(int)d->exeType];
 		d->fields.addField_string(type_title, &exeTypes_strtbl[offset]);
@@ -1018,6 +1024,121 @@ int EXE::loadFieldData(void)
 
 	// Finished reading the field data.
 	return static_cast<int>(d->fields.count());
+}
+
+/**
+ * Load metadata properties.
+ * Called by RomData::metaData() if the metadata hasn't been loaded yet.
+ * @return Number of metadata properties read on success; negative POSIX error code on error.
+ */
+int EXE::loadMetaData(void)
+{
+	RP_D(EXE);
+	if (d->metaData != nullptr) {
+		// Metadata *has* been loaded...
+		return 0;
+	} else if (!d->file || !d->file->isOpen()) {
+		// File isn't open.
+		return -EBADF;
+	} else if (!d->isValid || (int)d->exeType < 0) {
+		// Unknown EXE type.
+		return -EIO;
+	}
+
+	// We can parse fields for NE (Win16) and PE (Win32) executables,
+	// if they have a resource section.
+	int ret = -1;
+	switch (d->exeType) {
+		default:
+			// Cannot load any metadata...
+			return 0;
+
+		case EXEPrivate::ExeType::NE:
+		case EXEPrivate::ExeType::COM_NE:
+			ret = d->loadNEResourceTable();
+			break;
+
+		case EXEPrivate::ExeType::PE:
+		case EXEPrivate::ExeType::PE32PLUS:
+			ret = d->loadPEResourceTypes();
+			break;
+	}
+
+	if (ret != 0 || !d->rsrcReader) {
+		// No resources available.
+		return 0;
+	}
+
+	// Load the version resource.
+	// NOTE: load_VS_VERSION_INFO loads it in host-endian.
+	VS_FIXEDFILEINFO vsffi;
+	IResourceReader::StringFileInfo vssfi;
+	if (d->rsrcReader->load_VS_VERSION_INFO(VS_VERSION_INFO, -1, &vsffi, &vssfi) != 0) {
+		// Unable to load VS_VERSION_INFO.
+		return 0;
+	} else if (vssfi.empty()) {
+		// No data...
+		return 0;
+	}
+
+	// TODO: Show the language that most closely matches the system.
+	// For now, only showing the "first" language, which may be
+	// random due to unordered_map<>.
+	// NOTE: IResourceReader::StringTable is vector<pair<string, string> >, so searching may be slow...
+	const auto &st = vssfi.begin()->second;
+	if (st.empty()) {
+		// No data...
+		return 0;
+	}
+
+	// Create the metadata object.
+	d->metaData = new RomMetaData();
+	d->metaData->reserve(4);	// Maximum of 4 metadata properties.
+
+	// Simple lambda function to find a string in IResourceReader::StringTable.
+	auto findval = [](const IResourceReader::StringTable &st, const char *key) -> const char* {
+		for (const auto &p : st) {
+			if (p.first == key) {
+				return p.second.c_str();
+			}
+		}
+		return nullptr;
+	};
+
+	// Title (FileDescription, ProductName, or InternalName)
+	const char *val = findval(st, "FileDescription");
+	if (!val) {
+		val = findval(st, "ProductName");
+		if (!val) {
+			val = findval(st, "InternalName");
+		}
+	}
+	if (val) {
+		d->metaData->addMetaData_string(Property::Title, val);
+	}
+
+	// Publisher (CompanyName)
+	val = findval(st, "CompanyName");
+	if (val) {
+		d->metaData->addMetaData_string(Property::Publisher, val);
+	}
+
+	// Description (FileDescription)
+	val = findval(st, "FileDescription");
+	if (val) {
+		d->metaData->addMetaData_string(Property::Description, val);
+	}
+
+	// Copyright (LegalCopyright)
+	val = findval(st, "LegalCopyright");
+	if (val) {
+		d->metaData->addMetaData_string(Property::Copyright, val);
+	}
+
+	// TODO: Comments? On KDE Dolphin, "Comments" is assumed to be user-added...
+
+	// Finished reading the metadata.
+	return static_cast<int>(d->metaData->count());
 }
 
 /**

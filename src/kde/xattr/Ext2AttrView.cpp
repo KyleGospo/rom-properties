@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE4/KF5)                         *
  * Ext2AttrView.cpp: Ext2 file system attribute viewer widget.             *
  *                                                                         *
- * Copyright (c) 2022-2023 by David Korth.                                 *
+ * Copyright (c) 2022-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -15,6 +15,9 @@
 
 // Ext2AttrData
 #include "librpfile/xattr/Ext2AttrData.h"
+
+// C++ STL classes
+using std::array;
 
 /** Ext2AttrViewPrivate **/
 
@@ -34,7 +37,7 @@ public:
 	int flags;
 
 	// See Ext2AttrData.h
-	std::array<QCheckBox*, EXT2_ATTR_CHECKBOX_MAX> checkBoxes;
+	array<QCheckBox*, EXT2_ATTR_CHECKBOX_MAX> checkBoxes;
 
 public:
 	/**
@@ -78,10 +81,10 @@ void Ext2AttrViewPrivate::retranslateUi_nonDesigner(void)
 		// Prepend the lsattr character to the checkbox label.
 		char buf[256];
 		snprintf(buf, sizeof(buf), s_lsattr_fmt, p->lsattr_chr,
-			dpgettext_expr(RP_I18N_DOMAIN, "Ext2AttrView", p->label));
+			pgettext_expr("Ext2AttrView", p->label));
 
 		checkBoxes[i]->setText(U82Q(buf));
-		checkBoxes[i]->setToolTip(U82Q(dpgettext_expr(RP_I18N_DOMAIN, "Ext2AttrView", p->tooltip)));
+		checkBoxes[i]->setToolTip(U82Q(pgettext_expr("Ext2AttrView", p->tooltip)));
 	}
 }
 
@@ -99,7 +102,7 @@ void Ext2AttrViewPrivate::updateFlagsString(void)
 		uint8_t bit;
 		char chr;
 	};
-	static const std::array<flags_name, 22> flags_array = {{
+	static const array<flags_name, 22> flags_array = {{
 		{  0, 's' }, {  1, 'u' }, {  3, 'S' }, { 16, 'D' },
 		{  4, 'i' }, {  5, 'a' }, {  6, 'd' }, {  7, 'A' },
 		{  2, 'c' }, { 11, 'E' }, { 14, 'j' }, { 12, 'I' },
@@ -130,11 +133,11 @@ void Ext2AttrViewPrivate::updateFlagsCheckboxes(void)
 
 	// Flag order, relative to checkboxes
 	// NOTE: Uses bit indexes.
-	static const std::array<uint8_t, 22> flag_order = {
+	static constexpr array<uint8_t, 22> flag_order = {{
 		 5,  7,  2, 23,  6, 16, 19, 11,
 		30,  4, 12, 14, 10, 28, 29,  0,
 		 3, 15, 17,  1, 25, 20
-	};
+	}};
 	// FIXME: checkBoxes.size() can't be used here because it's this->checkBoxes.
 	static_assert(flag_order.size() == EXT2_ATTR_CHECKBOX_MAX, "flag_order[] and checkBoxes[] are out of sync!");
 
@@ -155,7 +158,7 @@ Ext2AttrView::Ext2AttrView(QWidget *parent)
 	d->ui.setupUi(this);
 
 	// Create the checkboxes.
-	static const int col_count = 4;
+	static constexpr int col_count = 4;
 	int col = 0, row = 0;
 	for (size_t i = 0; i < d->checkBoxes.size(); i++) {
 		const Ext2AttrCheckboxInfo_t *const p = ext2AttrCheckboxInfo(static_cast<Ext2AttrCheckboxID>(i));

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * RomData.hpp: ROM data base class.                                       *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -50,7 +50,6 @@ protected:
 	 * @param d RomDataPrivate subclass.
 	 */
 	explicit RomData(RomDataPrivate *d);
-
 public:
 	virtual ~RomData();
 
@@ -156,16 +155,13 @@ protected:
 	 * @param type Bitfield containing SystemNameType values.
 	 * @return True if valid; false if not.
 	 */
-	static inline bool isSystemNameTypeValid(unsigned int type)
+	static inline constexpr bool isSystemNameTypeValid(unsigned int type)
 	{
-		// Check for an invalid SYSNAME_TYPE.
-		if ((type & SYSNAME_TYPE_MASK) > SYSNAME_TYPE_ABBREVIATION)
-			return false;
-		// Check for any unsupported bits.
-		if ((type & ~(SYSNAME_REGION_MASK | SYSNAME_TYPE_MASK)) != 0)
-			return false;
-		// Type is valid.
-		return true;
+		// Two checks:
+		// 1. Check for an invalid SYSNAME_TYPE.
+		// 2. Check for any unsupported bits.
+		return ((type & SYSNAME_TYPE_MASK) <= SYSNAME_TYPE_ABBREVIATION) &&
+		       ((type & ~(SYSNAME_REGION_MASK | SYSNAME_TYPE_MASK)) == 0);
 	}
 
 public:
@@ -214,6 +210,7 @@ public:
 		Partition,		// Partition
 		MetadataFile,		// Metadata File
 		PatchFile,		// Patch File
+		Ticket,			// Ticket file (e.g. Wii/Wii U .tik)
 
 		Max
 	};
@@ -455,14 +452,6 @@ public:
 	RP_LIBROMDATA_PUBLIC
 	const RomMetaData *metaData(void) const;
 
-private:
-	/**
-	 * Verify that the specified image type has been loaded.
-	 * @param imageType Image type.
-	 * @return 0 if loaded; negative POSIX error code on error.
-	 */
-	int verifyImageTypeLoaded(ImageType imageType) const;
-
 public:
 	/**
 	 * Get an internal image from the ROM.
@@ -542,7 +531,7 @@ public:
 	virtual int extURLs(ImageType imageType, std::vector<ExtURL> *pExtURLs, int size = IMAGE_SIZE_DEFAULT) const;
 
 	/**
-	 * Get name of an image type
+	 * Get the name of an image type
 	 * @param imageType Image type.
 	 * @return String containing user-friendly name of an image type.
 	 */

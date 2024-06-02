@@ -1,10 +1,4 @@
 # KDE Frameworks 6.x UI frontend
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-kf6 LANGUAGES CXX)
 
 # Find Qt6 and KF6.
@@ -62,15 +56,11 @@ SET(${PROJECT_NAME}_SRCS
 	${${PROJECT_NAME}_DBUS_IFACE_SRCS_2}
 	${${PROJECT_NAME}_RCC_O}
 	PluginFactoryKF6.cpp
-	../ExtractorPlugin.cpp
-	../OverlayIconPlugin.cpp
 	)
 SET(${PROJECT_NAME}_H
 	${${PROJECT_NAME}_H}
 	${rom-properties-kio6_H}
 	${${PROJECT_NAME}-notify_H}
-	../ExtractorPlugin.hpp
-	../OverlayIconPlugin.hpp
 	)
 
 # XAttrView plugin
@@ -115,10 +105,52 @@ IF(BUILD_KF6)
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>	# src
 		)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE romdata)
-	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC KF6::KIOGui KF6::KIOCore KF6::KIOWidgets KF6::WidgetsAddons KF6::FileMetaData)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC KF6::KIOWidgets KF6::KIOGui KF6::KIOCore KF6::WidgetsAddons KF6::FileMetaData)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC Qt6::Network Qt6::Widgets Qt6::Gui Qt6::Core)
 	IF(HAVE_QtDBus)
 		TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC Qt6::DBus)
+	ENDIF(HAVE_QtDBus)
+
+	### ThumbnailCreator plugin ###
+	SET(RomThumbnailCreator_NAME RomThumbnailCreator-kf6)
+	ADD_LIBRARY(${RomThumbnailCreator_NAME} MODULE
+		ThumbnailCreatorPluginFactoryKF6.cpp
+		../plugins/RomThumbnailCreator.cpp
+		../plugins/RomThumbCreator_p.cpp
+		../ProxyForUrl.cpp
+		../RpQImageBackend.cpp
+		../RpQUrl.cpp
+		../RpQt.cpp
+
+		../plugins/RomThumbnailCreator.hpp
+		../plugins/RomThumbCreator_p.hpp
+		../ProxyForUrl.hpp
+		../RpQImageBackend.hpp
+		../RpQUrl.hpp
+		../RpQt.hpp
+		)
+	# TODO: Enable PCH?
+	#IF(ENABLE_PCH)
+	#	TARGET_PRECOMPILE_HEADERS(${RomThumbnailCreator_NAME} PRIVATE
+	#		"${RP_CONFIG_LIBC_H}" "${RP_COMPILER_COMPAT_H}"
+	#		../stdafx.h
+	#		)
+	#ENDIF(ENABLE_PCH)
+	SET_TARGET_PROPERTIES(${RomThumbnailCreator_NAME} PROPERTIES PREFIX "")
+	DO_SPLIT_DEBUG(${RomThumbnailCreator_NAME})
+	TARGET_INCLUDE_DIRECTORIES(${RomThumbnailCreator_NAME}
+		PUBLIC	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>		# kf6
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>		# kf6
+		PRIVATE	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/..>	# kde
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/..>	# kde
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>	# src
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>	# src
+		)
+	TARGET_LINK_LIBRARIES(${RomThumbnailCreator_NAME} PRIVATE romdata)
+	TARGET_LINK_LIBRARIES(${RomThumbnailCreator_NAME} PRIVATE KF6::KIOWidgets KF6::KIOCore)
+	TARGET_LINK_LIBRARIES(${RomThumbnailCreator_NAME} PUBLIC Qt6::Widgets Qt6::Gui Qt6::Core)
+	IF(HAVE_QtDBus)
+		TARGET_LINK_LIBRARIES(${RomThumbnailCreator_NAME} PUBLIC Qt6::DBus)
 	ENDIF(HAVE_QtDBus)
 
 	### XAttrView plugin ###
@@ -147,15 +179,19 @@ IF(BUILD_KF6)
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>	# src
 		)
 	TARGET_LINK_LIBRARIES(${XATTRVIEW_NAME} PRIVATE romdata)
-	TARGET_LINK_LIBRARIES(${XATTRVIEW_NAME} PRIVATE KF6::KIOCore KF6::KIOWidgets)
+	TARGET_LINK_LIBRARIES(${XATTRVIEW_NAME} PRIVATE KF6::KIOWidgets KF6::KIOCore)
 	TARGET_LINK_LIBRARIES(${XATTRVIEW_NAME} PUBLIC Qt6::Widgets Qt6::Gui Qt6::Core)
 
-	### Plugin Forwarders ###
+	### Additional Plugins ###
 
-	# ExtractorPluginForwarder
+	# ExtractorPlugin
 	ADD_LIBRARY(kfilemetadata_${PROJECT_NAME} MODULE
-		ExtractorPluginForwarder.cpp
-		ExtractorPluginForwarder.hpp
+		../plugins/ExtractorPlugin.cpp
+		../RpQUrl.cpp
+
+		../plugins/ExtractorPluginKF6.hpp
+		../RpQtNS.hpp
+		../RpQUrl.hpp
 		)
 	SET_TARGET_PROPERTIES(kfilemetadata_${PROJECT_NAME} PROPERTIES PREFIX "")
 	DO_SPLIT_DEBUG(kfilemetadata_${PROJECT_NAME})
@@ -167,21 +203,23 @@ IF(BUILD_KF6)
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>	# src
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>	# src
 		)
+	TARGET_LINK_LIBRARIES(kfilemetadata_${PROJECT_NAME} PRIVATE romdata)
 	TARGET_LINK_LIBRARIES(kfilemetadata_${PROJECT_NAME} PRIVATE KF6::KIOCore KF6::FileMetaData)
-	TARGET_LINK_LIBRARIES(kfilemetadata_${PROJECT_NAME} PRIVATE Qt6::Core)
+	# NOTE: Technically, only Qt6::Core is needed, but stdafx.h usage
+	# requires other libraries for include paths.
+	TARGET_LINK_LIBRARIES(kfilemetadata_${PROJECT_NAME} PRIVATE Qt6::Widgets Qt6::Core)
 
-	# Link in libdl if it's required for dlopen().
-	IF(CMAKE_DL_LIBS)
-		TARGET_LINK_LIBRARIES(kfilemetadata_${PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS})
-	ENDIF(CMAKE_DL_LIBS)
-
-	# OverlayIconPluginForwarder
+	# OverlayIconPlugin
 	# TODO: Use kcoreaddons_add_plugin() for the JSON?
 	# https://github.com/owncloud/client/blob/master/shell_integration/dolphin/CMakeLists.txt
 	# TODO: Better name.
 	ADD_LIBRARY(overlayiconplugin_${PROJECT_NAME} MODULE
-		OverlayIconPluginForwarder.cpp
-		OverlayIconPluginForwarder.hpp
+		../plugins/OverlayIconPlugin.cpp
+		../RpQUrl.cpp
+
+		../plugins/OverlayIconPluginKF6.hpp
+		../RpQtNS.hpp
+		../RpQUrl.hpp
 		)
 	SET_TARGET_PROPERTIES(overlayiconplugin_${PROJECT_NAME} PROPERTIES PREFIX "")
 	DO_SPLIT_DEBUG(overlayiconplugin_${PROJECT_NAME})
@@ -193,13 +231,11 @@ IF(BUILD_KF6)
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../..>	# src
 			$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../..>	# src
 		)
-	TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE KF6::KIOCore KF6::KIOWidgets)
-	TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE Qt6::Core)
-
-	# Link in libdl if it's required for dlopen().
-	IF(CMAKE_DL_LIBS)
-		TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE ${CMAKE_DL_LIBS})
-	ENDIF(CMAKE_DL_LIBS)
+	TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE romdata)
+	TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE KF6::KIOCore KF6::FileMetaData)
+	# NOTE: Technically, only Qt6::Core is needed, but stdafx.h usage
+	# requires other libraries for include paths.
+	TARGET_LINK_LIBRARIES(overlayiconplugin_${PROJECT_NAME} PRIVATE Qt6::Widgets Qt6::Core)
 ENDIF(BUILD_KF6)
 
 #######################
@@ -226,24 +262,19 @@ IF(BUILD_KF6)
 		"${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}.${CMAKE_PROJECT_VERSION_PATCH}"
 		"${CMAKE_SOURCE_DIR}/xdg/mime.thumbnail.types"
 		"${CMAKE_SOURCE_DIR}/xdg/mime.no-thumbnail.types")
-	CONFIGURE_FILE(${PROJECT_NAME}.json.in ${PROJECT_NAME}.json @ONLY)
-	CONFIGURE_FILE(ExtractorPluginForwarder.json.in ExtractorPluginForwarder.json @ONLY)
-	CONFIGURE_FILE(OverlayIconPluginForwarder.json.in OverlayIconPluginForwarder.json @ONLY)
 
-	# Main plugin is installed in the propertiesdialog subdirectory.
-	# Create a symlink for ThumbCreator.
-	ADD_CUSTOM_COMMAND(TARGET ${PROJECT_NAME} POST_BUILD
-		COMMAND ln -sf "${KF6_PRPD_PLUGIN_INSTALL_DIR}/${PROJECT_NAME}.so" "${PROJECT_NAME}.symlink.so"
-		WORKING_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}"
-		VERBATIM)
+	CONFIGURE_FILE(${PROJECT_NAME}.json.in ${PROJECT_NAME}.json @ONLY)
+	CONFIGURE_FILE(RomThumbnailCreator.json.in RomThumbnailCreator.json @ONLY)
+	CONFIGURE_FILE(ExtractorPlugin.json.in ExtractorPlugin.json @ONLY)
+	CONFIGURE_FILE(OverlayIconPlugin.json.in OverlayIconPlugin.json @ONLY)
+
+	# Install plugins in the appropriate subdirectories.
 	INSTALL(TARGETS ${PROJECT_NAME} ${XATTRVIEW_NAME}
 		LIBRARY DESTINATION "${KF6_PRPD_PLUGIN_INSTALL_DIR}"
 		COMPONENT "plugin")
-	INSTALL(FILES "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/${PROJECT_NAME}.symlink.so"
-		DESTINATION "${KF6_THUMB_PLUGIN_INSTALL_DIR}"
-		RENAME "${PROJECT_NAME}.so"
+	INSTALL(TARGETS ${RomThumbnailCreator_NAME}
+		LIBRARY DESTINATION "${KF6_THUMB_PLUGIN_INSTALL_DIR}"
 		COMPONENT "plugin")
-
 	INSTALL(TARGETS kfilemetadata_${PROJECT_NAME}
 		LIBRARY DESTINATION "${KF6_KFMD_PLUGIN_INSTALL_DIR}"
 		COMPONENT "plugin")
@@ -251,13 +282,6 @@ IF(BUILD_KF6)
 		LIBRARY DESTINATION "${KF6_KOVI_PLUGIN_INSTALL_DIR}"
 		COMPONENT "plugin")
 	# FIXME: Run kbuildsycoca6?
-
-	# Service menus
-	# FIXME: Conflicts with KF6. Figure out how to fix this later.
-	#INSTALL(FILES ../servicemenus/rp-convert-to-png.desktop
-	#	DESTINATION "${CMAKE_INSTALL_PREFIX}/share/kio/servicemenus"
-	#	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-	#	COMPONENT "plugin")
 
 	# Check if a split debug file should be installed.
 	IF(INSTALL_DEBUG)

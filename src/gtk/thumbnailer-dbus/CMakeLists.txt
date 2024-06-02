@@ -1,10 +1,4 @@
 # D-Bus Thumbnailer for rom-properties
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rp-thumbnailer-dbus LANGUAGES C)
 
 # Find packages.
@@ -17,7 +11,7 @@ IF(GLib2_FOUND AND GObject2_FOUND AND GIO_FOUND AND GIO-UNIX_FOUND)
 	# All required libraries were found.
 ELSE(GLib2_FOUND AND GObject2_FOUND AND GIO_FOUND AND GIO-UNIX_FOUND)
 	# A required library was not found.
-	# Disable the D-Bus t
+	# Disable the D-Bus Thumbnailer.
 	SET(BUILD_THUMBNAILER_DBUS OFF CACHE INTERNAL "Build the D-Bus thumbnailer" FORCE)
 ENDIF(GLib2_FOUND AND GObject2_FOUND AND GIO_FOUND AND GIO-UNIX_FOUND)
 

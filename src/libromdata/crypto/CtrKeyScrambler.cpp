@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * CtrKeyScrambler.cpp: Nintendo 3DS key scrambler.                        *
  *                                                                         *
- * Copyright (c) 2016-2019 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -18,15 +18,18 @@
 #include "librpbase/crypto/KeyManager.hpp"
 using LibRpBase::KeyManager;
 
+// C++ STL classes
+using std::array;
+
 namespace LibRomData { namespace CtrKeyScrambler {
 
 // Verification key names.
-static const std::array<const char*, Key_Max> EncryptionKeyNames = {{
+static const array<const char*, (int)EncryptionKeys::Key_Max> EncryptionKeyNames = {{
 	"twl-scrambler",
 	"ctr-scrambler",
 }};
 
-static const uint8_t EncryptionKeyVerifyData[Key_Max][16] = {
+static constexpr uint8_t EncryptionKeyVerifyData[(int)EncryptionKeys::Key_Max][16] = {
 	// twl-scrambler
 	{0x65,0xCF,0x82,0xC5,0xDB,0x79,0x93,0x8C,
 	 0x01,0x33,0x65,0x87,0x72,0xDF,0x60,0x94},
@@ -41,7 +44,7 @@ static const uint8_t EncryptionKeyVerifyData[Key_Max][16] = {
  */
 int encryptionKeyCount_static(void)
 {
-	return Key_Max;
+	return (int)EncryptionKeys::Key_Max;
 }
 
 /**
@@ -52,8 +55,8 @@ int encryptionKeyCount_static(void)
 const char *encryptionKeyName_static(int keyIdx)
 {
 	assert(keyIdx >= 0);
-	assert(keyIdx < Key_Max);
-	if (keyIdx < 0 || keyIdx >= Key_Max)
+	assert(keyIdx < (int)EncryptionKeys::Key_Max);
+	if (keyIdx < 0 || keyIdx >= (int)EncryptionKeys::Key_Max)
 		return nullptr;
 	return EncryptionKeyNames[keyIdx];
 }
@@ -66,8 +69,8 @@ const char *encryptionKeyName_static(int keyIdx)
 const uint8_t *encryptionVerifyData_static(int keyIdx)
 {
 	assert(keyIdx >= 0);
-	assert(keyIdx < Key_Max);
-	if (keyIdx < 0 || keyIdx >= Key_Max)
+	assert(keyIdx < (int)EncryptionKeys::Key_Max);
+	if (keyIdx < 0 || keyIdx >= (int)EncryptionKeys::Key_Max)
 		return nullptr;
 	return EncryptionKeyVerifyData[keyIdx];
 }
@@ -172,8 +175,8 @@ int CtrScramble(u128_t *keyNormal,
 
 	KeyManager::KeyData_t keyData;
 	KeyManager::VerifyResult res = keyManager->getAndVerify(
-		EncryptionKeyNames[Key_Ctr_Scrambler], &keyData,
-		EncryptionKeyVerifyData[Key_Ctr_Scrambler], 16);
+		EncryptionKeyNames[(int)EncryptionKeys::Key_Ctr_Scrambler], &keyData,
+		EncryptionKeyVerifyData[(int)EncryptionKeys::Key_Ctr_Scrambler], 16);
 	if (res != KeyManager::VerifyResult::OK) {
 		// Key error.
 		// TODO: Return the key error?

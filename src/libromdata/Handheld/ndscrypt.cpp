@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * ndscrypt.cpp: Nintendo DS encryption.                                   *
  *                                                                         *
- * Copyright (c) 2020-2023 by David Korth.                                 *
+ * Copyright (c) 2020-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,10 +13,10 @@
 // FIXME: Not big-endian safe.
 
 #include "stdafx.h"
-#include "ndscrypt.hpp"
-
 #include "byteswap_rp.h"
-#include "nds_crc.hpp"	// TODO: Optimized versions?
+
+#include "ndscrypt.hpp"
+#include "nds_crc.hpp"
 
 // C includes
 #include <stdint.h>
@@ -26,12 +26,12 @@
 #include <cerrno>
 
 // librpbase, librpfile, librpthreads
-#include "librpbase/crypto/MD5Hash.hpp"
+#include "librpbase/crypto/Hash.hpp"
 #include "librpfile/FileSystem.hpp"
 #include "librpfile/RpFile.hpp"
 #include "librpthreads/Mutex.hpp"
 using namespace LibRpFile;
-using LibRpBase::MD5Hash;
+using LibRpBase::Hash;
 using LibRpThreads::Mutex;
 using LibRpThreads::MutexLocker;
 
@@ -42,7 +42,7 @@ using std::unique_ptr;
 // Blowfish data.
 // This is loaded from ~/.config/rom-properties/nds-blowfish.bin.
 static Mutex blowfish_mutex;
-static const uint8_t blowfish_md5[3][16] = {
+static constexpr uint8_t blowfish_md5[3][16] = {
 	// nds-blowfish
 	{0xC0,0x8C,0x5A,0xFD,0x9C,0x6D,0x95,0x30,
 	 0x81,0x7C,0xD2,0x03,0x3E,0x38,0x64,0xD7},
@@ -63,7 +63,7 @@ static unique_ptr<uint8_t[]> blowfish_data[3];
  */
 int ndscrypt_load_blowfish_bin(BlowfishKey bfkey)
 {
-	static const char *const filenames[] = {
+	static constexpr const char *const filenames[] = {
 		"nds-blowfish.bin",
 		"dsi-blowfish.bin",
 		"dsi-devel-blowfish.bin",
@@ -129,8 +129,10 @@ int ndscrypt_load_blowfish_bin(BlowfishKey bfkey)
 
 	// Verify the MD5.
 	uint8_t md5[16];
-	MD5Hash::calcHash(md5, sizeof(md5), blowfish_data[bfkey].get(), NDS_BLOWFISH_SIZE);
-	if (memcmp(md5, blowfish_md5[bfkey], sizeof(md5)) != 0) {
+	Hash md5Hash(Hash::Algorithm::MD5);
+	md5Hash.process(blowfish_data[bfkey].get(), NDS_BLOWFISH_SIZE);
+	int ret = md5Hash.getHash(md5, sizeof(md5));
+	if (ret != 0 || memcmp(md5, blowfish_md5[bfkey], sizeof(md5)) != 0) {
 		// MD5 is incorrect.
 		blowfish_data[bfkey].reset();
 		return 2;
@@ -396,8 +398,8 @@ int NDSCrypt::encrypt_arm9(uint8_t *data, BlowfishKey bfkey)
  */
 static int encryptSecureArea(uint8_t *pRom, BlowfishKey bfkey)
 {
-	static const unsigned int rounds_offsets = 0x1600;
-	static const unsigned int sbox_offsets = 0x1C00;
+	static constexpr unsigned int rounds_offsets = 0x1600;
+	static constexpr unsigned int sbox_offsets = 0x1C00;
 
 	// If the ROM is already encrypted, we don't need to do anything.
 	uint32_t *const pRom32 = reinterpret_cast<uint32_t*>(pRom);
@@ -420,9 +422,9 @@ static int encryptSecureArea(uint8_t *pRom, BlowfishKey bfkey)
 	// Calculate CRCs.
 	uint16_t *const pRom16 = reinterpret_cast<uint16_t*>(pRom);
 	// Secure Area CRC16
-	pRom16[0x6C/2] = cpu_to_le16(CalcCrc16(&pRom[0x4000], 0x4000));
+	pRom16[0x6C/2] = cpu_to_le16(crc16_0x8005(&pRom[0x4000], 0x4000));
 	// Header CRC16
-	pRom16[0x15E/2] = cpu_to_le16(CalcCrc16(pRom, 0x15E));
+	pRom16[0x15E/2] = cpu_to_le16(crc16_0x8005(pRom, 0x15E));
 
 	// Reinitialize the card hash.
 	ndsCrypt.init0(bfkey);
@@ -450,11 +452,11 @@ static int encryptSecureArea(uint8_t *pRom, BlowfishKey bfkey)
 
 	// Calculate CRCs and write header.
 	// Secure Area CRC16
-	pRom16[0x6C/2] = cpu_to_le16(CalcCrc16(&pRom[0x4000], 0x4000));
+	pRom16[0x6C/2] = cpu_to_le16(crc16_0x8005(&pRom[0x4000], 0x4000));
 	// Logo CRC16
-	pRom16[0x15C/2] = cpu_to_le16(CalcCrc16(&pRom[0xC0], 0x9C));
+	pRom16[0x15C/2] = cpu_to_le16(crc16_0x8005(&pRom[0xC0], 0x9C));
 	// Header CRC16
-	pRom16[0x15E/2] = cpu_to_le16(CalcCrc16(pRom, 0x15E));
+	pRom16[0x15E/2] = cpu_to_le16(crc16_0x8005(pRom, 0x15E));
 
 	return 0;
 }

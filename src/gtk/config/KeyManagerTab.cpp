@@ -2,13 +2,14 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * KeyManagerTab.cpp: Key Manager tab for rp-config.                       *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "KeyManagerTab.hpp"
 #include "KeyManagerTab_p.hpp"
+#include "RpGtkCpp.hpp"
 
 // Other rom-properties libraries
 using namespace LibRpBase;
@@ -16,10 +17,11 @@ using namespace LibRpText;
 using LibRomData::KeyStoreUI;
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 // KeyStoreUI::ImportFileID
-static const std::array<const char*, 4> import_menu_actions = {{
+static const array<const char*, 4> import_menu_actions = {{
 	"Wii keys.bin",
 	"Wii U otp.bin",
 	"3DS boot9.bin",
@@ -111,6 +113,7 @@ rp_key_manager_tab_init(RpKeyManagerTab *tab)
 	// MessageWidget goes at the top of the window.
 	tab->messageWidget = rp_message_widget_new();
 	gtk_widget_set_name(tab->messageWidget, "messageWidget");
+	rp_message_widget_set_transition_type(RP_MESSAGE_WIDGET(tab->messageWidget), GTK_REVEALER_TRANSITION_TYPE_SLIDE_DOWN);
 
 	// Initialize the KeyStoreGTK.
 	tab->keyStore = rp_key_store_gtk_new();
@@ -240,9 +243,6 @@ rp_key_manager_tab_init(RpKeyManagerTab *tab)
 #endif /* !USE_GTK_MENU_BUTTON */
 
 #if GTK_CHECK_VERSION(4,0,0)
-	// Hide the MessageWidget initially.
-	gtk_widget_set_visible(tab->messageWidget, false);
-
 	gtk_box_append(GTK_BOX(tab), tab->messageWidget);
 	gtk_box_append(GTK_BOX(tab), tab->scrolledWindow);
 	gtk_box_append(GTK_BOX(tab), tab->btnImport);
@@ -255,10 +255,6 @@ rp_key_manager_tab_init(RpKeyManagerTab *tab)
 #  else /* RP_USE_GTK_ALIGNMENT */
 	gtk_box_pack_start(GTK_BOX(tab), alignImport, FALSE, FALSE, 0);
 #  endif /* RP_USE_GTK_ALIGNMENT */
-
-	// NOTE: GTK4 defaults to visible; GTK2 and GTK3 defaults to invisible.
-	// Hiding unconditionally just in case.
-	gtk_widget_set_visible(tab->messageWidget, false);
 
 	gtk_widget_show_all(tab->scrolledWindow);
 	gtk_widget_show_all(tab->btnImport);
@@ -477,7 +473,7 @@ rp_key_manager_tab_handle_menu_action(RpKeyManagerTab *tab, gint id)
 	    id > (int)KeyStoreUI::ImportFileID::N3DSaeskeydb)
 		return;
 
-	static const char dialog_titles_tbl[][32] = {
+	static constexpr char dialog_titles_tbl[][32] = {
 		// tr: Wii keys.bin dialog title
 		NOP_C_("KeyManagerTab", "Select Wii keys.bin File"),
 		// tr: Wii U otp.bin dialog title
@@ -488,7 +484,7 @@ rp_key_manager_tab_handle_menu_action(RpKeyManagerTab *tab, gint id)
 		NOP_C_("KeyManagerTab", "Select 3DS aeskeydb.bin File"),
 	};
 
-	static const char file_filters_tbl[][64] = {
+	static constexpr char file_filters_tbl[][64] = {
 		// tr: Wii keys.bin file filter (RP format)
 		NOP_C_("KeyManagerTab", "keys.bin|keys.bin|-|Binary Files|*.bin|-|All Files|*|-"),
 		// tr: Wii U otp.bin file filter (RP format)
@@ -500,10 +496,8 @@ rp_key_manager_tab_handle_menu_action(RpKeyManagerTab *tab, gint id)
 	};
 
 	GtkWindow *const parent = gtk_widget_get_toplevel_window(GTK_WIDGET(tab));
-	const char *const title = dpgettext_expr(
-		RP_I18N_DOMAIN, "KeyManagerTab", dialog_titles_tbl[id]);
-	const char *const filter = dpgettext_expr(
-		RP_I18N_DOMAIN, "KeyManagerTab", file_filters_tbl[id]);
+	const char *const title = pgettext_expr("KeyManagerTab", dialog_titles_tbl[id]);
+	const char *const filter = pgettext_expr("KeyManagerTab", file_filters_tbl[id]);
 
 	open_data_t *const open_data = static_cast<open_data_t*>(g_malloc(sizeof(*open_data)));
 	open_data->tab = tab;
@@ -636,7 +630,7 @@ rp_key_manager_tab_show_key_import_return_status(RpKeyManagerTab	*tab,
 	}
 
 	// U+2022 (BULLET) == \xE2\x80\xA2
-	static const char nl_bullet[] = "\n\xE2\x80\xA2 ";
+	static constexpr char nl_bullet[] = "\n\xE2\x80\xA2 ";
 
 	if (showKeyStats) {
 		char buf[16];
@@ -702,9 +696,10 @@ rp_key_manager_tab_show_key_import_return_status(RpKeyManagerTab	*tab,
 	// TODO: Copy over timeout code from RomDataView?
 	// (Or, remove the timeout code entirely?)
 	// TODO: MessageSound?
-	rp_message_widget_set_message_type(RP_MESSAGE_WIDGET(tab->messageWidget), type);
-	rp_message_widget_set_text(RP_MESSAGE_WIDGET(tab->messageWidget), msg.c_str());
-	gtk_widget_set_visible(tab->messageWidget, true);
+	RpMessageWidget *const messageWidget = RP_MESSAGE_WIDGET(tab->messageWidget);
+	rp_message_widget_set_message_type(messageWidget, type);
+	rp_message_widget_set_text(messageWidget, msg.c_str());
+	rp_message_widget_set_reveal_child(messageWidget, true);
 }
 
 #ifdef USE_G_MENU_MODEL

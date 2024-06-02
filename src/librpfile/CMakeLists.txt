@@ -1,10 +1,4 @@
 # rom-properties file handling library
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rpfile LANGUAGES CXX)
 
 # Check for C library functions.
@@ -182,7 +176,7 @@ FOREACH(_target ${TARGETS})
 	ENDIF()
 
 	# rpthreads is needed for atomic functions.
-	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpcpu${_target_suffix} rpthreads${_target_suffix})
+	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpbyteswap${_target_suffix} rpthreads${_target_suffix})
 	TARGET_LINK_LIBRARIES(${_target} PRIVATE cachecommon${_target_suffix})
 	IF(ENABLE_NLS)
 		TARGET_LINK_LIBRARIES(${_target} PRIVATE i18n${_target_suffix})

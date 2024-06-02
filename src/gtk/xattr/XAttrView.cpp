@@ -1,13 +1,14 @@
 /***************************************************************************
  * ROM Properties Page shell extension. (GTK+ common)                      *
- * XAttrView.cpp: MS-DOS file system attribute viewer widget.              *
+ * XAttrView.cpp: Extended attribute viewer property page.                 *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "XAttrView.hpp"
+#include "XAttrView_p.hpp"
 
 // XAttrReader
 #include "librpfile/xattr/XAttrReader.hpp"
@@ -17,15 +18,6 @@ using LibRpFile::XAttrReader;
 #include "Ext2AttrView.h"
 #include "XfsAttrView.h"
 #include "DosAttrView.h"
-
-/* Property identifiers */
-typedef enum {
-	PROP_0,
-
-	PROP_URI,
-
-	PROP_LAST
-} RpXAttrViewPropID;
 
 static void	rp_xattr_view_set_property(GObject	*object,
 					   guint	 prop_id,
@@ -42,52 +34,6 @@ static int	rp_xattr_view_load_attributes(RpXAttrView *widget);
 static void	rp_xattr_view_clear_display_widgets(RpXAttrView *widget);
 
 static GParamSpec *props[PROP_LAST];
-
-/* Column identifiers */
-typedef enum {
-	XATTR_COL_NAME,
-	XATTR_COL_VALUE,
-
-	XATTR_COL_MAX
-} XAttrColumns;
-
-#if GTK_CHECK_VERSION(3,0,0)
-typedef GtkBoxClass superclass;
-typedef GtkBox super;
-#define GTK_TYPE_SUPER GTK_TYPE_BOX
-#define USE_GTK_GRID 1	// Use GtkGrid instead of GtkTable.
-#else /* !GTK_CHECK_VERSION(3,0,0) */
-typedef GtkVBoxClass superclass;
-typedef GtkVBox super;
-#define GTK_TYPE_SUPER GTK_TYPE_VBOX
-#endif /* GTK_CHECK_VERSION(3,0,0) */
-
-// XAttrView class
-struct _RpXAttrViewClass {
-	superclass __parent__;
-};
-
-// XAttrView instance
-struct _RpXAttrView {
-	super __parent__;
-
-	gchar *uri;
-	XAttrReader *xattrReader;
-	gboolean has_attributes;
-
-	GtkWidget *fraExt2Attributes;
-	GtkWidget *ext2AttrView;
-
-	GtkWidget *fraXfsAttributes;
-	GtkWidget *xfsAttrView;
-
-	GtkWidget *fraDosAttributes;
-	GtkWidget *dosAttrView;
-
-	GtkWidget	*fraXAttr;
-	GtkListStore	*listStore;
-	GtkWidget	*treeView;
-};
 
 // NOTE: G_DEFINE_TYPE() doesn't work in C++ mode with gcc-6.2
 // due to an implicit int to GTypeFlags conversion.
@@ -107,7 +53,7 @@ rp_xattr_view_class_init(RpXAttrViewClass *klass)
 	props[PROP_URI] = g_param_spec_string(
 		"uri", "URI", "URI of the file being displayed.",
 		nullptr,
-		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY));
 
 	// Install the properties.
 	g_object_class_install_properties(gobject_class, PROP_LAST, props);
@@ -168,42 +114,8 @@ rp_xattr_view_init(RpXAttrView *widget)
 	gtk_widget_set_margin(scrlXAttr, 6);	// TODO: GTK2 version
 #endif /* GTK_CHECK_VERSION(2,91,1) */
 
-	// Column titles
-	static const char *const column_titles[XATTR_COL_MAX] = {
-		NOP_C_("XAttrView", "Name"),
-		NOP_C_("XAttrView", "Value"),
-	};
-
-	// TODO: GtkListView version for GTK4
-
-	// Create the GtkListStore and GtkTreeView.
-	widget->listStore = gtk_list_store_new(2, G_TYPE_STRING, G_TYPE_STRING);
-	widget->treeView = gtk_tree_view_new_with_model(GTK_TREE_MODEL(widget->listStore));
-	gtk_widget_set_name(widget->treeView, "treeView");
-	gtk_tree_view_set_headers_visible(GTK_TREE_VIEW(widget->treeView), TRUE);
-	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrlXAttr), widget->treeView);
-
-#if !GTK_CHECK_VERSION(3,0,0)
-	// GTK+ 2.x: Use the "rules hint" for alternating row colors.
-	// Deprecated in GTK+ 3.14 (and removed in GTK4), but it doesn't
-	// work with GTK+ 3.x anyway.
-	// TODO: GTK4's GtkListView might have a similar function.
-	gtk_tree_view_set_rules_hint(GTK_TREE_VIEW(widget->treeView), true);
-#endif /* !GTK_CHECK_VERSION(3,0,0) */
-
-	// Create the columns.
-	// NOTE: Unlock Time is stored as a string, not as a GDateTime or Unix timestamp.
-	for (int i = 0; i < XATTR_COL_MAX; i++) {
-		GtkTreeViewColumn *const column = gtk_tree_view_column_new();
-		gtk_tree_view_column_set_title(column,
-			dpgettext_expr(RP_I18N_DOMAIN, "XAttrView", column_titles[i]));
-		gtk_tree_view_column_set_resizable(column, TRUE);
-
-		GtkCellRenderer *const renderer = gtk_cell_renderer_text_new();
-		gtk_tree_view_column_pack_start(column, renderer, FALSE);
-		gtk_tree_view_column_add_attribute(column, renderer, "text", i);
-		gtk_tree_view_append_column(GTK_TREE_VIEW(widget->treeView), column);
-	}
+	// Initialize the GtkTreeView (GTK2/GTK3) or GtkColumnView (GTK4).
+	rp_xattr_view_init_posix_xattrs_widgets(widget, GTK_SCROLLED_WINDOW(scrlXAttr));
 
 #if GTK_CHECK_VERSION(4,0,0)
 	gtk_box_append(GTK_BOX(vboxExt2Attributes), widget->ext2AttrView);
@@ -230,12 +142,12 @@ rp_xattr_view_init(RpXAttrView *widget)
 #else /* !GTK_CHECK_VERSION(2,91,0) */
 	// NOTE: The extra alignments outside the frame reduce the frame widths.
 	// This only affects GTK2, so meh.
-	GtkWidget *const alignVboxExt2Attributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
-	gtk_widget_set_name(alignVboxExt2Attributes, "alignVboxExt2Attributes");
-	gtk_widget_show(alignVboxExt2Attributes);
-	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVboxExt2Attributes), 6, 6, 6, 6);
-	gtk_container_add(GTK_CONTAINER(alignVboxExt2Attributes), vboxExt2Attributes);
-	gtk_frame_set_child(GTK_FRAME(widget->fraExt2Attributes), alignVboxExt2Attributes);
+	GtkWidget *const alignVBoxExt2Attributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
+	gtk_widget_set_name(alignVBoxExt2Attributes, "alignVBoxExt2Attributes");
+	gtk_widget_show(alignVBoxExt2Attributes);
+	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVBoxExt2Attributes), 6, 6, 6, 6);
+	gtk_container_add(GTK_CONTAINER(alignVBoxExt2Attributes), vboxExt2Attributes);
+	gtk_frame_set_child(GTK_FRAME(widget->fraExt2Attributes), alignVBoxExt2Attributes);
 
 	GtkWidget *const alignFraExt2Attributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
 	gtk_widget_set_name(alignFraExt2Attributes, "alignFraExt2Attributes");
@@ -243,12 +155,12 @@ rp_xattr_view_init(RpXAttrView *widget)
 	gtk_alignment_set_padding(GTK_ALIGNMENT(alignFraExt2Attributes), 6, 6, 6, 6);
 	gtk_container_add(GTK_CONTAINER(alignFraExt2Attributes), widget->fraExt2Attributes);
 
-	GtkWidget *const alignVboxXfsAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
-	gtk_widget_set_name(alignVboxXfsAttributes, "alignVboxXfsAttributes");
-	gtk_widget_show(alignVboxXfsAttributes);
-	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVboxXfsAttributes), 6, 6, 6, 6);
-	gtk_container_add(GTK_CONTAINER(alignVboxXfsAttributes), vboxXfsAttributes);
-	gtk_frame_set_child(GTK_FRAME(widget->fraXfsAttributes), alignVboxXfsAttributes);
+	GtkWidget *const alignVBoxXfsAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
+	gtk_widget_set_name(alignVBoxXfsAttributes, "alignVBoxXfsAttributes");
+	gtk_widget_show(alignVBoxXfsAttributes);
+	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVBoxXfsAttributes), 6, 6, 6, 6);
+	gtk_container_add(GTK_CONTAINER(alignVBoxXfsAttributes), vboxXfsAttributes);
+	gtk_frame_set_child(GTK_FRAME(widget->fraXfsAttributes), alignVBoxXfsAttributes);
 
 	GtkWidget *const alignFraXfsAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
 	gtk_widget_set_name(alignFraXfsAttributes, "alignFraXfsAttributes");
@@ -256,12 +168,12 @@ rp_xattr_view_init(RpXAttrView *widget)
 	gtk_alignment_set_padding(GTK_ALIGNMENT(alignFraXfsAttributes), 6, 6, 6, 6);
 	gtk_container_add(GTK_CONTAINER(alignFraXfsAttributes), widget->fraXfsAttributes);
 
-	GtkWidget *const alignVboxDosAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
-	gtk_widget_set_name(alignVboxDosAttributes, "alignVboxDosAttributes");
-	gtk_widget_show(alignVboxDosAttributes);
-	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVboxDosAttributes), 6, 6, 6, 6);
-	gtk_container_add(GTK_CONTAINER(alignVboxDosAttributes), vboxDosAttributes);
-	gtk_frame_set_child(GTK_FRAME(widget->fraDosAttributes), alignVboxDosAttributes);
+	GtkWidget *const alignVBoxDosAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
+	gtk_widget_set_name(alignVBoxDosAttributes, "alignVBoxDosAttributes");
+	gtk_widget_show(alignVBoxDosAttributes);
+	gtk_alignment_set_padding(GTK_ALIGNMENT(alignVBoxDosAttributes), 6, 6, 6, 6);
+	gtk_container_add(GTK_CONTAINER(alignVBoxDosAttributes), vboxDosAttributes);
+	gtk_frame_set_child(GTK_FRAME(widget->fraDosAttributes), alignVBoxDosAttributes);
 
 	GtkWidget *const alignFraDosAttributes = gtk_alignment_new(0.0f, 0.0f, 0.0f, 0.0f);
 	gtk_widget_set_name(alignFraDosAttributes, "alignFraDosAttributes");
@@ -339,15 +251,9 @@ rp_xattr_view_set_property(GObject	*object,
 	RpXAttrView *const widget = RP_XATTR_VIEW(object);
 
 	switch (prop_id) {
-		case PROP_URI: {
-			const gchar *uri = g_value_get_string(value);
-			if (g_strcmp0(widget->uri, uri) != 0) {
-				// URI has changed.
-				g_set_str(&widget->uri, uri);
-				rp_xattr_view_load_attributes(widget);
-			}
+		case PROP_URI:
+			rp_xattr_view_set_uri(widget, g_value_get_string(value));
 			break;
-		}
 
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -476,47 +382,6 @@ rp_xattr_view_load_dos_attrs(RpXAttrView *widget)
 }
 
 /**
- * Load POSIX xattrs, if available.
- * @param widget XAttrView
- * @return 0 on success; negative POSIX error code on error.
- */
-static int
-rp_xattr_view_load_posix_xattrs(RpXAttrView *widget)
-{
-	// Hide by default.
-	// If we do have attributes, we'll show the widgets there.
-	gtk_widget_set_visible(widget->fraXAttr, false);
-
-	gtk_list_store_clear(widget->listStore);
-	if (!widget->xattrReader->hasGenericXAttrs()) {
-		// No generic attributes.
-		return -ENOENT;
-	}
-
-	const XAttrReader::XAttrList &xattrList = widget->xattrReader->genericXAttrs();
-	for (const auto &xattr : xattrList) {
-		GtkTreeIter treeIter;
-		gtk_list_store_append(widget->listStore, &treeIter);
-		// NOTE: Trimming leading and trailing spaces from the value.
-		// TODO: If copy is added, include the spaces.
-		gchar *value_str = g_strdup(xattr.second.c_str());
-		if (value_str) {
-			value_str = g_strstrip(value_str);
-			gtk_list_store_set(widget->listStore, &treeIter,
-				0, xattr.first.c_str(), 1, value_str, -1);
-			g_free(value_str);
-		}
-	}
-
-	// Resize the columns to fit the contents.
-	gtk_tree_view_columns_autosize(GTK_TREE_VIEW(widget->treeView));
-
-	// Extended attributes retrieved.
-	gtk_widget_set_visible(widget->fraXAttr, true);
-	return 0;
-}
-
-/**
  * Load the attributes from the specified file.
  * The attributes will be loaded into the display widgets.
  * @param widget XAttrView
@@ -525,14 +390,29 @@ rp_xattr_view_load_posix_xattrs(RpXAttrView *widget)
 static int
 rp_xattr_view_load_attributes(RpXAttrView *widget)
 {
-	// Attempt to open the file.
-	gchar *const filename = g_filename_from_uri(widget->uri, nullptr, nullptr);
-	if (!filename) {
-		// Not a local file.
-		widget->has_attributes = false;
+	if (!widget->uri) {
+		// Empty. Clear the display widgets.
+		rp_xattr_view_clear_display_widgets(widget);
 		delete widget->xattrReader;
 		widget->xattrReader = nullptr;
-		return -EIO;
+		return -EINVAL;
+	}
+
+	// Attempt to open the file.
+	gchar *filename = g_filename_from_uri(widget->uri, nullptr, nullptr);
+	if (!filename) {
+		// This might be a plain filename and not a URI.
+		if (access(widget->uri, R_OK) == 0) {
+			// It's a plain filename.
+			// TODO: Eliminate g_strdup()?
+			filename = g_strdup(widget->uri);
+		} else {
+			// Not a local file.
+			widget->has_attributes = false;
+			delete widget->xattrReader;
+			widget->xattrReader = nullptr;
+			return -EIO;
+		}
 	}
 
 	// Close the XAttrReader if it's already open.
@@ -590,7 +470,7 @@ rp_xattr_view_clear_display_widgets(RpXAttrView *widget)
 	rp_xfs_attr_view_clear_xflags(RP_XFS_ATTR_VIEW(widget->xfsAttrView));
 	rp_xfs_attr_view_clear_project_id(RP_XFS_ATTR_VIEW(widget->xfsAttrView));
 	rp_dos_attr_view_clear_attrs(RP_DOS_ATTR_VIEW(widget->dosAttrView));
-	gtk_list_store_clear(widget->listStore);
+	rp_xattr_view_clear_posix_xattrs(widget);
 }
 
 /** Property accessors / mutators **/
@@ -604,6 +484,7 @@ void
 rp_xattr_view_set_uri(RpXAttrView *widget, const gchar *uri)
 {
 	g_return_if_fail(RP_IS_XATTR_VIEW(widget));
+
 	if (g_strcmp0(widget->uri, uri) != 0) {
 		g_set_str(&widget->uri, uri);
 		rp_xattr_view_load_attributes(widget);

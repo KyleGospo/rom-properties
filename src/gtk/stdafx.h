@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * stdafx.h: Common definitions and includes.                              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -30,6 +30,7 @@
 #include <cstring>
 #include <cinttypes>
 #include <climits>
+#include <cmath>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -37,6 +38,7 @@
 #include <algorithm>
 #include <array>
 #include <forward_list>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -52,6 +54,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -74,14 +77,14 @@
 #  include "gtk-compat.h"
 #endif /* !RP_IS_GLIB_ONLY */
 
-// GLib on non-Windows platforms defines G_MODULE_EXPORT to a no-op.
+// GLib on non-Windows platforms (prior to 2.53.1) defines G_MODULE_EXPORT to a no-op.
 // This doesn't work when we use symbol visibility settings.
-#if !defined(_WIN32) && (defined(__GNUC__) && __GNUC__ >= 4)
+#if !GLIB_CHECK_VERSION(2,53,1) && !defined(_WIN32) && (defined(__GNUC__) && __GNUC__ >= 4)
 #  ifdef G_MODULE_EXPORT
 #    undef G_MODULE_EXPORT
 #  endif
 #  define G_MODULE_EXPORT __attribute__((visibility("default")))
-#endif /* !_WIN32 && __GNUC__ >= 4 */
+#endif /* !GLIB_CHECK_VERSION(2,53,1) && !_WIN32 && __GNUC__ >= 4 */
 
 // libi18n
 #include "libi18n/i18n.h"
@@ -91,9 +94,6 @@
 #include "aligned_malloc.h"
 #include "ctypex.h"
 #include "dll-macros.h"
-
-// librpcpu
-#include "librpcpu/cpu_dispatch.h"
 
 #ifdef __cplusplus
 // librpbase C++ headers

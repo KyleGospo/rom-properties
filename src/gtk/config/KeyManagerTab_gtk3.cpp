@@ -1,8 +1,8 @@
 /***************************************************************************
  * ROM Properties Page shell extension. (GTK+ common)                      *
- * KeyManagerTab_gtk3.hpp: Key Manager tab for rp-config. (GTK2/GTK3)      *
+ * KeyManagerTab_gtk3.cpp: Key Manager tab for rp-config. (GTK2/GTK3)      *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -12,6 +12,9 @@
 
 // Other rom-properties libraries
 using LibRomData::KeyStoreUI;
+
+// C++ STL classes
+using std::array;
 
 // GtkCellRendererText signal handlers
 static void	renderer_edited_signal_handler(GtkCellRendererText	*self,
@@ -145,7 +148,7 @@ void rp_key_manager_tab_init_keys(RpKeyManagerTab *tab)
 
 /** KeyStoreGTK signal handlers **/
 
-static const std::array<const char*, 5> is_valid_icon_name_tbl = {{
+static const array<const char*, 5> is_valid_icon_name_tbl = {{
 	nullptr,		// Empty
 	"dialog-question",	// Unknown
 	"dialog-error",		// NotAKey

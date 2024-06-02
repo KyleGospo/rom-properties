@@ -2,12 +2,15 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * Nintendo3DSSysTitles.cpp: Nintendo 3DS system title lookup.             *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "Nintendo3DSSysTitles.hpp"
+
+// C++ STL classes
+using std::array;
 
 namespace LibRomData { namespace Nintendo3DSSysTitles {
 
@@ -26,7 +29,7 @@ struct SysTitleGroup {
 }; */
 
 // Regions
-static const char regions[6][4] = {
+static constexpr char regions[6][4] = {
 	"JPN", "USA", "EUR",
 	"CHN", "KOR", "TWN",
 };
@@ -34,7 +37,7 @@ static const char regions[6][4] = {
 /**
  * System applications (tid hi == 0x00040010)
  */
-static const std::array<SysTitle, 19> sys_title_00040010 = {{
+static const array<SysTitle, 19> sys_title_00040010 = {{
 	/** Common titles **/
 	{{0x00020000, 0x00021000, 0x00022000, 0x00026000, 0x00027000, 0x00028000}, NOP_C_("Nintendo3DSSysTitles", "System Settings")},
 	{{0x00020100, 0x00021100, 0x00022100, 0x00026100, 0x00027100, 0x00028100}, NOP_C_("Nintendo3DSSysTitles", "Download Play")},
@@ -62,7 +65,7 @@ static const std::array<SysTitle, 19> sys_title_00040010 = {{
 /**
  * System applets (tid hi == 0x00040030)
  */
-static const std::array<SysTitle, 18> sys_title_00040030 = {{
+static const array<SysTitle, 18> sys_title_00040030 = {{
 	/** Common titles **/
 	{{0x00008202, 0x00008F02, 0x00009802, 0x0000A102, 0x0000A902, 0x0000B102}, NOP_C_("Nintendo3DSSysTitles", "HOME Menu")},
 	{{0x00008402, 0x00009002, 0x00009902, 0x0000A202, 0x0000AA02, 0x0000B202}, NOP_C_("Nintendo3DSSysTitles", "Camera")},
@@ -132,7 +135,7 @@ const char *lookup_sys_title(uint32_t tid_hi, uint32_t tid_lo, const char **pReg
 				if (pRegion) {
 					*pRegion = regions[region];
 				}
-				return dpgettext_expr(RP_I18N_DOMAIN, "Nintendo3DSSysTitles", titles->desc);
+				return pgettext_expr("Nintendo3DSSysTitles", titles->desc);
 			}
 		}
 	}

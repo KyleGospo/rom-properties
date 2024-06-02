@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * RomFields.cpp: ROM fields class.                                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -298,12 +298,12 @@ RomFields::~RomFields()
  */
 const char *RomFields::ageRatingAbbrev(AgeRatingsCountry country)
 {
-	static const char abbrevs[][8] = {
+	static constexpr char abbrevs[][8] = {
 		"CERO", "ESRB", "",        "USK",
 		"PEGI", "MEKU", "PEGI-PT", "BBFC",
-		"ACB",  "GRB",  "CGSRR",
+		"ACB",  "GRB",  "CGSRR",   "OFLC",
 	};
-	static_assert(ARRAY_SIZE_I(abbrevs) == (int)AgeRatingsCountry::Taiwan+1,
+	static_assert(ARRAY_SIZE_I(abbrevs) == (int)AgeRatingsCountry::MaxAllocated,
 		"Age Ratings abbrevations needs to be updated!");
 
 	assert((int)country >= 0 && (int)country < ARRAY_SIZE_I(abbrevs));
@@ -409,8 +409,10 @@ string RomFields::ageRatingDecode(AgeRatingsCountry country, uint16_t rating)
 						s_rating = "G";
 						break;
 					case 7:
+					case 8:		// Wii U
 						s_rating = "PG";
 						break;
+					case 13:	// Wii U
 					case 14:
 						s_rating = "M";
 						break;
@@ -425,6 +427,27 @@ string RomFields::ageRatingDecode(AgeRatingsCountry country, uint16_t rating)
 						break;
 				}
 				break;
+
+			case AgeRatingsCountry::NewZealand:
+				switch (rating & RomFields::AGEBF_MIN_AGE_MASK) {
+					case 0:
+						s_rating = "G";
+						break;
+					case 7:
+					case 8:		// Wii U
+						s_rating = "PG";
+						break;
+					case 13:	// Wii U
+					case 14:
+						s_rating = "M";
+						break;
+					case 15:	// Wii U: One setting for R13/R15/R16/R18
+						s_rating = "R";
+						break;
+					default:
+						// Unknown rating.
+						break;
+				}
 
 			default:
 				// No special handling for this country.
@@ -820,7 +843,7 @@ vector<string> *RomFields::strArrayToVector_i18n(const char *msgctxt, const char
 		// nullptr will be handled as empty strings.
 		const char *const str = *strArray;
 		if (str) {
-			pVec->emplace_back(dpgettext_expr(RP_I18N_DOMAIN, msgctxt, str));
+			pVec->emplace_back(pgettext_expr(msgctxt, str));
 		} else {
 			pVec->emplace_back();
 		}
@@ -976,7 +999,7 @@ int RomFields::addField_string_hexdump(const char *name, const uint8_t *buf, siz
 	char *pStr = str.get();
 
 	// Hexadecimal lookup table.
-	static const char hex_lookup[2][16] = {
+	static constexpr char hex_lookup[2][16] = {
 		// Uppercase
 		{'0','1','2','3','4','5','6','7',
 		 '8','9','A','B','C','D','E','F'},

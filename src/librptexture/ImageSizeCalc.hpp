@@ -2,13 +2,13 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * ImageSizeCalc.hpp: Image size calculation functions.                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #pragma once
 
-#include "bitstuff.h"
+#include "librpbyteswap/bitstuff.h"
 
 // C includes (C++ namespace)
 #include <cassert>
@@ -25,6 +25,7 @@ namespace LibRpTexture { namespace ImageSizeCalc {
 template<typename X, typename Y>
 static inline size_t T_calcImageSize(X width, Y height)
 {
+	// FIXME: MSVC 2015 doesn't like assert() in a constexpr function.
 	assert(width > 0);
 	assert(height > 0);
 	return static_cast<size_t>(width) * static_cast<size_t>(height);
@@ -41,6 +42,7 @@ static inline size_t T_calcImageSize(X width, Y height)
 template<typename X, typename Y, typename Z>
 static inline size_t T_calcImageSize(X width, Y height, Z pixelsize)
 {
+	// FIXME: MSVC 2015 doesn't like assert() in a constexpr function.
 	assert(width > 0);
 	assert(height > 0);
 	assert(pixelsize > 0);
@@ -105,6 +107,7 @@ unsigned int T_calcImageSizePVRTC_PoT(int width, int height);
  */
 static inline bool validateBlockSizeASTC(uint8_t block_x, uint8_t block_y)
 {
+	// FIXME: MSVC 2015 doesn't like assert() in a constexpr function.
 	assert(block_x >= 4);
 	assert(block_x <= 12);
 	assert(block_y >= 4);

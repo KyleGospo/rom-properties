@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * RpJpeg.cpp: JPEG image handler.                                         *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -16,12 +16,12 @@
 // libi18n
 #include "libi18n/i18n.h"
 
-// librpfile, librptexture
+// Other rom-properties libraries
 using namespace LibRpFile;
 using namespace LibRpTexture;
 
 #ifdef RPJPEG_HAS_SSSE3
-#  include "librpcpu/cpuflags_x86.h"
+#  include "librpcpuid/cpuflags_x86.h"
 #endif /* RPJPEG_HAS_SSSE3 */
 
 // C includes (C++ namespace)
@@ -225,7 +225,7 @@ rp_image_ptr RpJpeg::load(const IRpFilePtr &file)
 	// Defining MY_JCS_EXT_BGRA so it can be compiled with libjpeg and
 	// later used with libjpeg-turbo. Prefixed so it doesn't conflict
 	// with libjpeg-turbo's headers.
-	static const int MY_JCS_EXT_BGRA = 13;
+	static constexpr int MY_JCS_EXT_BGRA = 13;
 	bool try_ext_bgra = true;	// True if we should try JCS_EXT_BGRA first.
 	bool tried_ext_bgra = false;	// True if we tried JCS_EXT_BGRA.
 

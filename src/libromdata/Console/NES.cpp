@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * NES.cpp: Nintendo Entertainment System/Famicom ROM reader.              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2016-2022 by Egor.                                        *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -20,6 +20,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 namespace LibRomData {
@@ -120,10 +121,10 @@ public:
 	int get_iNES_mapper_number(void) const;
 
 	// Internal footer: PRG ROM sizes (as powers of two)
-	static const std::array<uint8_t, 6> footer_prg_rom_size_shift_lkup;
+	static const array<uint8_t, 6> footer_prg_rom_size_shift_lkup;
 
-	// Internal footer: CHR ROM/RAM sizes (as powers of two)
-	static const std::array<uint8_t, 6> footer_chr_rom_size_shift_lkup;
+	// Internal footer: CHR ROM sizes (as powers of two)
+	static const array<uint8_t, 6> footer_chr_rom_size_shift_lkup;
 
 	/**
 	 * Load the internal footer.
@@ -171,24 +172,24 @@ const RomDataInfo NESPrivate::romDataInfo = {
 };
 
 // Internal footer: PRG ROM sizes (as powers of two)
-const std::array<uint8_t, 6> NESPrivate::footer_prg_rom_size_shift_lkup = {
+const array<uint8_t, 6> NESPrivate::footer_prg_rom_size_shift_lkup = {{
 	16,	// 0 (64 KB)
 	14,	// 1 (16 KB)
 	15,	// 2 (32 KB)
 	17,	// 3 (128 KB)
 	18,	// 4 (256 KB)
 	19,	// 5 (512 KB)
-};
+}};
 
 // Internal footer: CHR ROM sizes (as powers of two)
-const std::array<uint8_t, 6> NESPrivate::footer_chr_rom_size_shift_lkup = {
+const array<uint8_t, 6> NESPrivate::footer_chr_rom_size_shift_lkup = {{
 	13,	// 0 (8 KB)
 	14,	// 1 (16 KB)
 	15,	// 2 (32 KB)
 	17,	// 3 (128 KB)	// FIXME: May be 64 KB.
 	18,	// 4 (256 KB)
 	19,	// 5 (512 KB)
-};
+}};
 
 NESPrivate::NESPrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -859,7 +860,7 @@ int NES::isRomSupported_static(const DetectInfo *info)
 
 	// Check for FDS.
 	// TODO: Check that the block code is 0x01?
-	static const uint8_t fds_magic[] = "*NINTENDO-HVC*";
+	static constexpr uint8_t fds_magic[] = "*NINTENDO-HVC*";
 
 	// Check for headered FDS.
 	const FDS_DiskHeader_fwNES *fwNESHeader =
@@ -1191,7 +1192,7 @@ int NES::loadFieldData(void)
 	}
 
 	// TV mode
-	static const std::array<const char*, 4> tv_mode_tbl = {{
+	static const array<const char*, 4> tv_mode_tbl = {{
 		"NTSC (RP2C02)",
 		"PAL (RP2C07)",
 		NOP_C_("NES|TVMode", "Dual (NTSC/PAL)"),
@@ -1199,7 +1200,7 @@ int NES::loadFieldData(void)
 	}};
 	if (tv_mode < tv_mode_tbl.size()) {
 		d->fields.addField_string(C_("NES", "TV Mode"),
-			dpgettext_expr(RP_I18N_DOMAIN, "NES|TVMode", tv_mode_tbl[tv_mode]));
+			pgettext_expr("NES|TVMode", tv_mode_tbl[tv_mode]));
 	}
 
 	// ROM features
@@ -1300,7 +1301,7 @@ int NES::loadFieldData(void)
 				{
 					// Check the Vs. PPU type.
 					// NOTE: Not translatable!
-					static const char vs_ppu_types[][12] = {
+					static constexpr char vs_ppu_types[][12] = {
 						"RP2C03B",     "RP2C03G",
 						"RP2C04-0001", "RP2C04-0002",
 						"RP2C04-0003", "RP2C04-0004",
@@ -1316,7 +1317,7 @@ int NES::loadFieldData(void)
 
 					// Check the Vs. hardware type.
 					// NOTE: Not translatable!
-					static const std::array<const char*, 7> vs_hw_types = {{
+					static const array<const char*, 7> vs_hw_types = {{
 						"Vs. Unisystem",
 						"Vs. Unisystem (RBI Baseball)",
 						"Vs. Unisystem (TKO Boxing)",
@@ -1335,9 +1336,9 @@ int NES::loadFieldData(void)
 				if ((d->romType & NESPrivate::ROM_FORMAT_MASK) == NESPrivate::ROM_FORMAT_NES2) {
 					if ((d->header.ines.mapper_hi & INES_F7_SYSTEM_MASK) == INES_F7_SYSTEM_EXTD) {
 						// NES 2.0 Extended Console Type
-						static const char *const ext_hw_types[] = {
+						static constexpr const char *const ext_hw_types[] = {
 							"NES/Famicom/Dendy",	// Not normally used.
-							"Nintendo Vs. System",	// Not normally used.
+							"Nintendo VS. System",	// Not normally used.
 							"PlayChoice-10",	// Not normally used.
 							"Famiclone with BCD support",
 							"V.R. Technology VT01 with monochrome palette",
@@ -1360,16 +1361,16 @@ int NES::loadFieldData(void)
 					misc_roms = d->header.ines.nes2.misc_roms & 3;
 
 					// Default expansion hardware.
-					static const char *const exp_hw_tbl[] = {
+					static constexpr const char *const exp_hw_tbl[] = {
 						// 0x00
 						NOP_C_("NES|Expansion", "Unspecified"),
 						NOP_C_("NES|Expansion", "NES/Famicom Controllers"),
 						NOP_C_("NES|Expansion", "NES Four Score / Satellite"),
 						NOP_C_("NES|Expansion", "Famicom Four Players Adapter"),
-						NOP_C_("NES|Expansion", "Vs. System"),
-						NOP_C_("NES|Expansion", "Vs. System (reversed inputs)"),
-						NOP_C_("NES|Expansion", "Vs. Pinball (Japan)"),
-						NOP_C_("NES|Expansion", "Vs. Zapper"),
+						NOP_C_("NES|Expansion", "VS. System"),
+						NOP_C_("NES|Expansion", "VS. System (reversed inputs)"),
+						NOP_C_("NES|Expansion", "VS. Pinball (Japan)"),
+						NOP_C_("NES|Expansion", "VS. Zapper"),
 						NOP_C_("NES|Expansion", "Zapper"),
 						NOP_C_("NES|Expansion", "Two Zappers"),
 						NOP_C_("NES|Expansion", "Bandai Hyper Shot"),
@@ -1418,7 +1419,7 @@ int NES::loadFieldData(void)
 
 					const unsigned int exp_hw = (d->header.ines.nes2.expansion & 0x3F);
 					if (exp_hw < ARRAY_SIZE(exp_hw_tbl)) {
-						s_exp_hw = dpgettext_expr(RP_I18N_DOMAIN, "NES|Expansion", exp_hw_tbl[exp_hw]);
+						s_exp_hw = pgettext_expr("NES|Expansion", exp_hw_tbl[exp_hw]);
 					}
 				}
 				break;
@@ -1544,7 +1545,7 @@ int NES::loadFieldData(void)
 			d->fields.addField_string(mirroring_title, s_mirroring_int);
 
 			// Board type (Mapper)
-			static const char footer_mapper_tbl[][8] = {
+			static constexpr char footer_mapper_tbl[][8] = {
 				"NROM", "CNROM", "UNROM", "GNROM", "MMCx"
 			};
 			const unsigned int footer_mapper = (footer.board_info & 0x7F);

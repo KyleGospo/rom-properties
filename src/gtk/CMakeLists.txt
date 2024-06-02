@@ -1,10 +1,4 @@
 # GTK+ UI frontends
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-gtk LANGUAGES C CXX)
 
 INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/src)
@@ -71,6 +65,11 @@ SET(${PROJECT_NAME}_GLib_SRCS
 	RpFile_gio.cpp
 	is-supported.cpp
 	ProxyForUrl.cpp
+	RpGtkCpp.cpp
+	sort_funcs_common.c
+
+	config/CacheCleaner.cpp
+	config/UpdateChecker.cpp
 	)
 SET(${PROJECT_NAME}_GLib_H
 	RomDataFormat.hpp
@@ -78,6 +77,11 @@ SET(${PROJECT_NAME}_GLib_H
 	is-supported.hpp
 	ProxyForUrl.hpp
 	glib-compat.h
+	RpGtkCpp.hpp
+	sort_funcs_common.h
+
+	config/CacheCleaner.hpp
+	config/UpdateChecker.hpp
 	)
 
 # Sources and headers
@@ -89,14 +93,14 @@ SET(${PROJECT_NAME}_SRCS
 	PIMGTYPE.cpp
 	rp-gtk-enums.c
 	MessageWidget.c
-	RpGtk.cpp
-	sort_funcs.c
+	RpGtk.c
 	gtk-compat.c
 	LanguageComboBox.cpp
 	OptionsMenuButton.cpp
 	AchSpriteSheet.cpp
 	ISpriteSheet.cpp
 	FlagSpriteSheet.cpp
+
 	config/stub-export.c
 	config/ConfigDialog.cpp
 	config/RpConfigTab.c
@@ -104,10 +108,9 @@ SET(${PROJECT_NAME}_SRCS
 	config/SystemsTab.cpp
 	config/OptionsTab.cpp
 	config/CacheTab.cpp
-	config/CacheCleaner.cpp
 	config/AchievementsTab.cpp
 	config/AboutTab.cpp
-	config/UpdateChecker.cpp
+
 	xattr/Ext2AttrView.c
 	xattr/XfsAttrView.c
 	xattr/DosAttrView.c
@@ -121,40 +124,56 @@ SET(${PROJECT_NAME}_H
 	PIMGTYPE.hpp
 	rp-gtk-enums.h
 	MessageWidget.h
-	RpGtk.hpp
-	sort_funcs.h
+	RpGtk.h
 	gtk-compat.h
 	LanguageComboBox.hpp
+	LanguageComboBox_p.hpp
 	OptionsMenuButton.hpp
 	check-uid.h
 	AchSpriteSheet.hpp
 	ISpriteSheet.hpp
 	FlagSpriteSheet.hpp
 	gtk-i18n.h
+
 	config/ConfigDialog.hpp
 	config/RpConfigTab.h
 	config/ImageTypesTab.hpp
 	config/SystemsTab.hpp
 	config/OptionsTab.hpp
 	config/CacheTab.hpp
-	config/CacheCleaner.hpp
 	config/AchievementsTab.hpp
 	config/AboutTab.hpp
-	config/UpdateChecker.hpp
+
 	xattr/Ext2AttrView.h
 	xattr/XfsAttrView.h
 	xattr/DosAttrView.h
 	xattr/XAttrView.hpp
 	)
 
+# Sources and headers (GTK2/GTK3 only)
+SET(${PROJECT_NAME}_GTK3MAX_SRCS
+	LanguageComboBox_gtk3.cpp
+	RomDataView_gtk3.cpp
+	gtk3/sort_funcs.c
+	xattr/XAttrView_gtk3.cpp
+	)
+SET(${PROJECT_NAME}_GTK3MAX_H
+	gtk3/sort_funcs.h
+	)
+
 # Sources and headers (GTK4+ only)
 SET(${PROJECT_NAME}_GTK4MIN_SRCS
+	LanguageComboBox_gtk4.cpp
 	LanguageComboBoxItem.c
+	ListDataItem.c
 	config/AchievementItem.c
+	xattr/XAttrViewItem.c
 	)
 SET(${PROJECT_NAME}_GTK4MIN_H
 	LanguageComboBoxItem.h
+	ListDataItem.h
 	config/AchievementItem.h
+	xattr/XAttrViewItem.h
 	)
 
 IF(ENABLE_DECRYPTION)
@@ -286,6 +305,22 @@ IF(BUILD_GTK4)
 	ENDIF(GTK4_FOUND)
 ENDIF(BUILD_GTK4)
 
+# rom-properties-glib: Require glib-2.34 to match XFCE and GTK3.
+# If the GTK4 UI frontend is enabled, require glib-2.66 instead.
+# NOTE: This must be located *here* because we need to determine if
+# GTK4 is available first.
+IF(TARGET rom-properties-glib)
+	IF(BUILD_GTK4)
+		TARGET_COMPILE_DEFINITIONS(rom-properties-glib
+			PRIVATE -DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_66 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_66
+			)
+	ELSE(BUILD_GTK4)
+		TARGET_COMPILE_DEFINITIONS(rom-properties-glib
+			PRIVATE -DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_34 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_34
+			)
+	ENDIF(BUILD_GTK4)
+ENDIF(TARGET rom-properties-glib)
+
 IF(GTK3_FOUND OR GTK4_FOUND)
 	# Process the .thumbnailer file.
 	INCLUDE(DirInstallPaths)
@@ -298,11 +333,15 @@ IF(GTK3_FOUND OR GTK4_FOUND)
 		)
 ENDIF(GTK3_FOUND OR GTK4_FOUND)
 
-# Build the D-Bus thumbnailer.
-# Required for XFCE.
 IF(BUILD_XFCE OR BUILD_GTK3 OR BUILD_GTK4)
+	# Build the D-Bus thumbnailer.
+	# Required for XFCE.
 	SET(BUILD_THUMBNAILER_DBUS ON CACHE INTERNAL "Build the D-Bus thumbnailer." FORCE)
 	ADD_SUBDIRECTORY(thumbnailer-dbus)
+
+	# Build the Tracker extractor module.
+	SET(BUILD_TRACKER_EXTRACTOR ON CACHE INTERNAL "Build the Tracker extractor module." FORCE)
+	ADD_SUBDIRECTORY(tracker)
 ENDIF(BUILD_XFCE OR BUILD_GTK3 OR BUILD_GTK4)
 
 IF(BUILD_TESTING)

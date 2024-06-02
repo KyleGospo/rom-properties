@@ -2,18 +2,12 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * IResourceReader.cpp: Interface for Windows resource readers.            *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "IResourceReader.hpp"
-
-// librpfile
-using LibRpFile::IRpFile;
-
-// C++ STL classes
-using std::shared_ptr;
 
 namespace LibRomData {
 
@@ -31,6 +25,19 @@ int IResourceReader::alignFileDWORD(IRpFile *file)
 		ret = file->seek(pos);
 	}
 	return ret;
+}
+
+/**
+ * IPartition open() function.
+ * We don't want to use this one.
+ * @param filename Filename.
+ * @return IRpFile*, or nullptr on error.
+ */
+LibRpFile::IRpFilePtr IResourceReader::open(const char *filename)
+{
+	RP_UNUSED(filename);
+	assert(!"IPartition::open(const char*) should not be used for IResourceReader!");
+	return {};
 }
 
 }

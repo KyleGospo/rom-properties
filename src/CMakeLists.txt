@@ -104,6 +104,9 @@ ELSEIF(CMAKE_C_FLAGS_${BUILD_TYPE_UCASE} MATCHES "-fsanitize" OR CMAKE_CXX_FLAGS
 	# Don't enable libromdata.so when using a sanitizer.
 	# The sanitizer requires typeinfo, which isn't exported for some classes.
 	MESSAGE(WARNING "Disabling libromdata.so due to -fsanitize")
+ELSEIF(EMSCRIPTEN)
+	# Emscripten doesn't support shared libraries.
+	MESSAGE(WARNING "Disabling libromdata.so due to Emscripten")
 ELSEIF(WIN32 OR (UNIX AND NOT APPLE))
 	SET(RP_LIBROMDATA_IS_DLL 1)
 	SET(RP_LIBROMDATA_IS_DLL 1 PARENT_SCOPE)
@@ -129,7 +132,8 @@ ADD_SUBDIRECTORY(libi18n)
 ADD_SUBDIRECTORY(librpthreads)
 ADD_SUBDIRECTORY(libcachecommon)
 ADD_SUBDIRECTORY(rp-download)
-ADD_SUBDIRECTORY(librpcpu)
+ADD_SUBDIRECTORY(librpcpuid)
+ADD_SUBDIRECTORY(librpbyteswap)
 ADD_SUBDIRECTORY(librpfile)
 ADD_SUBDIRECTORY(librptext)
 ADD_SUBDIRECTORY(librpbase)

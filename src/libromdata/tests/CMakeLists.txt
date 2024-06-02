@@ -1,10 +1,4 @@
 # libromdata test suite
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(libromdata-tests LANGUAGES C CXX)
 
 # Current binary directory for config.libromdata-tests.h
@@ -36,8 +30,9 @@ ENDIF(ENABLE_DECRYPTION)
 # GcnFstPrint (Not a test, but a useful program.)
 ADD_EXECUTABLE(GcnFstPrint
 	disc/FstPrint.cpp
-	disc/FstPrint.hpp
 	disc/GcnFstPrint.cpp
+
+	disc/FstPrint.hpp
 	)
 TARGET_LINK_LIBRARIES(GcnFstPrint PRIVATE rpsecure romdata)
 IF(ENABLE_NLS)
@@ -55,8 +50,9 @@ SET_WINDOWS_ENTRYPOINT(GcnFstPrint wmain OFF)
 # in FstPrint.cpp. gtest_init.cpp will set LC_ALL=C.
 ADD_EXECUTABLE(GcnFstTest
 	disc/FstPrint.cpp
-	disc/FstPrint.hpp
 	disc/GcnFstTest.cpp
+
+	disc/FstPrint.hpp
 	)
 TARGET_LINK_LIBRARIES(GcnFstTest PRIVATE rptest romdata)
 IF(ENABLE_NLS)
@@ -74,6 +70,24 @@ IF(NOT WIN32 AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY STREQUAL "")
 		VERBATIM
 		)
 ENDIF(NOT WIN32 AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY STREQUAL "")
+
+# WiiUFstPrint (Not a test, but a useful program.)
+ADD_EXECUTABLE(WiiUFstPrint
+	disc/FstPrint.cpp
+	disc/WiiUFstPrint.cpp
+
+	disc/FstPrint.hpp
+	)
+TARGET_LINK_LIBRARIES(WiiUFstPrint PRIVATE rpsecure romdata)
+IF(ENABLE_NLS)
+	TARGET_LINK_LIBRARIES(WiiUFstPrint PRIVATE i18n)
+ENDIF(ENABLE_NLS)
+IF(WIN32)
+	TARGET_LINK_LIBRARIES(WiiUFstPrint PRIVATE wmain)
+ENDIF(WIN32)
+DO_SPLIT_DEBUG(WiiUFstPrint)
+SET_WINDOWS_SUBSYSTEM(WiiUFstPrint CONSOLE)
+SET_WINDOWS_ENTRYPOINT(WiiUFstPrint wmain OFF)
 
 # ImageDecoder test
 ADD_EXECUTABLE(ImageDecoderTest img/ImageDecoderTest.cpp)
@@ -112,6 +126,7 @@ ADD_EXECUTABLE(SuperMagicDriveTest
 	utils/SuperMagicDriveTest_data.hpp
 	)
 TARGET_LINK_LIBRARIES(SuperMagicDriveTest PRIVATE rptest romdata)
+TARGET_LINK_LIBRARIES(SuperMagicDriveTest PRIVATE rpcpuid)	# for CPU dispatch
 TARGET_LINK_LIBRARIES(SuperMagicDriveTest PRIVATE ${ZLIB_LIBRARIES})
 TARGET_INCLUDE_DIRECTORIES(SuperMagicDriveTest PRIVATE ${ZLIB_INCLUDE_DIRS})
 TARGET_COMPILE_DEFINITIONS(SuperMagicDriveTest PRIVATE ${ZLIB_DEFINITIONS})

@@ -1,11 +1,5 @@
 # GTK+ 2.x UI frontend for:
 # - Thunar 1.6 (XFCE)
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-xfce LANGUAGES C CXX)
 
 # Disable glib deprecation warnings.
@@ -46,9 +40,13 @@ ENDIF()
 # Ensure we don't use functions not available in GLib 2.34.
 ADD_DEFINITIONS(-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_34 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_34)
 
-# Sources and headers. (GTK+ common)
+# Sources and headers (GTK+ common)
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_SRCS "${rom-properties-gtk_SRCS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_H    "${rom-properties-gtk_H}")
+
+# Sources and headers (GTK3 maximum)
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK3MAX_SRCS "${rom-properties-gtk_GTK3MAX_SRCS}")
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK3MAX_H    "${rom-properties-gtk_GTK3MAX_H}")
 
 # GdkImageConv (GTK+ 2.x)
 SET(${PROJECT_NAME}_SRCS ${${PROJECT_NAME}_SRCS} GdkImageConv.cpp)
@@ -86,22 +84,25 @@ IF(CPU_i386 OR CPU_amd64)
 ENDIF()
 UNSET(arch)
 
-# Sources and headers. (XFCE-specific)
+# Sources and headers (XFCE-specific)
 SET(${PROJECT_NAME}_SRCS
-	${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_SRCS}
-	${${PROJECT_NAME}-notify_SRCS} ${${PROJECT_NAME}-notify_H}
+	${${PROJECT_NAME}_SRCS}
+	${${PROJECT_NAME}_GTK3MAX_SRCS}
+	${${PROJECT_NAME}-notify_SRCS}
 	${${PROJECT_NAME}_IFUNC_SRCS}
 	${${PROJECT_NAME}_SSSE3_SRCS}
 	../gtk3/ThunarPlugin.cpp
-	../gtk3/ThunarMenuProvider.cpp
+	../gtk3/ThunarMenuProvider.c
 	../gtk3/ThunarPropertyPageProvider.cpp
 	../gtk3/MenuProviderCommon.c
 	)
 SET(${PROJECT_NAME}_H
-	${${PROJECT_NAME}_H} ${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_GTK3MAX_H}
+	${${PROJECT_NAME}-notify_H}
 	../plugin-helper.h
 	../gtk3/ThunarPlugin.hpp
-	../gtk3/ThunarMenuProvider.hpp
+	../gtk3/ThunarMenuProvider.h
 	../gtk3/ThunarPropertyPageProvider.hpp
 	../gtk3/thunarx-mini.h
 	../gtk3/MenuProviderCommon.h
@@ -137,6 +138,7 @@ IF(BUILD_XFCE)
 
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rom-properties-glib)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE romdata)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpcpuid)	# for CPU dispatch
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE GdkPixbuf2::gdkpixbuf2)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC GTK2::gtk GTK2::gdk GTK2::pango)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC GLib2::gio-unix GLib2::gio GLib2::gobject GLib2::glib)

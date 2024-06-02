@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * GodotSTEX.cpp: Godot STEX image reader.                                 *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -34,6 +34,7 @@ using namespace LibRpText;
 using LibRpTexture::ImageSizeCalc::OpCode;
 
 // C++ STL classes
+using std::array;
 using std::shared_ptr;
 using std::string;
 using std::unique_ptr;
@@ -90,12 +91,12 @@ class GodotSTEXPrivate final : public FileFormatPrivate
 
 	public:
 		// Image format tables
-		static const std::array<const char*, 0x26> img_format_tbl_v3;
-		static const std::array<const char*, 0x27> img_format_tbl_v4;
+		static const array<const char*, 0x26> img_format_tbl_v3;
+		static const array<const char*, 0x27> img_format_tbl_v4;
 
 		// ImageSizeCalc opcode tables
-		static const std::array<ImageSizeCalc::OpCode, 0x26> op_tbl_v3;
-		static const std::array<ImageSizeCalc::OpCode, 0x27> op_tbl_v4;
+		static const array<ImageSizeCalc::OpCode, 0x26> op_tbl_v3;
+		static const array<ImageSizeCalc::OpCode, 0x27> op_tbl_v4;
 
 	public:
 		/**
@@ -136,7 +137,7 @@ const TextureInfo GodotSTEXPrivate::textureInfo = {
 };
 
 // Image format table (STEX v3)
-const std::array<const char*, 0x26> GodotSTEXPrivate::img_format_tbl_v3 = {
+const array<const char*, 0x26> GodotSTEXPrivate::img_format_tbl_v3 = {{
 	// 0x00
 	"L8", "LA8", "R8", "RG8",
 	"RGB8", "RGBA8", "RGBA4444", "RGB565",
@@ -162,10 +163,10 @@ const std::array<const char*, 0x26> GodotSTEXPrivate::img_format_tbl_v3 = {
 	// may conflict, so check the version number once
 	// Godot 4.0 is out.
 	"ASTC_8x8",
-};
+}};
 
 // Image format table (STEX v4)
-const std::array<const char*, 0x27> GodotSTEXPrivate::img_format_tbl_v4 = {
+const array<const char*, 0x27> GodotSTEXPrivate::img_format_tbl_v4 = {{
 	// 0x00
 	"L8", "LA8", "R8", "RG8",
 	"RGB8", "RGBA8", "RGBA4444", "RGB565",
@@ -185,10 +186,10 @@ const std::array<const char*, 0x27> GodotSTEXPrivate::img_format_tbl_v4 = {
 	// 0x20
 	"ETC2_RGB8A1", "ETC2_RA_AS_RG", "DXT5_RA_AS_RG", "ASTC_4x4",
 	"ASTC_4x4_HDR", "ASTC_8x8", "ASTC_8x8_HDR",
-};
+}};
 
 // ImageSizeCalc opcode table (STEX v3)
-const std::array<ImageSizeCalc::OpCode, 0x26> GodotSTEXPrivate::op_tbl_v3 = {
+const array<ImageSizeCalc::OpCode, 0x26> GodotSTEXPrivate::op_tbl_v3 = {{
 	// 0x00
 	OpCode::None,		// STEX_FORMAT_L8
 	OpCode::Multiply2,	// STEX_FORMAT_LA8
@@ -238,10 +239,10 @@ const std::array<ImageSizeCalc::OpCode, 0x26> GodotSTEXPrivate::op_tbl_v3 = {
 
 	// Proprietary format used in Sonic Colors Ultimate.
 	OpCode::Align8Divide4,	// STEX_FORMAT_SCU_ASTC_8x8	// 8x8 == 2bpp
-};
+}};
 
 // ImageSizeCalc opcode table (STEX v3)
-const std::array<ImageSizeCalc::OpCode, 0x27> GodotSTEXPrivate::op_tbl_v4 = {
+const array<ImageSizeCalc::OpCode, 0x27> GodotSTEXPrivate::op_tbl_v4 = {{
 	// 0x00
 	OpCode::None,		// STEX_FORMAT_L8
 	OpCode::Multiply2,	// STEX_FORMAT_LA8
@@ -290,7 +291,7 @@ const std::array<ImageSizeCalc::OpCode, 0x27> GodotSTEXPrivate::op_tbl_v4 = {
 	OpCode::None,		// STEX4_FORMAT_ASTC_4x4_HDR	// 4x4 == 8bpp
 	OpCode::Align8Divide4,	// STEX4_FORMAT_ASTC_8x8	// 8x8 == 2bpp
 	OpCode::Align8Divide4,	// STEX4_FORMAT_ASTC_8x8_HDR	// 8x8 == 2bpp
-};
+}};
 
 GodotSTEXPrivate::GodotSTEXPrivate(GodotSTEX *q, const IRpFilePtr &file)
 	: super(q, file, &textureInfo)
@@ -522,7 +523,7 @@ rp_image_const_ptr GodotSTEXPrivate::loadImage(int mip)
 	if (!mipmaps.empty() && mipmaps[mip] != nullptr) {
 		// Image has already been loaded.
 		return mipmaps[mip];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the image.
 		return nullptr;
 	}
@@ -1184,15 +1185,16 @@ int GodotSTEX::getFields(RomFields *fields) const
 		}
 		case 4: {
 			// Data Format (Godot 4 only)
-			static const char *const data_format_tbl[] = {
+			static const array<const char*, 4> data_format_tbl = {{
 				NOP_C_("GodotSTEX|DataFormat", "Image"),
-				"PNG", "WebP",	// Not translatable!
+				"PNG",	// Not translatable!
+				"WebP",	// Not translatable!
 				NOP_C_("GodotSTEX|DataFormat", "Basis Universal"),
-			};
+			}};
 			const char *const s_title = C_("GodotSTEX", "Data Format");
-			if (d->stexHeader.v4.data_format < ARRAY_SIZE(data_format_tbl)) {
+			if (d->stexHeader.v4.data_format < data_format_tbl.size()) {
 				fields->addField_string(s_title,
-					dpgettext_expr(RP_I18N_DOMAIN, "GodotSTEX|DataFormat",
+					pgettext_expr("GodotSTEX|DataFormat",
 						data_format_tbl[d->stexHeader.v4.data_format]));
 			} else {
 				fields->addField_string(s_title,

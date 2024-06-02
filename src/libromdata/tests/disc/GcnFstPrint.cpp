@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata/tests)                 *
  * GcnFstPrint.cpp: GameCube/Wii FST printer.                              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -14,19 +14,21 @@ using LibRomData::GcnFst;
 // i18n
 #include "libi18n/i18n.h"
 
-// C includes.
+// C includes
 #include <stdlib.h>
 
-// C includes. (C++ namespace)
+// C includes (C++ namespace)
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 
-// C++ includes.
+// C++ includes
+#include <array>
 #include <locale>
 #include <memory>
 #include <sstream>
 #include <string>
+using std::array;
 using std::locale;
 using std::ostream;
 using std::ostringstream;
@@ -64,9 +66,10 @@ int RP_C_API main(int argc, char *argv[])
 	rp_i18n_init();
 
 	if (argc < 2 || argc > 3) {
-		printf(C_("GcnFstPrint", "Syntax: %s fst.bin [offsetShift]"), argv[0]);
-		putchar('\n');
-		puts(C_("GcnFstPrint", "offsetShift should be 0 for GameCube, 2 for Wii. (default is 0)"));
+		fprintf(stderr, C_("GcnFstPrint", "Syntax: %s fst.bin [offsetShift]"), argv[0]);
+		fputc('\n', stderr);
+		fputs(C_("GcnFstPrint", "offsetShift should be 0 for GameCube, 2 for Wii. (default is 0)"), stderr);
+		fputc('\n', stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -76,9 +79,10 @@ int RP_C_API main(int argc, char *argv[])
 		char *endptr = nullptr;
 		long ltmp = strtol(argv[2], &endptr, 10);
 		if (*endptr != '\0' || (ltmp != 0 && ltmp != 2)) {
-			printf(C_("GcnFstPrint", "Invalid offset shift '%s' specified."), argv[2]);
-			putchar('\n');
-			puts(C_("GcnFstPrint", "offsetShift should be 0 for GameCube, 2 for Wii. (default is 0)"));
+			fprintf(stderr, C_("GcnFstPrint", "Invalid offset shift '%s' specified."), argv[2]);
+			fputc('\n', stderr);
+			fputs(C_("GcnFstPrint", "offsetShift should be 0 for GameCube, 2 for Wii. (default is 0)"), stderr);
+			fputc('\n', stderr);
 			return EXIT_FAILURE;
 		}
 		offsetShift = static_cast<uint8_t>(ltmp);
@@ -88,8 +92,8 @@ int RP_C_API main(int argc, char *argv[])
 	FILE *f = fopen(argv[1], "rb");
 	if (!f) {
 		// tr: %1$s == filename, %2$s == error message
-		printf_p(C_("GcnFstPrint", "Error opening '%1$s': '%2$s'"), argv[1], strerror(errno));
-		putchar('\n');
+		fprintf_p(stderr, C_("GcnFstPrint", "Error opening '%1$s': '%2$s'"), argv[1], strerror(errno));
+		fputc('\n', stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -97,7 +101,8 @@ int RP_C_API main(int argc, char *argv[])
 	fseeko(f, 0, SEEK_END);
 	const off64_t fileSize_o = ftello(f);
 	if (fileSize_o > (16*1024*1024)) {
-		puts(C_("GcnFstPrint", "ERROR: FST is too big. (Maximum of 16 MB.)"));
+		fputs(C_("GcnFstPrint", "ERROR: FST is too big. (Maximum of 16 MB.)"), stderr);
+		fputc('\n', stderr);
 		fclose(f);
 		return EXIT_FAILURE;
 	}
@@ -110,9 +115,9 @@ int RP_C_API main(int argc, char *argv[])
 	fclose(f);
 	if (rd_size != fileSize) {
 		// tr: %1$u == number of bytes read, %2$u == number of bytes expected to read
-		printf_p(C_("GcnFstPrint", "ERROR: Read %1$u bytes, expected %2$u bytes."),
+		fprintf_p(stderr, C_("GcnFstPrint", "ERROR: Read %1$u bytes, expected %2$u bytes."),
 			(unsigned int)rd_size, (unsigned int)fileSize);
-		putchar('\n');
+		fputc('\n', stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -120,9 +125,9 @@ int RP_C_API main(int argc, char *argv[])
 	// These FSTs have an extra header at the top, indicating what
 	// disc the FST belongs to.
 	unsigned int fst_start_offset = 0;
-	static const uint8_t root_dir_data[] = {1,0,0,0,0,0,0,0,0,0};
+	static constexpr array<uint8_t, 10> root_dir_data = {{1,0,0,0,0,0,0,0,0,0}};
 	if (fileSize >= 0x60) {
-		if (!memcmp(&fstData[0x50], root_dir_data, sizeof(root_dir_data))) {
+		if (!memcmp(&fstData[0x50], root_dir_data.data(), root_dir_data.size())) {
 			// Found an NKit FST.
 			fst_start_offset = 0x50;
 		}
@@ -134,7 +139,8 @@ int RP_C_API main(int argc, char *argv[])
 	unique_ptr<IFst> fst(new GcnFst(&fstData[fst_start_offset],
 		static_cast<uint32_t>(fileSize - fst_start_offset), offsetShift));
 	if (!fst->isOpen()) {
-		puts(C_("GcnFstPrint", "*** ERROR: Could not open a GcnFst."));
+		fprintf(stderr, C_("GcnFstPrint", "*** ERROR: Could not parse '%s' as GcnFst."), argv[1]);
+		fputc('\n', stderr);
 		return EXIT_FAILURE;
 	}
 
@@ -159,8 +165,9 @@ int RP_C_API main(int argc, char *argv[])
 #endif
 
 	if (fst->hasErrors()) {
-		putchar('\n');
-		puts(C_("GcnFstPrint", "*** WARNING: FST has errors and may be unusable."));
+		fputc('\n', stderr);
+		fputs(C_("GcnFstPrint", "*** WARNING: FST has errors and may be unusable."), stderr);
+		fputc('\n', stderr);
 	}
 
 	// Cleanup.

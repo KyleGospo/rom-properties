@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata/tests)                 *
  * ImageDecoderTest.cpp: ImageDecoder class test.                          *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -62,12 +62,13 @@ using namespace LibRpTexture;
 #include <cstring>
 
 // C++ includes
+#include <array>
 #include <functional>
 #include <memory>
 #include <string>
+using std::array;
 using std::shared_ptr;
 using std::string;
-using std::unique_ptr;
 
 // Uninitialized vector class
 #include "uvector.h"
@@ -132,8 +133,8 @@ struct ImageDecoderTest_mode
 };
 
 // Maximum file size for images.
-static const size_t MAX_DDS_IMAGE_FILESIZE = 12*1024*1024;
-static const size_t MAX_PNG_IMAGE_FILESIZE =  2*1024*1024;
+static constexpr size_t MAX_DDS_IMAGE_FILESIZE = 12U*1024U*1024U;
+static constexpr size_t MAX_PNG_IMAGE_FILESIZE =  2U*1024U*1024U;
 
 class ImageDecoderTest : public ::testing::TestWithParam<ImageDecoderTest_mode>
 {
@@ -165,8 +166,8 @@ class ImageDecoderTest : public ::testing::TestWithParam<ImageDecoderTest_mode>
 			const rp_image *pImgActual);
 
 		// Number of iterations for benchmarks.
-		static const unsigned int BENCHMARK_ITERATIONS = 1000;
-		static const unsigned int BENCHMARK_ITERATIONS_BC7 = 100;
+		static constexpr unsigned int BENCHMARK_ITERATIONS = 1000;
+		static constexpr unsigned int BENCHMARK_ITERATIONS_BC7 = 100;
 
 	public:
 		// Image buffers.
@@ -380,12 +381,12 @@ void ImageDecoderTest::Compare_RpImage(
 	const uint32_t *pBitsActual   = static_cast<const uint32_t*>(pImgActual->bits());
 	const int stride_diff_exp = (pImgExpected->stride() - pImgExpected->row_bytes()) / sizeof(uint32_t);
 	const int stride_diff_act = (pImgActual->stride() - pImgActual->row_bytes()) / sizeof(uint32_t);
-	const unsigned int width  = static_cast<unsigned int>(pImgExpected->width());
-	const unsigned int height = static_cast<unsigned int>(pImgExpected->height());
-	for (unsigned int y = 0; y < height; y++) {
-		for (unsigned int x = 0; x < width; x++, pBitsExpected++, pBitsActual++) {
+	const int width  = pImgExpected->width();
+	const int height = pImgExpected->height();
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++, pBitsExpected++, pBitsActual++) {
 			if (*pBitsExpected != *pBitsActual) {
-				printf("ERR: (%u,%u): expected %08X, got %08X\n",
+				printf("ERR: (%d,%d): expected %08X, got %08X\n",
 					x, y, *pBitsExpected, *pBitsActual);
 			}
 			ASSERT_EQ(*pBitsExpected, *pBitsActual) <<
@@ -538,8 +539,8 @@ void ImageDecoderTest::decodeBenchmark_internal(void)
 		// Sony PlayStation save file
 		// NOTE: Increased iterations due to smaller files.
 		max_iterations *= 10;
-	} else if (mode.dds_gz_filename.size() >= 7U &&
-		   !mode.dds_gz_filename.compare(mode.dds_gz_filename.size()-7, 7, ".nds.gz")) {
+	} else if (mode.dds_gz_filename.size() >= 11U &&
+		   !mode.dds_gz_filename.compare(mode.dds_gz_filename.size()-11, 11, ".nds.bnr.gz")) {
 		// Nintendo DS ROM image
 		// NOTE: Increased iterations due to smaller files.
 		max_iterations *= 10;
@@ -602,7 +603,7 @@ string ImageDecoderTest::test_case_suffix_generator(const ::testing::TestParamIn
 	// Append the image type to allow checking multiple types
 	// of images in the same file.
 	if (likely(info.param.mipmapLevel < 0)) {
-		static const char s_imgType[][8] = {
+		static constexpr char s_imgType[][8] = {
 			"_Icon", "_Banner", "_Media", "_Image"
 		};
 		static_assert(ARRAY_SIZE(s_imgType) == RomData::IMG_INT_MAX - RomData::IMG_INT_MIN + 1,
@@ -1452,8 +1453,8 @@ INSTANTIATE_TEST_SUITE_P(PSV, ImageDecoderTest,
 // TODO: Use something like GcnFstTest that uses an array of filenames
 // to generate tests at runtime instead of compile-time?
 #define NDS_ICON_TEST(file) ImageDecoderTest_mode( \
-			"NDS/" file ".header-icon.nds.gz", \
-			"NDS/" file ".header-icon.png", RomData::IMG_INT_ICON)
+			"NDS/" file ".nds.bnr.gz", \
+			"NDS/" file ".nds.bnr.png", RomData::IMG_INT_ICON)
 
 INSTANTIATE_TEST_SUITE_P(NDS, ImageDecoderTest,
 	::testing::Values(
@@ -1480,6 +1481,7 @@ INSTANTIATE_TEST_SUITE_P(NDS, ImageDecoderTest,
 		NDS_ICON_TEST("CS3E8P"),
 		NDS_ICON_TEST("DMFEA4"),
 		NDS_ICON_TEST("DSYESZ"),
+		NDS_ICON_TEST("KQ9E01"),	// TODO: Animated icon test?
 		NDS_ICON_TEST("NTRJ01.Tetris-THQ"),
 		NDS_ICON_TEST("VSOE8P"),
 		NDS_ICON_TEST("YDLE20"),
@@ -2069,7 +2071,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 
 	// Check for the ImageDecoder_data directory and chdir() into it.
 #ifdef _WIN32
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR*, 11> subdirs = {{
 		_T("ImageDecoder_data"),
 		_T("bin\\ImageDecoder_data"),
 		_T("src\\libromdata\\tests\\img\\ImageDecoder_data"),
@@ -2081,9 +2083,9 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("..\\..\\..\\bin\\ImageDecoder_data"),
 		_T("..\\..\\..\\bin\\Debug\\ImageDecoder_data"),
 		_T("..\\..\\..\\bin\\Release\\ImageDecoder_data"),
-	};
+	}};
 #else /* !_WIN32 */
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR*, 10> subdirs = {{
 		_T("ImageDecoder_data"),
 		_T("bin/ImageDecoder_data"),
 		_T("src/libromdata/tests/img/ImageDecoder_data"),
@@ -2094,7 +2096,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("../../../../../src/libromdata/tests/img/ImageDecoder_data"),
 		_T("../../../../../../src/libromdata/tests/img/ImageDecoder_data"),
 		_T("../../../bin/ImageDecoder_data"),
-	};
+	}};
 #endif /* _WIN32 */
 
 	bool is_found = false;

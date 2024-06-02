@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * RomDataView.cpp: RomData viewer widget. (ROM operations)                *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -10,7 +10,7 @@
 
 #include "RomDataView.hpp"
 #include "RomDataView_p.hpp"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
 #include "gtk-i18n.h"
 
 // Custom widgets
@@ -268,12 +268,15 @@ rp_rom_data_view_getSaveFileDialog_callback(GFile *file, save_data_t *save_data)
 	}
 
 	// TODO: URIs?
-	gchar *const filename = g_file_get_path(file);
-	g_object_unref(file);
-	if (!filename && save_data->isFileRequired) {
-		// No filename, but a file is required...
-		g_free(save_data);
-		return;
+	gchar *filename = nullptr;
+	if (file) {
+		filename = g_file_get_path(file);
+		g_object_unref(file);
+		if (!filename && save_data->isFileRequired) {
+			// No filename, but a file is required...
+			g_free(save_data);
+			return;
+		}
 	}
 
 	// for convenience purposes
@@ -368,6 +371,7 @@ rp_rom_data_view_getSaveFileDialog_callback(GFile *file, save_data_t *save_data)
 		// Show the MessageWidget.
 		if (!page->messageWidget) {
 			page->messageWidget = rp_message_widget_new();
+			rp_message_widget_set_transition_type(RP_MESSAGE_WIDGET(page->messageWidget), GTK_REVEALER_TRANSITION_TYPE_SLIDE_UP);
 #if GTK_CHECK_VERSION(4,0,0)
 			gtk_box_append(GTK_BOX(page), page->messageWidget);
 #else /* !GTK_CHECK_VERSION(4,0,0) */
@@ -378,9 +382,7 @@ rp_rom_data_view_getSaveFileDialog_callback(GFile *file, save_data_t *save_data)
 		RpMessageWidget *const messageWidget = RP_MESSAGE_WIDGET(page->messageWidget);
 		rp_message_widget_set_message_type(messageWidget, messageType);
 		rp_message_widget_set_text(messageWidget, params.msg.c_str());
-#if !GTK_CHECK_VERSION(4,0,0)
-		gtk_widget_show(page->messageWidget);
-#endif /* !GTK_CHECK_VERSION(4,0,0) */
+		rp_message_widget_set_reveal_child(messageWidget, true);
 	}
 }
 

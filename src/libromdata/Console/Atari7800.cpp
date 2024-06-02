@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * Atari7800.cpp: Atari 7800 ROM reader.                                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -16,6 +16,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 namespace LibRomData {
@@ -162,7 +163,7 @@ const char *Atari7800::systemName(unsigned int type) const
 	// Atari 7800 has the same name worldwide, so we can
 	// ignore the region selection.
 	static_assert(SYSNAME_TYPE_MASK == 3,
-		"N64::systemName() array index optimization needs to be updated.");
+		"Atari7800::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	static const char *const sysNames[4] = {
@@ -220,7 +221,7 @@ int Atari7800::loadFieldData(void)
 	}
 
 	// Controllers
-	static const std::array<const char*, 12> controller_tbl = {{
+	static const array<const char*, 12> controller_tbl = {{
 		// 0
 		NOP_C_("Atari7800|ControllerType", "None"),
 		NOP_C_("Atari7800|ControllerType", "Joystick (7800)"),
@@ -243,7 +244,7 @@ int Atari7800::loadFieldData(void)
 
 		if (control_type < controller_tbl.size()) {
 			d->fields.addField_string(control_title.c_str(),
-				dpgettext_expr(RP_I18N_DOMAIN, "Atari7800|ControllerType",
+				pgettext_expr("Atari7800|ControllerType",
 					controller_tbl[control_type]));
 		} else {
 			d->fields.addField_string(control_title.c_str(),

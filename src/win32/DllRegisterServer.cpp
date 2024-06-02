@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (Win32)                            *
  * DllRegisterServer.cpp: COM registration handler.                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -39,10 +39,11 @@ using LibWin32UI::RegKey;
 // For file extensions
 #include "libromdata/RomDataFactory.hpp"
 #include "librptexture/FileFormatFactory.hpp"
-using LibRomData::RomDataFactory;
 using LibRpTexture::FileFormatFactory;
+using namespace LibRomData;
 
 // C++ STL classes
+using std::array;
 using std::forward_list;
 using std::string;
 using std::vector;
@@ -223,8 +224,8 @@ static LONG UnregisterFileType(RegKey &hkcr, RegKey *pHklm, const RomDataFactory
 	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
 
 	// Delete keys if they're empty.
-	static const TCHAR *const keysToDel[] = {_T("ShellEx"), _T("RP_Fallback")};
-	for (const TCHAR *keyToDel : keysToDel) {
+	static const array<LPCTSTR, 2> keysToDel = {{_T("ShellEx"), _T("RP_Fallback")}};
+	for (LPCTSTR keyToDel : keysToDel) {
 		// Check if the key is empty.
 		RegKey hkey_del(hkey_fileType, keyToDel, KEY_READ, false);
 		if (!hkey_del.isOpen())
@@ -631,6 +632,16 @@ STDAPI DllRegisterServer(void)
 	lResult = RP_ShellPropSheetExt::RegisterFileType(hkcr, _T("Drive"));
 	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
 
+	// Register RP_ShellPropSheetExt and thumbnailers for directories.
+	lResult = RP_ShellPropSheetExt::RegisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ExtractIcon::RegisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ExtractImage::RegisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ThumbnailProvider::RegisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+
 	// Register RP_XAttrView for all file types.
 	// TODO: Also for drives?
 	lResult = RP_XAttrView::RegisterFileType(hkcr, _T("*"));
@@ -732,7 +743,7 @@ STDAPI DllUnregisterServer(void)
 	RegKey hklm(HKEY_LOCAL_MACHINE, nullptr, KEY_READ, false);
 	if (!hklm.isOpen()) return SELFREG_E_CLASS;
 
-	// Unegister all supported file types.
+	// Unregister all supported file types.
 	const vector<RomDataFactory::ExtInfo> vec_exts = RomDataFactory::supportedFileExtensions();
 	for (const auto &ext : vec_exts) {
 		// Unregister the file type handlers for this file extension globally.
@@ -753,6 +764,16 @@ STDAPI DllUnregisterServer(void)
 	// Unregister RP_ShellPropSheetExt for disk drives.
 	// TODO: Icon/thumbnail handling?
 	lResult = RP_ShellPropSheetExt::UnregisterFileType(hkcr, _T("Drive"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+
+	// Unregister RP_ShellPropSheetExt and thumbnailers for directories.
+	lResult = RP_ShellPropSheetExt::UnregisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ExtractIcon::UnregisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ExtractImage::UnregisterFileType(hkcr, _T("Directory"));
+	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
+	lResult = RP_ThumbnailProvider::UnregisterFileType(hkcr, _T("Directory"));
 	if (lResult != ERROR_SUCCESS) return SELFREG_E_CLASS;
 
 	// Unregister RP_XAttrView for all file types.

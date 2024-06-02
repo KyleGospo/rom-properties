@@ -1,10 +1,4 @@
 # Windows UI frontend
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties LANGUAGES C CXX)
 
 # Check for Windows SDK headers and symbols.
@@ -142,6 +136,7 @@ SET(${PROJECT_NAME}_RC
 	res/rp-en_US.rc
 	res/rp-es_ES.rc
 	res/rp-fr_FR.rc
+	res/rp-it_IT.rc
 	res/rp-pt_BR.rc
 	res/rp-ro_RO.rc
 	res/rp-ru_RU.rc
@@ -204,8 +199,8 @@ IF(RP_LIBROMDATA_IS_DLL AND MSVC)
 	# Otherwise, we won't be able to load it if it's in an
 	# architecture-specific subdirectory.
 	# TODO: Global variable with the libromdata SOVERSION?
-	SET(DL_DEBUG_FLAGS "${DL_DEBUG_FLAGS} /DELAYLOAD:romdata-4d.dll")
-	SET(DL_RELEASE_FLAGS "${DL_RELEASE_FLAGS} /DELAYLOAD:romdata-4.dll")
+	SET(DL_DEBUG_FLAGS "${DL_DEBUG_FLAGS} /DELAYLOAD:romdata-5d.dll")
+	SET(DL_RELEASE_FLAGS "${DL_RELEASE_FLAGS} /DELAYLOAD:romdata-5.dll")
 
 	SET(CMAKE_SHARED_LINKER_FLAGS_DEBUG	"${CMAKE_SHARED_LINKER_FLAGS_DEBUG} ${DL_DEBUG_FLAGS}")
 	SET(CMAKE_SHARED_LINKER_FLAGS_RELEASE	"${CMAKE_SHARED_LINKER_FLAGS_RELEASE} ${DL_RELEASE_FLAGS}")

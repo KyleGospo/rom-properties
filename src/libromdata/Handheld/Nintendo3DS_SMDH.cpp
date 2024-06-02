@@ -3,7 +3,7 @@
  * Nintendo3DS_SMDH.hpp: Nintendo 3DS SMDH reader.                         *
  * Handles SMDH files and SMDH sections.                                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -495,8 +495,8 @@ int Nintendo3DS_SMDH::loadFieldData(void)
 		}
 	}
 
-	const char *const s_title_title = C_("Nintendo3DS", "Title");
-	const char *const s_full_title_title = C_("Nintendo3DS", "Full Title");
+	const char *const s_title_title = C_("Nintendo", "Title");
+	const char *const s_full_title_title = C_("Nintendo", "Full Title");
 	const char *const s_publisher_title = C_("RomData", "Publisher");
 	const char *const s_unknown = C_("RomData", "Unknown");
 
@@ -542,7 +542,7 @@ int Nintendo3DS_SMDH::loadFieldData(void)
 	// mapping is necessary.
 	RomFields::age_ratings_t age_ratings;
 	// Valid ratings: 0-1, 3-4, 6-10
-	static const uint16_t valid_ratings = 0x7DB;
+	static constexpr uint16_t valid_ratings = 0x7DB;
 
 	for (int i = static_cast<int>(age_ratings.size())-1; i >= 0; i--) {
 		if (!(valid_ratings & (1U << i))) {

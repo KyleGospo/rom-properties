@@ -3,7 +3,7 @@
  * EXE_PE.cpp: DOS/Windows executable reader.                              *
  * 32-bit/64-bit Portable Executable format.                               *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2022 by Egor.                                             *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -21,6 +21,7 @@ using namespace LibRpText;
 #include "librptext/libc.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -166,7 +167,7 @@ int EXEPrivate::loadPEResourceTypes(void)
 	// so search back to front.
 	auto iter = std::find_if(pe_sections.crbegin(), pe_sections.crend(),
 		[](const IMAGE_SECTION_HEADER &section) noexcept -> bool {
-			return !strcmp(section.Name, ".rsrc");
+			return !strcmp(reinterpret_cast<const char*>(section.Name), ".rsrc");
 		}
 	);
 	if (iter == pe_sections.crend()) {
@@ -430,7 +431,7 @@ int EXEPrivate::findPERuntimeDLL(string &refDesc, string &refLink)
 		const char *url_i386;	// i386 download link
 		const char *url_amd64;	// amd64 download link
 	};
-	static const std::array<msvc_dll_t, 13> msvc_dll_tbl = {{
+	static const array<msvc_dll_t, 13> msvc_dll_tbl = {{
 		{120,	"2013", "https://aka.ms/highdpimfc2013x86enu", "https://aka.ms/highdpimfc2013x64enu"},
 		{110,	"2012", "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x86.exe", "https://download.microsoft.com/download/1/6/B/16B06F60-3B20-4FF2-B699-5E9B7962F9AE/VSU_4/vcredist_x64.exe"},
 		{100,	"2010", "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x86.exe", "https://download.microsoft.com/download/1/6/5/165255E7-1014-4D0A-B094-B6A430A6BFFC/vcredist_x64.exe"},
@@ -453,7 +454,7 @@ int EXEPrivate::findPERuntimeDLL(string &refDesc, string &refLink)
 		const char dll_name[14];
 		const char *url;
 	};
-	static const std::array<msvb_dll_t, 4> msvb_dll_tbl = {{
+	static const array<msvb_dll_t, 4> msvb_dll_tbl = {{
 		{6,0, "msvbvm60.dll", "https://download.microsoft.com/download/5/a/d/5ad868a0-8ecd-4bb0-a882-fe53eb7ef348/VB6.0-KB290887-X86.exe"},
 		{5,0, "msvbvm50.dll", "https://download.microsoft.com/download/vb50pro/utility/1/win98/en-us/msvbvm50.exe"},
 
@@ -653,7 +654,7 @@ void EXEPrivate::addFields_PE(void)
 	fields.addField_string(C_("EXE", "CPU"), s_cpu);
 
 	// OS version
-	fields.addField_string(C_("EXE", "OS Version"),
+	fields.addField_string(C_("RomData", "OS Version"),
 		rp_sprintf("%u.%u", os_ver_major, os_ver_minor));
 
 	// Subsystem name and version
@@ -744,7 +745,7 @@ void EXEPrivate::addFields_PE(void)
 		IResourceReader::StringFileInfo vssfi;
 		if (rsrcReader->load_VS_VERSION_INFO(VS_VERSION_INFO, -1, &vsffi, &vssfi) == 0) {
 			// Add the version fields.
-			fields.setTabName(1, C_("EXE", "Version"));
+			fields.setTabName(1, C_("RomData", "Version"));
 			fields.setTabIndex(1);
 			addFields_VS_VERSION_INFO(&vsffi, &vssfi);
 		}
@@ -892,8 +893,12 @@ int EXEPrivate::addFields_PE_Export(void)
 		[&ents](unsigned int idx_lhs, unsigned int idx_rhs) -> bool {
 			const ExportEntry &lhs = ents[idx_lhs];
 			const ExportEntry &rhs = ents[idx_rhs];
-			return lhs.hint < rhs.hint
-				|| (lhs.hint == rhs.hint && lhs.ordinal < rhs.ordinal);
+
+			if (lhs.hint < rhs.hint) return true;
+			if (lhs.hint > rhs.hint) return false;
+
+			if (lhs.ordinal < rhs.ordinal) return true;
+			/*if (lhs.ordinal > rhs.ordinal)*/ return false;
 		});
 
 	// Convert to ListData
@@ -944,6 +949,9 @@ int EXEPrivate::addFields_PE_Export(void)
 		params.data.single = vv_data;
 		// TODO: Header alignment?
 		params.col_attrs.align_data = AFLD_ALIGN5(TXA_D, TXA_R, TXA_D, TXA_D, TXA_D);
+		params.col_attrs.sorting    = AFLD_ALIGN5(COLSORT_NC, COLSORT_NUM, COLSORT_NUM, COLSORT_STD, COLSORT_STD);
+		params.col_attrs.sort_col   = 0;	// Name
+		params.col_attrs.sort_dir   = RomFields::COLSORTORDER_ASCENDING;
 		fields.addField_listData(C_("EXE", "Exports"), &params);
 	} else {
 		delete vv_data;
@@ -1121,16 +1129,12 @@ int EXEPrivate::addFields_PE_Import(void)
 			// Vector index 1: Hint
 			// Vector index 2: Module
 			int res = strcasecmp(lhs[2].c_str(), rhs[2].c_str());
-			if (res < 0)
-				return true;
-			else if (res > 0)
-				return false;
+			if (res < 0) return true;
+			if (res > 0) return false;
 
 			res = strcasecmp(lhs[0].c_str(), rhs[0].c_str());
-			if (res < 0)
-				return true;
-			else if (res > 0)
-				return false;
+			if (res < 0) return true;
+			if (res > 0) return false;
 
 			// Hint is numeric, so convert it to a number first.
 			unsigned long hint_lhs, hint_rhs;
@@ -1165,6 +1169,9 @@ int EXEPrivate::addFields_PE_Import(void)
 	params.data.single = vv_data;
 	// TODO: Header alignment?
 	params.col_attrs.align_data = AFLD_ALIGN3(TXA_D, TXA_R, TXA_D);
+	params.col_attrs.sorting    = AFLD_ALIGN3(COLSORT_NC, COLSORT_NUM, COLSORT_NC);
+	params.col_attrs.sort_col   = 0;	// Name
+	params.col_attrs.sort_dir   = RomFields::COLSORTORDER_ASCENDING;
 	fields.addField_listData(C_("EXE", "Imports"), &params);
 	return 0;
 }

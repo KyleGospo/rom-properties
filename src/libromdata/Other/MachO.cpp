@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * MachO.cpp: Mach-O executable format.                                    *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,6 +17,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -306,7 +307,7 @@ MachO::MachO(const IRpFilePtr &file)
 
 	// Determine the file and MIME types.
 	// NOTE: This assumes all architectures have the same file type.
-	static const std::array<uint8_t, 12> fileTypes_tbl = {{
+	static constexpr array<uint8_t, 12> fileTypes_tbl = {{
 		(uint8_t)FileType::Unknown,		// 0
 		(uint8_t)FileType::RelocatableObject,	// MH_OBJECT
 		(uint8_t)FileType::Executable,		// MH_EXECUTE
@@ -320,7 +321,7 @@ MachO::MachO(const IRpFilePtr &file)
 		(uint8_t)FileType::Unknown,		// MH_DSYM (TODO)
 		(uint8_t)FileType::Unknown,		// MH_KEXT_BUNDLE (TODO)
 	}};
-	static const std::array<const char*, 12> mimeTypes_tbl = {{
+	static const array<const char*, 12> mimeTypes_tbl = {{
 		nullptr,				// 0
 		"application/x-mach-object",		// MH_OBJECT
 		"application/x-mach-executable",	// MH_EXECUTE
@@ -486,7 +487,7 @@ int MachO::loadFieldData(void)
 		}
 
 		// Executable format.
-		static const std::array<const char*, 4> exec_type_tbl = {{
+		static const array<const char*, 4> exec_type_tbl = {{
 			NOP_C_("RomData|ExecType", "32-bit Little-Endian"),
 			NOP_C_("RomData|ExecType", "64-bit Little-Endian"),
 			NOP_C_("RomData|ExecType", "32-bit Big-Endian"),
@@ -497,7 +498,7 @@ int MachO::loadFieldData(void)
 		    (int)machFormat < static_cast<int>(exec_type_tbl.size()))
 		{
 			d->fields.addField_string(format_title,
-				dpgettext_expr(RP_I18N_DOMAIN, "RomData|ExecType", exec_type_tbl[(int)machFormat]));
+				pgettext_expr("RomData|ExecType", exec_type_tbl[(int)machFormat]));
 		} else {
 			// TODO: Show individual values.
 			// NOTE: This shouldn't happen...
@@ -542,7 +543,7 @@ int MachO::loadFieldData(void)
 		};
 		vector<string> *const v_flags_bitfield_names = RomFields::strArrayToVector(
 			flags_bitfield_names, ARRAY_SIZE(flags_bitfield_names));
-		d->fields.addField_bitfield(C_("MachO", "Flags"),
+		d->fields.addField_bitfield(C_("RomData", "Flags"),
 			v_flags_bitfield_names, 3, machHeader->flags);
 	}
 

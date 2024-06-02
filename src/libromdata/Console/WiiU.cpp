@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * WiiU.cpp: Nintendo Wii U disc image reader.                             *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -374,7 +374,7 @@ int WiiU::loadFieldData(void)
 		discHeader->os_version[1], '.',
 		discHeader->os_version[2], '\0'
 	};
-	d->fields.addField_string(C_("WiiU", "OS Version"), s_os_version);
+	d->fields.addField_string(C_("RomData", "OS Version"), s_os_version);
 
 	// Region
 	// TODO: Compare against list of regions and show the fancy name.

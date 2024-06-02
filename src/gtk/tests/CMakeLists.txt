@@ -1,11 +1,5 @@
 # GTK UI frontend test suite
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
-PROJECT(gtk-tests LANGUAGES CXX)
+PROJECT(gtk-tests LANGUAGES C CXX)
 
 # Top-level src directory
 INCLUDE_DIRECTORIES(${CMAKE_CURRENT_SOURCE_DIR}/../..)
@@ -17,30 +11,35 @@ INCLUDE_DIRECTORIES(${CMAKE_CURRENT_BINARY_DIR}/..)
 
 ### sort_funcs.c testss
 
-SET(SortFuncsTest_SRCS
-	SortFuncsTest.cpp
-	../sort_funcs.c
-	#../ListDataModel.cpp
-	#../SortFuncs.cpp
-	#../RomDataFormat.cpp
-	#../RpQImageBackend.cpp
-	#../RpQUrl.cpp
-	#../RpQt.cpp
+SET(SortFuncsTest_GTK_COMMON_SRCS ../sort_funcs_common.c)
+SET(SortFuncsTest_GTK_COMMON_H    ../sort_funcs_common.h)
+
+SET(SortFuncsTest_GTK3_SRCS
+	SortFuncsTest_gtk3.cpp
+	../gtk3/sort_funcs.c
 	)
-SET(SortFuncsTest_H
-	../sort_funcs.h
-	#../ListDataModel.hpp
-	#../SortFuncs.hpp
-	#../RomDataFormat.hpp
-	#../RpQImageBackend.hpp
-	#../RpQUrl.hpp
-	#../RpQt.hpp
+SET(SortFuncsTest_GTK3_H
+	../gtk3/sort_funcs.h
+	)
+
+SET(SortFuncsTest_GTK4_SRCS
+	SortFuncsTest_gtk4.cpp
+	../rp-gtk-enums.c
+	../ListDataItem.c
+	../gtk4/sort_funcs.c
+	)
+SET(SortFuncsTest_GTK4_H
+	../rp-gtk-enums.h
+	../ListDataItem.h
+	../gtk4/sort_funcs.h
 	)
 
 IF(BUILD_XFCE)
 	ADD_EXECUTABLE(SortFuncsTest_gtk2
-		${SortFuncsTest_SRCS}
-		${SortFuncsTest_H}
+		${SortFuncsTest_GTK_COMMON_SRCS}
+		${SortFuncsTest_GTK_COMMON_H}
+		${SortFuncsTest_GTK3_SRCS}
+		${SortFuncsTest_GTK3_H}
 		)
 	TARGET_LINK_LIBRARIES(SortFuncsTest_gtk2 PRIVATE rptest)
 	#TARGET_LINK_LIBRARIES(SortFuncsTest_gtk2 PRIVATE GdkPixbuf2::gdkpixbuf2)
@@ -50,8 +49,10 @@ IF(BUILD_XFCE)
 ENDIF(BUILD_XFCE)
 IF(BUILD_GTK3)
 	ADD_EXECUTABLE(SortFuncsTest_gtk3
-		${SortFuncsTest_SRCS}
-		${SortFuncsTest_H}
+		${SortFuncsTest_GTK_COMMON_SRCS}
+		${SortFuncsTest_GTK_COMMON_H}
+		${SortFuncsTest_GTK3_SRCS}
+		${SortFuncsTest_GTK3_H}
 		)
 	TARGET_LINK_LIBRARIES(SortFuncsTest_gtk3 PRIVATE rptest)
 	#TARGET_LINK_LIBRARIES(SortFuncsTest_gtk3 PRIVATE Cairo::gobject)
@@ -61,8 +62,10 @@ IF(BUILD_GTK3)
 ENDIF(BUILD_GTK3)
 IF(BUILD_GTK4)
 	ADD_EXECUTABLE(SortFuncsTest_gtk4
-		${SortFuncsTest_SRCS}
-		${SortFuncsTest_H}
+		${SortFuncsTest_GTK_COMMON_SRCS}
+		${SortFuncsTest_GTK_COMMON_H}
+		${SortFuncsTest_GTK4_SRCS}
+		${SortFuncsTest_GTK4_H}
 		)
 	TARGET_LINK_LIBRARIES(SortFuncsTest_gtk4 PRIVATE rptest)
 	#TARGET_LINK_LIBRARIES(SortFuncsTest_gtk4 PRIVATE Cairo::gobject)

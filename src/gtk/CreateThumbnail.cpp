@@ -2,23 +2,23 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * CreateThumbnail.cpp: Thumbnail creator for wrapper programs.            *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "CreateThumbnail.hpp"
-
-#include "ProxyForUrl.hpp"
 #include "check-uid.h"
 
+#include "ProxyForUrl.hpp"
+#include "RpGtk.h"
+
 // Other rom-properties libraries
+#include "libromdata/RomDataFactory.hpp"
+#include "librpfile/FileSystem.hpp"
 using namespace LibRpBase;
 using namespace LibRpTexture;
-
-// libromdata
-#include "libromdata/RomDataFactory.hpp"
-using LibRomData::RomDataFactory;
+using namespace LibRomData;
 
 // TCreateThumbnail is a templated class,
 // so we have to #include the .cpp file here.
@@ -32,21 +32,6 @@ using LibRomData::TCreateThumbnail;
 // C++ STL classes
 using std::string;
 using std::unique_ptr;
-
-// GTK+ major version.
-// We can't simply use GTK_MAJOR_VERSION because
-// that has parentheses.
-#if GTK_CHECK_VERSION(5,0,0)
-#  error Needs updating for GTK5.
-#elif GTK_CHECK_VERSION(4,0,0)
-#  define GTK_MAJOR_STR "4"
-#elif GTK_CHECK_VERSION(3,0,0)
-#  define GTK_MAJOR_STR "3"
-#elif GTK_CHECK_VERSION(2,0,0)
-#  define GTK_MAJOR_STR "2"
-#else
-#  error GTK+ is too old.
-#endif
 
 /** CreateThumbnailPrivate **/
 
@@ -146,8 +131,6 @@ public:
 	 */
 	bool isMetered(void) final
 	{
-		// TODO: Keep a persistent NetworkManager connection?
-
 		// Connect to the service using gdbus-codegen's generated code.
 		Manager *proxy = nullptr;
 		GError *error = nullptr;
@@ -183,22 +166,23 @@ public:
 /** CreateThumbnail **/
 
 /**
- * Open a file from a filename or URI.
+ * Create a RomData object from a filename or URI.
  * @param source_file	[in] Source filename or URI
  * @param s_uri		[out] Normalized URI (file:/ for a filename, etc.)
  * @param p_err		[out] RPCT error code
- * @return IRpFilePtr on success; nullptr on error.
+ * @return RomDataPtr on success; nullptr on error.
  */
-static IRpFilePtr openFromFilenameOrURI(const char *source_file, string &s_uri, int *p_err)
+static RomDataPtr openFromFilenameOrURI(const char *source_file, string &s_uri, int *p_err)
 {
 	// NOTE: Not checking these in Release builds.
+	// TODO: Simplify the "is_directory" code.
 	assert(source_file != nullptr);
 	assert(p_err != nullptr);
+	RomDataPtr romData;
 
 	s_uri.clear();
-	const bool enableThumbnailOnNetworkFS = Config::instance()->enableThumbnailOnNetworkFS();
+	const bool enableThumbnailOnNetworkFS = Config::instance()->getBoolConfigOption(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS);
 
-	IRpFile *file = nullptr;
 	char *const uri_scheme = g_uri_parse_scheme(source_file);
 	if (uri_scheme != nullptr) {
 		// This is a URI.
@@ -216,8 +200,35 @@ static IRpFilePtr openFromFilenameOrURI(const char *source_file, string &s_uri, 
 				return nullptr;
 			}
 
-			// Open the file using RpFile.
-			file = new RpFile(source_filename, RpFile::FM_OPEN_READ_GZ);
+			if (likely(!FileSystem::is_directory(source_filename))) {
+				// File: Open the file and call RomDataFactory::create() with the opened file.
+
+				// Attempt to open the ROM file.
+				const IRpFilePtr file = std::make_shared<RpFile>(source_filename, RpFile::FM_OPEN_READ_GZ);
+				if (!file) {
+					// Could not open the file.
+					if (p_err) {
+						*p_err = RPCT_ERROR_CANNOT_OPEN_SOURCE_FILE;
+					}
+					return {};
+				}
+
+				// Get the appropriate RomData class for this ROM.
+				// RomData class *must* support at least one image type.
+				romData = RomDataFactory::create(file, RomDataFactory::RDA_HAS_THUMBNAIL);
+			} else {
+				const Config *const config = Config::instance();
+				if (!config->getBoolConfigOption(Config::BoolConfig::Options_ThumbnailDirectoryPackages)) {
+					// Directory package thumbnailing is disabled.
+					if (p_err) {
+						*p_err = RPCT_ERROR_DIRECTORY_THUMBNAILING_DISABLED;
+					}
+					return {};
+				}
+
+				// Directory: Call RomDataFactory::create() with the filename.
+				romData = RomDataFactory::create(source_filename);
+			}
 			g_free(source_filename);
 		} else {
 			// Not a local filename.
@@ -228,7 +239,19 @@ static IRpFilePtr openFromFilenameOrURI(const char *source_file, string &s_uri, 
 			}
 
 			// Open the file using RpFileGio.
-			file = new RpFileGio(source_file);
+			// TODO: Directories using RpFileGio?
+			const IRpFilePtr file = std::make_shared<RpFileGio>(source_file);
+			if (!file) {
+				// Could not open the file.
+				if (p_err) {
+					*p_err = RPCT_ERROR_CANNOT_OPEN_SOURCE_FILE;
+				}
+				return {};
+			}
+
+			// Get the appropriate RomData class for this ROM.
+			// RomData class *must* support at least one image type.
+			romData = RomDataFactory::create(file, RomDataFactory::RDA_HAS_THUMBNAIL);
 		}
 	} else {
 		// This is a filename.
@@ -243,7 +266,7 @@ static IRpFilePtr openFromFilenameOrURI(const char *source_file, string &s_uri, 
 			return nullptr;
 		}
 
-		// Check fi we have an absolute or relative path.
+		// Check if we have an absolute or relative path.
 		if (g_path_is_absolute(source_file)) {
 			// We have an absolute path.
 			gchar *const source_uri = g_filename_to_uri(source_file, nullptr, nullptr);
@@ -269,21 +292,47 @@ static IRpFilePtr openFromFilenameOrURI(const char *source_file, string &s_uri, 
 			}
 		}
 
-		// Open the file using RpFile.
-		file = new RpFile(source_file, RpFile::FM_OPEN_READ_GZ);
+		if (likely(!FileSystem::is_directory(source_file))) {
+			// File: Open the file and call RomDataFactory::create() with the opened file.
+
+			// Attempt to open the ROM file.
+			const IRpFilePtr file = std::make_shared<RpFile>(source_file, RpFile::FM_OPEN_READ_GZ);
+			if (!file) {
+				// Could not open the file.
+				if (p_err) {
+					*p_err = RPCT_ERROR_CANNOT_OPEN_SOURCE_FILE;
+				}
+				return {};
+			}
+
+			// Get the appropriate RomData class for this ROM.
+			// RomData class *must* support at least one image type.
+			romData = RomDataFactory::create(file, RomDataFactory::RDA_HAS_THUMBNAIL);
+		} else {
+			const Config *const config = Config::instance();
+			if (!config->getBoolConfigOption(Config::BoolConfig::Options_ThumbnailDirectoryPackages)) {
+				// Directory package thumbnailing is disabled.
+				if (p_err) {
+					*p_err = RPCT_ERROR_DIRECTORY_THUMBNAILING_DISABLED;
+				}
+				return {};
+			}
+
+			// Directory: Call RomDataFactory::create() with the filename.
+			romData = RomDataFactory::create(source_file);
+		}
 	}
 
-	if (file && file->isOpen()) {
+	if (romData && romData->isValid()) {
 		// File has been opened successfully.
 		*p_err = 0;
-		return IRpFilePtr(file);
+		return romData;
 	}
 
 	// File was not opened.
 	// TODO: Actual error code?
-	delete file;
 	*p_err = RPCT_ERROR_CANNOT_OPEN_SOURCE_FILE;
-	return nullptr;
+	return {};
 }
 
 /**
@@ -320,18 +369,10 @@ G_MODULE_EXPORT int RP_C_API rp_create_thumbnail2(
 	// Attempt to open the ROM file.
 	string s_uri;
 	int ret = -1;
-	const IRpFilePtr file = openFromFilenameOrURI(source_file, s_uri, &ret);
-	if (!file || ret != 0) {
+	const RomDataPtr romData = openFromFilenameOrURI(source_file, s_uri, &ret);
+	if (!romData || ret != 0) {
 		// Error opening the file.
 		return ret;
-	}
-
-	// Get the appropriate RomData class for this ROM.
-	// RomData class *must* support at least one image type.
-	const RomDataPtr romData = RomDataFactory::create(file, RomDataFactory::RDA_HAS_THUMBNAIL);
-	if (!romData) {
-		// ROM is not supported.
-		return RPCT_ERROR_SOURCE_FILE_NOT_SUPPORTED;
 	}
 
 	// Create the thumbnail.
@@ -496,10 +537,10 @@ G_MODULE_EXPORT int RP_C_API rp_create_thumbnail2(
 #if defined(RP_GTK_USE_GDKTEXTURE) || defined(RP_GTK_USE_CAIRO)
 	// GdkTexture and Cairo uses ARGB32.
 	// FIXME: Need to un-premultiply alpha on Cairo?
-	static const bool is_abgr = false;
+	static constexpr bool is_abgr = false;
 #else /* !RP_GTK_USE_CAIRO */
 	// GdkPixbuf use ABGR32.
-	static const bool is_abgr = true;
+	static constexpr bool is_abgr = true;
 #endif
 	pwRet = pngWriter->write_IDAT(row_pointers.get(), is_abgr);
 #ifdef RP_GTK_USE_GDKTEXTURE

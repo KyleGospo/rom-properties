@@ -1,8 +1,8 @@
 /***************************************************************************
- * ROM Properties Page shell extension. (GTK+ common)                      *
- * AchievementItem.c: Achievement ComboBox Item (for GtkDropDown)          *
+ * ROM Properties Page shell extension. (GTK4)                             *
+ * AchievementItem.c: Achievement item for GtkDropDown                     *
  *                                                                         *
- * Copyright (c) 2017-2022 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -70,17 +70,17 @@ rp_achievement_item_class_init(RpAchievementItemClass *klass)
 	props[PROP_ICON] = g_param_spec_object(
 		"icon", "Icon", "Icon representing this achievement",
 		PIMGTYPE_GOBJECT_TYPE,
-		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY));
 
 	props[PROP_DESCRIPTION] = g_param_spec_string(
 		"description", "Descrpition", "Achievement description",
 		"",
-		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY));
 
 	props[PROP_UNLOCK_TIME] = g_param_spec_int64(
 		"unlock-time", "Unlock Time", "Timestamp when this achievement was unlocked",
 		G_MININT64, G_MAXINT64, -1LL,
-		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY));
 
 	// Install the properties.
 	g_object_class_install_properties(gobject_class, PROP_LAST, props);
@@ -113,28 +113,17 @@ rp_achievement_item_set_property(GObject	*object,
 	RpAchievementItem *const item = RP_ACHIEVEMENT_ITEM(object);
 
 	switch (prop_id) {
-		case PROP_ICON: {
-			PIMGTYPE const icon = PIMGTYPE_CAST(g_value_get_object(value));
-			if (icon) {
-				if (item->icon) {
-					PIMGTYPE_unref(item->icon);
-					item->icon = NULL;
-				}
-				item->icon = PIMGTYPE_ref(icon);
-			}
+		case PROP_ICON:
+			rp_achievement_item_set_icon(item, PIMGTYPE_CAST(g_value_get_object(value)));
 			break;
-		}
 
-		case PROP_DESCRIPTION: {
-			const char *str = g_value_get_string(value);
-			if (g_strcmp0(item->description, str) != 0) {
-				g_set_str(&item->description, str);
-			}
+		case PROP_DESCRIPTION:
+			rp_achievement_item_set_description(item, g_value_get_string(value));
 			break;
-		}
 
 		case PROP_UNLOCK_TIME:
-			item->unlock_time = g_value_get_int64(value);
+			// FIXME: May cause truncation on systems where time_t is still 32-bit.
+			rp_achievement_item_set_unlock_time(item, g_value_get_int64(value));
 			break;
 
 		default:
@@ -155,10 +144,8 @@ rp_achievement_item_get_property(GObject	*object,
 
 	switch (prop_id) {
 		case PROP_ICON:
-			if (item->icon) {
-				// Caller must take a reference.
-				g_value_set_object(value, item->icon);
-			}
+			// Caller must take a reference.
+			g_value_set_object(value, item->icon ? item->icon : NULL);
 			break;
 
 		case PROP_DESCRIPTION:
@@ -197,10 +184,7 @@ rp_achievement_item_finalize(GObject *object)
 {
 	RpAchievementItem *const item = RP_ACHIEVEMENT_ITEM(object);
 
-	if (item->description) {
-		g_free(item->description);
-		item->description = NULL;
-	}
+	g_free(item->description);
 
 	// Call the superclass finalize() function.
 	G_OBJECT_CLASS(rp_achievement_item_parent_class)->finalize(object);
@@ -212,6 +196,11 @@ void
 rp_achievement_item_set_icon(RpAchievementItem *item, PIMGTYPE icon)
 {
 	g_return_if_fail(RP_IS_ACHIEVEMENT_ITEM(item));
+
+	if (icon == item->icon) {
+		// Same icon. Nothing to do.
+		return;
+	}
 
 	if (item->icon) {
 		PIMGTYPE_unref(item->icon);
@@ -234,6 +223,7 @@ void
 rp_achievement_item_set_description(RpAchievementItem *item, const char *description)
 {
 	g_return_if_fail(RP_IS_ACHIEVEMENT_ITEM(item));
+
 	if (g_strcmp0(item->description, description) != 0) {
 		g_set_str(&item->description, description);
 		g_object_notify_by_pspec(G_OBJECT(item), props[PROP_DESCRIPTION]);

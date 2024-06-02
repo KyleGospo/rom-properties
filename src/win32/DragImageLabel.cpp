@@ -2,11 +2,13 @@
  * ROM Properties Page shell extension. (Win32)                            *
  * DragImageLabel.cpp: Drag & Drop image label.                            *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
+#include "res/resource.h"
+
 #include "DragImageLabel.hpp"
 #include "RpImageWin32.hpp"
 
@@ -40,24 +42,18 @@ private:
 public:
 	HWND hwndParent;
 
-	// Position
-	POINT position;
+	// TODO: Eliminate actualSize()?
+	SIZE requiredSize;	// Required icon size
+	SIZE actualSize;	// Actual icon size, after rescaling (if necessary)
+	RECT rect;		// RECT with specified position and actual icon size
 
-	// Icon sizes
-	SIZE requiredSize;	// Required size.
-	SIZE actualSize;	// Actual size.
-
-	// Calculated RECT based on position and size
-	RECT rect;
-
-	bool ecksBawks;
 	HMENU hMenuEcksBawks;
 
 	// rp_image
 	rp_image_const_ptr img;
 	HBITMAP hbmpImg;	// for non-animated only
 
-	// Animated icon data.
+	// Animated icon data
 	struct anim_vars {
 		IconAnimDataConstPtr iconAnimData;
 		std::array<HBITMAP, IconAnimData::MAX_FRAMES> iconFrames;
@@ -89,6 +85,7 @@ public:
 
 	// Use nearest-neighbor scaling?
 	bool useNearestNeighbor;
+	bool ecksBawks;
 
 public:
 	/**
@@ -125,24 +122,22 @@ public:
 
 DragImageLabelPrivate::DragImageLabelPrivate(HWND hwndParent)
 	: hwndParent(hwndParent)
-	, ecksBawks(false)
 	, hMenuEcksBawks(nullptr)
 	, hbmpImg(nullptr)
 	, anim(nullptr)
 	, useNearestNeighbor(false)
+	, ecksBawks(false)
 {
 	// TODO: Set rect/size as parameters?
 	requiredSize.cx = DIL_REQ_IMAGE_SIZE;
 	requiredSize.cy = DIL_REQ_IMAGE_SIZE;
-	actualSize = requiredSize;
-
-	position.x = 0;
-	position.y = 0;
+	actualSize.cx = DIL_REQ_IMAGE_SIZE;
+	actualSize.cy = DIL_REQ_IMAGE_SIZE;
 
 	rect.left = 0;
-	rect.right = actualSize.cx;
+	rect.right = DIL_REQ_IMAGE_SIZE;
 	rect.top = 0;
-	rect.bottom = actualSize.cy;
+	rect.bottom = DIL_REQ_IMAGE_SIZE;
 }
 
 DragImageLabelPrivate::~DragImageLabelPrivate()
@@ -294,11 +289,10 @@ void DragImageLabelPrivate::updateRect(void)
 	// TODO: Not if the new one completely overlaps the old one?
 	InvalidateRect(hwndParent, &rect, false);
 
+	// rect.left/rect.top already contains the actual position.
 	// TODO: Optimize by not invalidating if it didn't change.
-	rect.left   = position.x;
-	rect.right  = position.x + actualSize.cx;
-	rect.top    = position.y;
-	rect.bottom = position.y + actualSize.cy;
+	rect.right  = rect.left + actualSize.cx;
+	rect.bottom = rect.top  + actualSize.cy;
 	InvalidateRect(hwndParent, &rect, false);
 }
 
@@ -404,16 +398,17 @@ SIZE DragImageLabel::actualSize(void) const
 POINT DragImageLabel::position(void) const
 {
 	RP_D(const DragImageLabel);
-	return d->position;
+	return { d->rect.left, d->rect.top };
 }
 
 void DragImageLabel::setPosition(POINT position)
 {
 	RP_D(DragImageLabel);
-	if (d->position.x != position.x ||
-	    d->position.y != position.y)
+	if (d->rect.left != position.x ||
+	    d->rect.top != position.y)
 	{
-		d->position = position;
+		d->rect.left = position.x;
+		d->rect.top = position.y;
 		d->updateRect();
 	}
 }
@@ -421,11 +416,11 @@ void DragImageLabel::setPosition(POINT position)
 void DragImageLabel::setPosition(int x, int y)
 {
 	RP_D(DragImageLabel);
-	if (d->position.x != x ||
-	    d->position.y != y)
+	if (d->rect.left != x ||
+	    d->rect.top != y)
 	{
-		d->position.x = x;
-		d->position.y = y;
+		d->rect.left = x;
+		d->rect.top = y;
 		d->updateRect();
 	}
 }
@@ -440,16 +435,13 @@ void DragImageLabel::setEcksBawks(bool newEcksBawks)
 {
 	RP_D(DragImageLabel);
 	d->ecksBawks = newEcksBawks;
-	if (d->ecksBawks && d->hMenuEcksBawks) {
-		// Already created the Ecks Bawks menu.
+	if (!d->ecksBawks)
 		return;
-	}
+	if (d->hMenuEcksBawks)
+		return;
 
-	d->hMenuEcksBawks = CreatePopupMenu();
-	AppendMenu(d->hMenuEcksBawks, MF_STRING, IDM_ECKS_BAWKS_MENU_BASE + 1,
-		_T("ermahgerd! an ecks bawks ISO!"));
-	AppendMenu(d->hMenuEcksBawks, MF_STRING, IDM_ECKS_BAWKS_MENU_BASE + 2,
-		_T("Yar, har, fiddle dee dee"));
+	// NOTE: Need to get the submenu of this menu.
+	d->hMenuEcksBawks = LoadMenu(HINST_THISCOMPONENT, MAKEINTRESOURCE(IDR_ECKS_BAWKS));
 }
 
 void DragImageLabel::tryPopupEcksBawks(LPARAM lParam)
@@ -465,7 +457,9 @@ void DragImageLabel::tryPopupEcksBawks(LPARAM lParam)
 	// Convert from local coordinates to screen coordinates.
 	MapWindowPoints(d->hwndParent, HWND_DESKTOP, &pt, 1);
 
-	int id = TrackPopupMenu(d->hMenuEcksBawks,
+	HMENU hSubMenu = GetSubMenu(d->hMenuEcksBawks, 0);
+	assert(hSubMenu != nullptr);
+	int id = TrackPopupMenu(hSubMenu,
 		TPM_LEFTALIGN | TPM_TOPALIGN | TPM_VERNEGANIMATION |
 			TPM_NONOTIFY | TPM_RETURNCMD,
 		pt.x, pt.y, 0, d->hwndParent, nullptr);
@@ -477,10 +471,10 @@ void DragImageLabel::tryPopupEcksBawks(LPARAM lParam)
 			break;
 		case 0:		// No item selected
 			break;
-		case IDM_ECKS_BAWKS_MENU_BASE + 1:
+		case IDM_ECKS_BAWKS_1:
 			url = _T("https://twitter.com/DeaThProj/status/1684469412978458624");
 			break;
-		case IDM_ECKS_BAWKS_MENU_BASE + 2:
+		case IDM_ECKS_BAWKS_2:
 			url = _T("https://github.com/xenia-canary/xenia-canary/pull/180");
 			break;
 	}
@@ -680,7 +674,7 @@ void DragImageLabel::draw(HDC hdc)
 
 	RP_D(DragImageLabel);
 	SelectBitmap(hdcMem, hbmp);
-	BitBlt(hdc, d->position.x, d->position.y,
+	BitBlt(hdc, d->rect.left, d->rect.top,
 		d->actualSize.cx, d->actualSize.cy,
 		hdcMem, 0, 0, SRCCOPY);
 
@@ -695,4 +689,18 @@ void DragImageLabel::invalidateRect(bool bErase)
 {
 	RP_D(DragImageLabel);
 	InvalidateRect(d->hwndParent, &d->rect, bErase);
+}
+
+/**
+ * Does a given rectangle intersect this control's rectangle?
+ * Typically used for WM_PAINT.
+ *
+ * @param lprcOther Rectangle to check
+ * @return True if it does; false if it doesn't.
+ */
+bool DragImageLabel::intersects(const RECT *lprcOther) const
+{
+	RP_D(const DragImageLabel);
+	RECT rcIntersect;
+	return (IntersectRect(&rcIntersect, &d->rect, lprcOther) != 0);
 }

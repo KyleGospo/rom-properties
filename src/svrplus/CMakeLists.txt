@@ -1,10 +1,4 @@
 # Windows DLL registration frontend
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(svrplus LANGUAGES C)
 
 # Create the manifest file.
@@ -17,8 +11,10 @@ SET(${PROJECT_NAME}_H resource.h gdipmini.h)
 SET(${PROJECT_NAME}_RC
 	resource.rc
 	res-en_US.rc
+	res-ar_SA.rc
 	res-de_DE.rc
 	res-fr_FR.rc
+	res-it_IT.rc
 	res-ro_RO.rc
 	)
 

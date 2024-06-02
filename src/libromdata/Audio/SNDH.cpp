@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * SNDH.hpp: Atari ST SNDH audio reader.                                   *
  *                                                                         *
- * Copyright (c) 2018-2023 by David Korth.                                 *
+ * Copyright (c) 2018-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -28,6 +28,7 @@ using namespace LibRpText;
 #include "librptext/libc.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -240,8 +241,8 @@ SNDHPrivate::TagData SNDHPrivate::parseTags(void)
 
 		// unice68 uses a margin of 16 bytes for input size vs. file size,
 		// and a maximum of 16 MB for the output size.
-		static const int SNDH_SIZE_MARGIN = 16;
-		static const int SNDH_SIZE_MAX = (1 << 24);
+		static constexpr int SNDH_SIZE_MARGIN = 16;
+		static constexpr int SNDH_SIZE_MAX = (1 << 24);
 		int csize = 0;
 		int reqSize = unice68_depacked_size(inbuf.get(), &csize);
 		assert(reqSize > 0);
@@ -720,7 +721,7 @@ int SNDH::isRomSupported_static(const DetectInfo *info)
 				uint8_t len;
 				char data[4];
 			};
-			static const std::array<sndh_fragment_t, 5> fragments = {{
+			static constexpr array<sndh_fragment_t, 5> fragments = {{
 				{3, {'N','D','H',0}},
 				{4, {'T','I','T','L'}},
 				{4, {'C','O','N','V'}},
@@ -846,6 +847,7 @@ int SNDH::loadFieldData(void)
 
 	// Timer frequencies.
 	// TODO: Use RFT_LISTDATA?
+	// tr: Frequency of Timer A, Timer B, etc. ("Timer %c" is a single entity)
 	const char *const s_timer_freq = C_("SNDH", "Timer %c Freq");
 	for (int i = 0; i < ARRAY_SIZE_I(tags.timer_freq); i++) {
 		if (tags.timer_freq[i] == 0)

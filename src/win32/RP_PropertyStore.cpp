@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (Win32)                            *
  * RP_PropertyStore.cpp: IPropertyStore implementation.                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,9 +17,9 @@
 
 // librpbase, librpfile, libromdata
 #include "librpbase/RomMetaData.hpp"
-using namespace LibRpBase;
 using LibRpFile::IRpFile;
-using LibRomData::RomDataFactory;
+using namespace LibRpBase;
+using namespace LibRomData;
 
 // libwin32common
 #include "libwin32common/propsys_xp.h"
@@ -28,6 +28,7 @@ using LibRomData::RomDataFactory;
 #include "file/RpFile_IStream.hpp"
 
 // C++ STL classes
+using std::array;
 using std::shared_ptr;
 using std::wstring;
 
@@ -45,7 +46,7 @@ const CLSID CLSID_RP_PropertyStore =
  *   - pkey: PROPERTYKEY (if nullptr, not implemented)
  *   - vtype: Expected variant type.
  */
-const std::array<RP_PropertyStore_Private::MetaDataConv, 79> RP_PropertyStore_Private::metaDataConv = {{
+const array<RP_PropertyStore_Private::MetaDataConv, 79> RP_PropertyStore_Private::metaDataConv = {{
 	{nullptr, VT_EMPTY},			// Empty
 
 	// Audio

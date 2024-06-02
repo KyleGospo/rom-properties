@@ -132,9 +132,6 @@ rp_nautilus_property_page_provider_get_RomDataView(const gchar *uri)
 static NautilusPropertyPage*
 rp_nautilus_property_page_provider_get_XAttrView(const gchar *uri)
 {
-	// TODO: Actually open the file.
-	// For now, add a test widget.
-
 	GtkWidget *const xattrView = rp_xattr_view_new(uri);
 	if (!rp_xattr_view_has_attributes(RP_XATTR_VIEW(xattrView))) {
 		// No attributes available.
@@ -184,7 +181,7 @@ rp_nautilus_property_page_provider_get_pages(NautilusPropertyPageProvider *provi
 
 	// Check if XAttrView is enabled.
 	const Config *const config = Config::instance();
-	if (config->showXAttrView()) {
+	if (config->getBoolConfigOption_default(Config::BoolConfig::Options_ShowXAttrView)) {
 		// XAttrView is enabled.
 		page = rp_nautilus_property_page_provider_get_XAttrView(uri);
 		if (page) {

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * GameCom.hpp: Tiger game.com ROM reader.                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,6 +17,7 @@ using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -53,7 +54,10 @@ public:
 	rp_image_const_ptr loadIcon(void);
 
 protected:
-	static const uint32_t gcom_palette[4];
+	// Palette
+	// NOTE: Index 0 is white; index 3 is black.
+	// TODO: Use colors closer to the original screen?
+	static const array<uint32_t, 4> gcom_palette;
 
 	/**
 	 * Decompress game.com RLE data.
@@ -100,19 +104,18 @@ const RomDataInfo GameComPrivate::romDataInfo = {
 	"GameCom", exts, mimeTypes
 };
 
-// Palette.
+// Palette
 // NOTE: Index 0 is white; index 3 is black.
 // TODO: Use colors closer to the original screen?
-const uint32_t GameComPrivate::gcom_palette[4] = {
+const array<uint32_t, 4> GameComPrivate::gcom_palette = {{
 	0xFFFFFFFF,
 	0xFFC0C0C0,
 	0xFF808080,
 	0xFF000000,
-};
+}};
 
 GameComPrivate::GameComPrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
-	, img_icon(nullptr)
 {
 	// Clear the ROM header struct.
 	memset(&romHeader, 0, sizeof(romHeader));
@@ -127,7 +130,7 @@ rp_image_const_ptr GameComPrivate::loadIcon(void)
 	if (img_icon) {
 		// Icon has already been loaded.
 		return img_icon;
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the icon.
 		return nullptr;
 	} else if (!(romHeader.flags & GCOM_FLAG_HAS_ICON)) {
@@ -203,7 +206,7 @@ rp_image_const_ptr GameComPrivate::loadIcon(void)
 	if (!palette || tmp_icon->palette_len() < 4) {
 		return nullptr;
 	}
-	memcpy(palette, gcom_palette, sizeof(gcom_palette));
+	memcpy(palette, gcom_palette.data(), sizeof(gcom_palette));
 
 	// Decode the 2bpp icon data into 8bpp.
 	// NOTE: Each bank is 256px wide, so we'll end up
@@ -403,7 +406,7 @@ rp_image_const_ptr GameComPrivate::loadIconRLE(void)
 	// Icon is stored at bank_offset + ((x << 8) | y).
 	// Up to 4 bytes per 4 pixels for the most extreme RLE test case.
 	// (effectively 8bpp, though usually much less)
-	static const size_t icon_rle_data_max_len = GCOM_ICON_W * GCOM_ICON_H;
+	static constexpr size_t icon_rle_data_max_len = GCOM_ICON_W * GCOM_ICON_H;
 	unique_ptr<uint8_t[]> icon_rle_data(new uint8_t[icon_rle_data_max_len]);
 	unsigned int icon_file_offset = bank_offset + ((romHeader.icon.x << 8) | (romHeader.icon.y));
 	if (icon_file_offset >= GCOM_ICON_RLE_BANK_LOAD_OFFSET) {
@@ -420,7 +423,7 @@ rp_image_const_ptr GameComPrivate::loadIconRLE(void)
 	}
 
 	// Decompress the RLE data. (2bpp)
-	static const size_t icon_data_len = (GCOM_ICON_W * GCOM_ICON_H) / 4;
+	static constexpr size_t icon_data_len = (GCOM_ICON_W * GCOM_ICON_H) / 4;
 	unique_ptr<uint8_t[]> icon_data(new uint8_t[icon_data_len]);
 	ssize_t ssize = rle_decompress(icon_data.get(), icon_data_len, icon_rle_data.get(), icon_rle_data_max_len);
 	if (ssize != icon_data_len) {
@@ -438,7 +441,7 @@ rp_image_const_ptr GameComPrivate::loadIconRLE(void)
 	if (!palette || tmp_icon->palette_len() < 4) {
 		return nullptr;
 	}
-	memcpy(palette, gcom_palette, sizeof(gcom_palette));
+	memcpy(palette, gcom_palette.data(), sizeof(gcom_palette));
 
 	// NOTE: The image is vertically mirrored and rotated 270 degrees.
 	// Because of this, we can't use scanline pointer adjustment for
@@ -629,7 +632,7 @@ vector<RomData::ImageSizeDef> GameCom::supportedImageSizes(ImageType imageType) 
 	ASSERT_supportedImageSizes(imageType);
 
 	RP_D(const GameCom);
-	if (!d->isValid || imageType != IMG_INT_MEDIA ||
+	if (!d->isValid || imageType != IMG_INT_ICON ||
 	    !(d->romHeader.flags & GCOM_FLAG_HAS_ICON))
 	{
 		// Only IMG_INT_ICON is supported,

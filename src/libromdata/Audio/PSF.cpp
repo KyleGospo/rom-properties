@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * PSF.hpp: PSF audio reader.                                              *
  *                                                                         *
- * Copyright (c) 2018-2023 by David Korth.                                 *
+ * Copyright (c) 2018-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -18,6 +18,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::unordered_map;
@@ -50,7 +51,7 @@ public:
 		char tag_name[7];	// psfby
 		const char *sys_name;	// system name (localizable)
 	};
-	static const std::array<psf_type_tbl_t, 9> psf_type_tbl;
+	static const array<psf_type_tbl_t, 9> psf_type_tbl;
 
 	/**
 	 * Parse the tag section.
@@ -110,7 +111,7 @@ const RomDataInfo PSFPrivate::romDataInfo = {
 };
 
 // PSF types
-const std::array<PSFPrivate::psf_type_tbl_t, 9> PSFPrivate::psf_type_tbl = {{
+const array<PSFPrivate::psf_type_tbl_t, 9> PSFPrivate::psf_type_tbl = {{
 	{PSF_VERSION_PLAYSTATION,	"psfby",	NOP_C_("PSF|System", "Sony PlayStation")},
 	{PSF_VERSION_PLAYSTATION_2,	"psfby",	NOP_C_("PSF|System", "Sony PlayStation 2")},
 	{PSF_VERSION_SATURN,		"ssfby",	NOP_C_("PSF|System", "Sega Saturn")},
@@ -525,7 +526,7 @@ int PSF::loadFieldData(void)
 	const char *const system_title = C_("PSF", "System");
 	if (sys_name) {
 		d->fields.addField_string(system_title,
-			dpgettext_expr(RP_I18N_DOMAIN, "PSF|System", sys_name));
+			pgettext_expr("PSF|System", sys_name));
 	} else {
 		d->fields.addField_string(system_title,
 			rp_sprintf(C_("RomData", "Unknown (0x%02X)"), psf_version));

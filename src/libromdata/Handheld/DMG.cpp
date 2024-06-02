@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * DMG.hpp: Game Boy (DMG/CGB/SGB) ROM reader.                             *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2016-2018 by Egor.                                        *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -15,6 +15,7 @@
 
 // Other rom-properties libraries
 #include "librpbase/config/Config.hpp"
+#include "librpfile/SubFile.hpp"
 using namespace LibRpBase;
 using namespace LibRpText;
 using namespace LibRpFile;
@@ -24,6 +25,7 @@ using namespace LibRpFile;
 #include "Audio/gbs_structs.h"
 
 // C++ STL classes
+using std::array;
 using std::shared_ptr;
 using std::string;
 using std::vector;
@@ -70,14 +72,9 @@ public:
 	enum class DMG_Hardware : uint8_t {
 		Unknown = 0,
 
-		ROM,
-		MBC1,
-		MBC2,
-		MBC3,
-		MBC4,
-		MBC5,
-		MBC6,
-		MBC7,
+		ROM, MBC1, MBC2, MBC3,
+		MBC4, MBC5, MBC6, MBC7,
+
 		MMM01,	// multicart: real header is in the last 32 KB
 		HUC1,
 		HUC3,
@@ -86,7 +83,9 @@ public:
 
 		Max
 	};
-	static const std::array<const char*, 14> dmg_hardware_names;
+
+	// Cartridge hardware (names; matches the DMG_Hardware enum)
+	static const array<const char*, (int)DMG_Hardware::Max> dmg_hardware_names;
 
 	struct dmg_cart_type {
 		DMG_Hardware hardware;
@@ -97,8 +96,8 @@ private:
 	// Sparse array setup:
 	// - "start" starts at 0x00.
 	// - "end" ends at 0xFF.
-	static const std::array<dmg_cart_type, 35> dmg_cart_types_start;
-	static const std::array<dmg_cart_type,  4> dmg_cart_types_end;
+	static const array<dmg_cart_type, 35> dmg_cart_types_start;
+	static const array<dmg_cart_type,  4> dmg_cart_types_end;
 
 public:
 	/**
@@ -131,19 +130,8 @@ public:
 	static inline int RomSize(uint8_t type);
 
 public:
-	/**
-	 * DMG RAM size array
-	 */
-	static const std::array<uint8_t, 6> dmg_ram_size;
-
-	/**
-	 * Nintendo's logo which is checked by bootrom.
-	 * (Top half only.)
-	 * 
-	 * NOTE: CGB bootrom only checks the top half of the logo.
-	 * (see 0x00D1 of CGB IPL)
-	 */
-	static const uint8_t dmg_nintendo[0x18];
+	// DMG RAM size array
+	static const array<uint8_t, 6> dmg_ram_size;
 
 public:
 	enum class RomType {
@@ -245,25 +233,17 @@ const RomDataInfo DMGPrivate::romDataInfo = {
 
 /** Internal ROM data **/
 
-// Cartridge hardware
-const std::array<const char*, 14> DMGPrivate::dmg_hardware_names = {
+// Cartridge hardware (names; matches the DMG_Hardware enum)
+const array<const char*, (int)DMGPrivate::DMG_Hardware::Max> DMGPrivate::dmg_hardware_names = {{
 	"Unknown",
-	"ROM",
-	"MBC1",
-	"MBC2",
-	"MBC3",
-	"MBC4",
-	"MBC5",
-	"MBC6",
-	"MBC7",
-	"MMM01",
-	"HuC1",
-	"HuC3",
-	"TAMA5",
-	"POCKET CAMERA", // ???
-};
 
-const std::array<DMGPrivate::dmg_cart_type, 35> DMGPrivate::dmg_cart_types_start = {{
+	"ROM", "MBC1", "MBC2", "MBC3",
+	"MBC4", "MBC5", "MBC6", "MBC7",
+	"MMM01", "HuC1", "HuC3", "TAMA5",
+	"POCKET CAMERA", // ???
+}};
+
+const array<DMGPrivate::dmg_cart_type, 35> DMGPrivate::dmg_cart_types_start = {{
 	{DMG_Hardware::ROM,	0},
 	{DMG_Hardware::MBC1,	0},
 	{DMG_Hardware::MBC1,	DMG_FEATURE_RAM},
@@ -301,12 +281,15 @@ const std::array<DMGPrivate::dmg_cart_type, 35> DMGPrivate::dmg_cart_types_start
 	{DMG_Hardware::MBC7,	DMG_FEATURE_TILT|DMG_FEATURE_RAM|DMG_FEATURE_BATTERY},
 }};
 
-const std::array<DMGPrivate::dmg_cart_type, 4> DMGPrivate::dmg_cart_types_end = {{
+const array<DMGPrivate::dmg_cart_type, 4> DMGPrivate::dmg_cart_types_end = {{
 	{DMG_Hardware::Camera, 0},
 	{DMG_Hardware::TAMA5, 0},
 	{DMG_Hardware::HUC3, 0},
 	{DMG_Hardware::HUC1, DMG_FEATURE_RAM|DMG_FEATURE_BATTERY},
 }};
+
+// DMG RAM size array
+const array<uint8_t, 6> DMGPrivate::dmg_ram_size = {{0, 2, 8, 32, 128, 64}};
 
 DMGPrivate::DMGPrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -378,8 +361,8 @@ inline DMGPrivate::dmg_cart_type DMGPrivate::CartType(uint8_t type)
  */
 inline int DMGPrivate::RomSize(uint8_t type)
 {
-	static const std::array<uint16_t, 8> rom_size = {32, 64, 128, 256, 512, 1024, 2048, 4096};
-	static const std::array<uint16_t, 4> rom_size_52 = {1152, 1280, 1536};
+	constexpr array<uint16_t, 8> rom_size = {{32, 64, 128, 256, 512, 1024, 2048, 4096}};
+	constexpr array<uint16_t, 4> rom_size_52 = {{1152, 1280, 1536}};
 	if (type < rom_size.size()) {
 		return rom_size[type];
 	} else if (type >= 0x52 && type < 0x52+rom_size_52.size()) {
@@ -387,26 +370,6 @@ inline int DMGPrivate::RomSize(uint8_t type)
 	}
 	return -1;
 }
-
-/**
- * DMG RAM size array
- */
-const std::array<uint8_t, 6> DMGPrivate::dmg_ram_size = {
-	0, 2, 8, 32, 128, 64
-};
-
-/**
- * Nintendo's logo which is checked by bootrom.
- * (Top half only.)
- * 
- * NOTE: CGB bootrom only checks the top half of the logo.
- * (see 0x00D1 of CGB IPL)
- */
-const uint8_t DMGPrivate::dmg_nintendo[0x18] = {
-	0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B,
-	0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
-	0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E
-};
 
 /**
  * Get the title and game ID.
@@ -514,7 +477,7 @@ void DMGPrivate::getTitleAndGameID(const DMG_RomHeader *pRomHeader, string &s_ti
 			// Old publisher code.
 			// NOTE: This probably won't ever happen,
 			// since Game ID was added *after* CGB.
-			static const std::array<char, 16> hex_lookup = {{
+			static constexpr array<char, 16> hex_lookup = {{
 				'0','1','2','3','4','5','6','7',
 				'8','9','A','B','C','D','E','F'
 			}};
@@ -826,7 +789,7 @@ DMG::DMG(const IRpFilePtr &file)
 	// Check for MMM01 menu headers at 0xF8000 (1 MiB) and 0x78000 (512 KiB).
 	// NOTE: 512 KiB versions indicates MBC3 (0x11), not MMM01, in the menu bank.
 	// TODO: 256 KiB version has a menu at 0x00000, not the expected 0x38000.
-	static const unsigned int mmm01_rom_size_check[] = {1048576U, 524288U};
+	static constexpr array<unsigned int, 2> mmm01_rom_size_check = {{1048576U, 524288U}};
 	d->is_mmm01_multicart = false;
 	for (unsigned int mmm01_rom_size : mmm01_rom_size_check) {
 		if (fileSize != mmm01_rom_size)
@@ -905,12 +868,23 @@ int DMG::isRomSupported_static(const DetectInfo *info)
 		return static_cast<int>(DMGPrivate::RomType::Unknown);
 	}
 
+	/**
+	* Nintendo's logo which is checked by bootrom.
+	* (Top half only.)
+	*
+	* NOTE: CGB bootrom only checks the top half of the logo.
+	* (see 0x00D1 of CGB IPL)
+	*/
+	static constexpr array<uint8_t, 0x18> dmg_nintendo_logo = {{
+		0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B,
+		0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
+		0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E
+	}};
+
 	// Check for the ROM header at 0x100. (standard location)
 	const DMG_RomHeader *romHeader =
 		reinterpret_cast<const DMG_RomHeader*>(&info->header.pData[0x100]);
-	if (!memcmp(romHeader->nintendo, DMGPrivate::dmg_nintendo,
-	     sizeof(DMGPrivate::dmg_nintendo)))
-	{
+	if (!memcmp(romHeader->nintendo, dmg_nintendo_logo.data(), dmg_nintendo_logo.size())) {
 		// Found at the standard location.
 		DMGPrivate::RomType romType;
 		if (romHeader->cgbflag & 0x80) {
@@ -935,9 +909,7 @@ int DMG::isRomSupported_static(const DetectInfo *info)
 		{
 			// Check the headered location.
 			romHeader = reinterpret_cast<const DMG_RomHeader*>(&info->header.pData[0x300]);
-			if (!memcmp(romHeader->nintendo, DMGPrivate::dmg_nintendo,
-			     sizeof(DMGPrivate::dmg_nintendo)))
-			{
+			if (!memcmp(romHeader->nintendo, dmg_nintendo_logo.data(), dmg_nintendo_logo.size())) {
 				// Found at the headered location.
 				DMGPrivate::RomType romType;
 				if (romHeader->cgbflag & 0x80) {
@@ -1178,7 +1150,7 @@ int DMG::loadFieldData(void)
 		};
 
 		// TODO: Localization?
-		static const std::array<gbx_mapper_tbl_t, 21> gbx_mapper_tbl = {{
+		static const array<gbx_mapper_tbl_t, 21> gbx_mapper_tbl = {{
 			// Nintendo
 			{GBX_MAPPER_ROM_ONLY,		"ROM only"},
 			{GBX_MAPPER_MBC1,		"Nintendo MBC1"},
@@ -1415,9 +1387,9 @@ int DMG::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	bool append_cksum = false;
 
 	// Check the title screen mode variant to use.
-	static const char ts_subdirs
-		[Config::DMG_TitleScreen_Mode::DMG_TS_MAX]
-		[Config::DMG_TitleScreen_Mode::DMG_TS_MAX][8] =
+	static constexpr char ts_subdirs
+		[static_cast<size_t>(Config::DMG_TitleScreen_Mode::Max)]
+		[static_cast<size_t>(Config::DMG_TitleScreen_Mode::Max)][8] =
 	{
 		// Rows: ROM type (DMG, SGB, CGB)
 		// Columns: User selection (DMG, SGB, CGB)
@@ -1436,18 +1408,18 @@ int DMG::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	const Config *const config = Config::instance();
 	Config::DMG_TitleScreen_Mode cfg_rom;
 	if (dmg_system & DMGPrivate::DMG_SYSTEM_CGB) {
-		cfg_rom = Config::DMG_TitleScreen_Mode::DMG_TS_CGB;
+		cfg_rom = Config::DMG_TitleScreen_Mode::CGB;
 	} else if (dmg_system & DMGPrivate::DMG_SYSTEM_SGB) {
-		cfg_rom = Config::DMG_TitleScreen_Mode::DMG_TS_SGB;
+		cfg_rom = Config::DMG_TitleScreen_Mode::SGB;
 	} else {
-		cfg_rom = Config::DMG_TitleScreen_Mode::DMG_TS_DMG;
+		cfg_rom = Config::DMG_TitleScreen_Mode::DMG;
 	}
 
 	Config::DMG_TitleScreen_Mode cfg_ts = config->dmgTitleScreenMode(cfg_rom);
-	assert(cfg_ts >= Config::DMG_TitleScreen_Mode::DMG_TS_DMG);
-	assert(cfg_ts <  Config::DMG_TitleScreen_Mode::DMG_TS_MAX);
-	if (cfg_ts <  Config::DMG_TitleScreen_Mode::DMG_TS_DMG ||
-	    cfg_ts >= Config::DMG_TitleScreen_Mode::DMG_TS_MAX)
+	assert(cfg_ts >= Config::DMG_TitleScreen_Mode::DMG);
+	assert(cfg_ts <  Config::DMG_TitleScreen_Mode::Max);
+	if (cfg_ts <  Config::DMG_TitleScreen_Mode::DMG ||
+	    cfg_ts >= Config::DMG_TitleScreen_Mode::Max)
 	{
 		// Out of range. Use the default.
 		cfg_ts = cfg_rom;
@@ -1457,14 +1429,14 @@ int DMG::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	// Some CGB ROMs do have SGB borders, but since the header doesn't
 	// unlock SGB mode, it doesn't show up on hardware. It *does* show
 	// up on mGBA, though...
-	if (cfg_ts == Config::DMG_TitleScreen_Mode::DMG_TS_SGB &&
+	if (cfg_ts == Config::DMG_TitleScreen_Mode::SGB &&
 	    !(dmg_system & DMGPrivate::DMG_SYSTEM_SGB))
 	{
-		cfg_ts = Config::DMG_TitleScreen_Mode::DMG_TS_DMG;
+		cfg_ts = Config::DMG_TitleScreen_Mode::DMG;
 	}
 
 	// Get the image subdirectory from the table.
-	img_subdir = ts_subdirs[cfg_rom][cfg_ts];
+	img_subdir = ts_subdirs[static_cast<size_t>(cfg_rom)][static_cast<size_t>(cfg_ts)];
 
 	// Subdirectory:
 	// - CGB/x/:   CGB game. (x == region byte, or NoID if no Game ID)

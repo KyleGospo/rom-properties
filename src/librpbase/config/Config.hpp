@@ -67,6 +67,14 @@ public:
 	};
 
 	/**
+	 * Get the default image type priority data.
+	 * This is the priority data used if a custom configuration
+	 * is not defined for a given class.
+	 * @param imgTypePrio	[out] Image type priority data.
+	 */
+	static void getDefImgTypePrio(ImgTypePrio_t *imgTypePrio);
+
+	/**
 	 * Get the image type priority data for the specified class name.
 	 * NOTE: Call load() before using this function.
 	 * @param className	[in] Class name. (ASCII)
@@ -75,37 +83,13 @@ public:
 	 */
 	ImgTypeResult getImgTypePrio(const char *className, ImgTypePrio_t *imgTypePrio) const;
 
-	/**
-	 * Get the default image type priority data.
-	 * This is the priority data used if a custom configuration
-	 * is not defined for a given class.
-	 * @param imgTypePrio	[out] Image type priority data.
-	 */
-	void getDefImgTypePrio(ImgTypePrio_t *imgTypePrio) const;
-
 	/** Download options **/
 
 	/**
-	 * Should we download images from external databases?
-	 * NOTE: Call load() before using this function.
-	 * @return True if downloads are enabled; false if not.
+	 * Get the array of language codes available on GameTDB.
+	 * @return NULL-terminated array of language codes.
 	 */
-	bool extImgDownloadEnabled(void) const;
-
-	/**
-	 * Always use the internal icon (if present) for small sizes.
-	 * TODO: Clarify "small sizes".
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should use the internal icon for small sizes; false if not.
-	 */
-	bool useIntIconForSmallSizes(void) const;
-
-	/**
-	 * Store file origin information?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should; false if not.
-	 */
-	bool storeFileOriginInfo(void) const;
+	static const uint32_t *get_all_pal_lcs(void);
 
 	/**
 	 * Language code for PAL titles on GameTDB.
@@ -137,12 +121,12 @@ public:
 
 	/** DMG title screen mode **/
 
-	enum DMG_TitleScreen_Mode : uint8_t {
-		DMG_TS_DMG,	// Use DMG mode title screens.
-		DMG_TS_SGB,	// Use SGB mode title screens if available.
-		DMG_TS_CGB,	// Use CGB mode title screens if available.
+	enum class DMG_TitleScreen_Mode : uint8_t {
+		DMG,	// Use DMG mode title screens.
+		SGB,	// Use SGB mode title screens if available.
+		CGB,	// Use CGB mode title screens if available.
 
-		DMG_TS_MAX
+		Max
 	};
 
 	/**
@@ -152,52 +136,32 @@ public:
 	 */
 	DMG_TitleScreen_Mode dmgTitleScreenMode(DMG_TitleScreen_Mode romType) const;
 
-	/** Other options **/
+	/** Boolean configuration options **/
+
+	enum class BoolConfig {
+		Downloads_ExtImgDownloadEnabled,
+		Downloads_UseIntIconForSmallSizes,
+		Downloads_StoreFileOriginInfo,
+
+		Options_ShowDangerousPermissionsOverlayIcon,
+		Options_EnableThumbnailOnNetworkFS,
+		Options_ShowXAttrView,
+		Options_ThumbnailDirectoryPackages,
+
+		Max
+	};
 
 	/**
-	 * Show an overlay icon for "dangerous" permissions?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should show the overlay icon; false if not.
+	 * Get a boolean configuration option.
+	 * @param option Boolean configuration option
+	 * @return Value. (If the option is invalid, returns false.)
 	 */
-	bool showDangerousPermissionsOverlayIcon(void) const;
-
-	/**
-	 * Enable thumbnailing and metadata on network filesystems?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should enable; false if not.
-	 */
-	bool enableThumbnailOnNetworkFS(void) const;
-
-	/**
-	 * Show the Extended Attributes tab?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should enable; false if not.
-	 */
-	bool showXAttrView(void) const;
+	bool getBoolConfigOption(BoolConfig option) const;
 
 public:
 	/**** Default values ****/
 
 	/** Download options **/
-
-	/**
-	 * Should we download images from external databases? (default value)
-	 * @return True if downloads are enabled; false if not.
-	 */
-	static bool extImgDownloadEnabled_default(void);
-
-	/**
-	 * Always use the internal icon (if present) for small sizes. (default value)
-	 * TODO: Clarify "small sizes".
-	 * @return True if we should use the internal icon for small sizes; false if not.
-	 */
-	static bool useIntIconForSmallSizes_default(void);
-
-	/**
-	 * Store file origin information? (default value)
-	 * @return True if we should; false if not.
-	 */
-	static bool storeFileOriginInfo_default(void);
 
 	/**
 	 * Language code for PAL titles on GameTDB. (default value)
@@ -230,28 +194,14 @@ public:
 	 */
 	static DMG_TitleScreen_Mode dmgTitleScreenMode_default(DMG_TitleScreen_Mode romType);
 
-	/** Other options **/
+	/** Boolean configuration options **/
 
 	/**
-	 * Show an overlay icon for "dangerous" permissions?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should show the overlay icon; false if not.
+	 * Get the default value for a boolean configuration option.
+	 * @param option Boolean configuration option
+	 * @return Value. (If the option is invalid, returns false.)
 	 */
-	static bool showDangerousPermissionsOverlayIcon_default(void);
-
-	/**
-	 * Enable thumbnailing and metadata on network filesystems?
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should enable; false if not.
-	 */
-	static bool enableThumbnailOnNetworkFS_default(void);
-
-	/**
-	 * Show the Extended Attributes tab? (default value)
-	 * NOTE: Call load() before using this function.
-	 * @return True if we should enable; false if not.
-	 */
-	static bool showXAttrView_default(void);
+	static bool getBoolConfigOption_default(BoolConfig option);
 };
 
 }

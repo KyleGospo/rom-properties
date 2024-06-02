@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * CacheTab.cpp: Thumbnail Cache tab for rp-config.                        *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -14,7 +14,7 @@
 #include "CacheCleaner.hpp"
 
 #include "gtk-compat.h"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
 
 // Other rom-properties libraries
 using namespace LibRpBase;
@@ -120,7 +120,7 @@ rp_cache_tab_class_init(RpCacheTabClass *klass)
 		GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
 #  endif /* !GTK_CHECK_VERSION(4,0,0) */
 
-	static const char css_ProgressBar[] =
+	static constexpr char css_ProgressBar[] =
 		"@define-color gsrp_color_pb_error rgb(144,24,24);\n"
 		"progressbar.gsrp_pb_error > trough > progress {\n"
 		"\tbackground-image: none;\n"
@@ -314,7 +314,15 @@ rp_cache_tab_enable_ui_controls(RpCacheTab *tab, gboolean enable)
 static inline
 void gtk_progress_bar_set_error(GtkProgressBar *pb, gboolean error)
 {
-#if GTK_CHECK_VERSION(3,0,0)
+#if GTK_CHECK_VERSION(4,0,0)
+	// If error, add our CSS class.
+	// Otherwise, remove our CSS class.
+	if (error) {
+		gtk_widget_add_css_class(GTK_WIDGET(pb), "gsrp_pb_error");
+	} else {
+		gtk_widget_remove_css_class(GTK_WIDGET(pb), "gsrp_pb_error");
+	}
+#elif GTK_CHECK_VERSION(3,0,0)
 	// If error, add our CSS class.
 	// Otherwise, remove our CSS class.
 	GtkStyleContext *const context = gtk_widget_get_style_context(GTK_WIDGET(pb));

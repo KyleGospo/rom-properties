@@ -2,13 +2,16 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * MachOData.cpp: Mach-O executable format data.                           *
  *                                                                         *
- * Copyright (c) 2019-2022 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "MachOData.hpp"
 #include "Other/macho_structs.h"
+
+// C++ STL classes
+using std::array;
 
 namespace LibRomData { namespace MachOData {
 
@@ -22,7 +25,7 @@ const char *lookup_cpu_type(uint32_t cputype)
 	const unsigned int abi = (cputype >> 24);
 	const unsigned int cpu = (cputype & 0xFFFFFF);
 
-	static const char cpu_tbl_32[19][8] = {
+	static constexpr char cpu_tbl_32[19][8] = {
 		// 32-bit CPUs
 		"", "VAX", "", "ROMP",
 		"NS32032", "NS32332", "MC680x0", "i386",
@@ -90,7 +93,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 			break;
 
 		case CPU_TYPE_VAX: {
-			static const std::array<const char*, 12+1> cpu_subtype_vax_tbl = {{
+			static const array<const char*, 12+1> cpu_subtype_vax_tbl = {{
 				nullptr, "VAX-11/780", "VAX-11/785", "VAX-11/750",
 				"VAX-11/730", "MicroVAX I", "MicroVAX II", "VAX 8200",
 				"VAX 8500", "VAX 8600", "VAX 8650", "VAX 8800",
@@ -103,7 +106,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 		}
 
 		case CPU_TYPE_MC680x0: {
-			static const char cpu_subtype_m68k_tbl[][8] = {
+			static constexpr char cpu_subtype_m68k_tbl[][8] = {
 				"", "", "MC68040", "MC68030"
 			};
 			if (cpusubtype < ARRAY_SIZE(cpu_subtype_m68k_tbl)) {
@@ -130,7 +133,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 
 					case CPU_SUBTYPE_INTEL(6, 0): {
 						// i686 class
-						static const std::array<const char*, 6> i686_cpu_tbl = {{
+						static const array<const char*, 6> i686_cpu_tbl = {{
 							"i686", "Pentium Pro",
 							"Pentium II (M2)", "Pentium II (M3)",
 							"Pentium II (M4)", "Pentium II (M5)"
@@ -155,7 +158,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 
 					case CPU_SUBTYPE_PENTIII: {
 						// Pentium III
-						static const std::array<const char*, 3> p3_cpu_tbl = {{
+						static const array<const char*, 3> p3_cpu_tbl = {{
 							"Pentium III", "Pentium III-M",
 							"Pentium III Xeon"
 						}};
@@ -208,7 +211,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 		}
 
 		case CPU_TYPE_MIPS: {
-			static const char cpu_subtype_mips_tbl[][8] = {
+			static constexpr char cpu_subtype_mips_tbl[][8] = {
 				"", "R2300", "R2600", "R2800",
 				"R2000a", "R2000", "R3000a", "R3000"
 			};
@@ -225,7 +228,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 			break;
 
 		case CPU_TYPE_HPPA: {
-			static const std::array<const char*, 2+1> cpu_subtype_hppa_tbl = {{
+			static const array<const char*, 2+1> cpu_subtype_hppa_tbl = {{
 				nullptr, "HP/PA 7100", "HP/PA 7100LC"
 			}};
 			if (cpusubtype < cpu_subtype_hppa_tbl.size()) {
@@ -235,7 +238,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 		}
 
 		case CPU_TYPE_MC88000: {
-			static const char cpu_subtype_m88k_tbl[][8] = {
+			static constexpr char cpu_subtype_m88k_tbl[][8] = {
 				"", "MC88100", "MC88110"
 			};
 			if (cpusubtype < ARRAY_SIZE(cpu_subtype_m88k_tbl)) {
@@ -248,7 +251,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 			if (abi && cpusubtype == CPU_SUBTYPE_ARM64_V8) {
 				s_cpu_subtype = "ARMv8";
 			} else if (!abi) {
-				static const std::array<const char*, 16+1> cpu_subtype_arm_tbl = {{
+				static const array<const char*, 16+1> cpu_subtype_arm_tbl = {{
 					nullptr, nullptr, nullptr, nullptr,
 					nullptr, "ARMv4T", "ARMv6", "ARMv5TEJ",
 					"XScale", "ARMv7", "ARMv7f", "ARMv7s",
@@ -263,7 +266,7 @@ const char *lookup_cpu_subtype(uint32_t cputype, uint32_t cpusubtype)
 		}
 
 		case CPU_TYPE_POWERPC: {
-			static const char cpu_subtype_ppc_tbl[][8] = {
+			static constexpr char cpu_subtype_ppc_tbl[][8] = {
 				"", "601", "602", "603",
 				"603e", "603ev", "604", "604e",
 				"620", "750", "7400", "7450"

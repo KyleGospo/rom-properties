@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * ImageDecoder_ETC1.cpp: Image decoding functions: ETC1                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -142,7 +142,7 @@ static FORCEINLINE uint64_t extract48(const etc2_alpha *RESTRICT data)
  * index values in ascending two-bit value order as
  * listed above instead of mapping to ETC1 table 3.17.2.
  */
-static const int16_t etc1_intensity[8][4] = {
+static constexpr int16_t etc1_intensity[8][4] = {
 	{ 2,   8,  -2,   -8},
 	{ 5,  17,  -5,  -17},
 	{ 9,  29,  -9,  -29},
@@ -162,7 +162,7 @@ static const int16_t etc1_intensity[8][4] = {
  * index values in ascending two-bit value order as
  * listed above instead of mapping to ETC1 table 3.17.2.
  */
-static const int16_t etc2_intensity_a1[8][4] = {
+static constexpr int16_t etc2_intensity_a1[8][4] = {
 	{0,   8, 0,   -8},
 	{0,  17, 0,  -17},
 	{0,  29, 0,  -29},
@@ -175,28 +175,28 @@ static const int16_t etc2_intensity_a1[8][4] = {
 
 // ETC1 arranges pixels by column, then by row.
 // This table maps it back to linear.
-static const uint8_t etc1_mapping[16] = {
+static constexpr array<uint8_t, 16> etc1_mapping = {{
 	0, 4,  8, 12,
 	1, 5,  9, 13,
 	2, 6, 10, 14,
 	3, 7, 11, 15,
-};
+}};
 
 // ETC1 subblock mapping.
 // Index: flip bit
 // Value: 16-bit bitfield; bit 0 == ETC1-arranged pixel 0.
-static const uint16_t etc1_subblock_mapping[2] = {
+static constexpr array<uint16_t, 2> etc1_subblock_mapping = {{
 	// flip == 0: 2x4
 	0xFF00,
 
 	// flip == 1: 4x2
 	0xCCCC,
-};
+}};
 
 // 3-bit 2's complement lookup table.
-static const int8_t etc1_3bit_diff_tbl[8] = {
+static constexpr array<int8_t, 8> etc1_3bit_diff_tbl = {{
 	0, 1, 2, 3, -4, -3, -2, -1
-};
+}};
 
 // ETC2 block mode.
 enum class etc2_block_mode {
@@ -207,13 +207,13 @@ enum class etc2_block_mode {
 };
 
 // ETC2 distance table for 'T' and 'H' modes.
-static const uint8_t etc2_dist_tbl[8] = {
+static constexpr array<uint8_t, 8> etc2_dist_tbl = {{
 	 3,  6, 11, 16,
 	23, 32, 41, 64,
-};
+}};
 
 // ETC2 alpha modifiers table.
-static const int8_t etc2_alpha_tbl[16][8] = {
+static constexpr int8_t etc2_alpha_tbl[16][8] = {
 	{-3, -6,  -9, -15, 2, 5, 8, 14},
 	{-3, -7, -10, -13, 2, 6, 9, 12},
 	{-2, -5,  -8, -13, 1, 4, 7, 12},
@@ -237,7 +237,7 @@ static const int8_t etc2_alpha_tbl[16][8] = {
  * @param value 4-bit color component.
  * @return 8-bit color value.
  */
-static inline uint8_t extend_4to8bits(uint8_t value)
+static inline constexpr uint8_t extend_4to8bits(uint8_t value)
 {
 	return (value << 4) | value;
 }
@@ -247,7 +247,7 @@ static inline uint8_t extend_4to8bits(uint8_t value)
  * @param value 5-bit color component.
  * @return 8-bit color value.
  */
-static inline uint8_t extend_5to8bits(uint8_t value)
+static inline constexpr uint8_t extend_5to8bits(uint8_t value)
 {
 	return (value << 3) | (value >> 2);
 }
@@ -257,7 +257,7 @@ static inline uint8_t extend_5to8bits(uint8_t value)
  * @param value 6-bit color component.
  * @return 8-bit color value.
  */
-static inline uint8_t extend_6to8bits(uint8_t value)
+static inline constexpr uint8_t extend_6to8bits(uint8_t value)
 {
 	return (value << 2) | (value >> 4);
 }
@@ -267,7 +267,7 @@ static inline uint8_t extend_6to8bits(uint8_t value)
  * @param value 7-bit color component.
  * @return 7-bit color value.
  */
-static inline uint8_t extend_7to8bits(uint8_t value)
+static inline constexpr uint8_t extend_7to8bits(uint8_t value)
 {
 	return (value << 1) | (value >> 6);
 }

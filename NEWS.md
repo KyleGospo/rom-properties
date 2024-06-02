@@ -1,6 +1,87 @@
 # Changes
 
-## v2.3 (released 2023/??/??)
+## v2.4 (released 2024/03/??)
+
+* New features:
+  * IFUNC resolvers have been rewritten to use our own CPUID code again,
+    which is more efficient because, among other things, it doesn't do
+    string comparisons.
+  * GTK: The info bars that appear when using ROM Operations (the "Options"
+    button on the Properties tab) or importing keys in rp-config's
+    Key Manager now uses GtkRevealer if using GTK 3.10 or later.
+  * Linux: rp-stub now has a test program for RomDataView, which can be
+    accessed by specifying `-R` and a filename.
+  * A GNOME Tracker extractor module is now included for metadata extraction
+    on GNOME systems.
+
+* New parsers:
+  * PalmOS: Palm OS executables and resource files (.prc). Thumbnailing is
+    supported (the largest and highest color-depth icon is selected).
+    * Fixes #407: [Feature Request] Add support for Palm OS apps
+      * Requested by @xxmichibxx.
+  * WiiUPackage: Wii U NUS packages. This parser reads an NUS package
+    directory containing a ticket, TMD, and encrypted contents. Requires
+    the Wii U common key in keys.conf.
+    * rp-config now has an option to disable directory thumbnailing,
+      since it can slow down file browsing. Disabling directory
+      thumbnailing will disable Wii U NUS package thumbnailing.
+  * NintendoDS_BNR: Split out icon/title parser from NintendoDS.
+    Allows thumbnailing of individual Nintendo DS .bnr files in addition
+    to .nds ROM images.
+
+* New parser features:
+  * EXE: Use numeric sorting for ordinals and hints.
+  * Added metadata extraction for the following file types:
+    * Atari Lynx ROM images
+    * Nintendo Badge Arcade badge files
+    * Nintendo Virtual Boy ROM images
+    * Nintendo Wii save files
+    * Windows/DOS executables
+
+* Bug fixes:
+  * On Linux, rp-config now correctly detects KDE Plasma 6 and uses the
+    KF6 version of the UI instead of the KF5 version.
+  * Linux, armhf/aarch64: Add missing syscalls to the seccomp whitelist.
+    This fixes unit tests in the Launchpad build system.
+  * Windows: Fix a crash when viewing the ROM Properties tab through
+    the Directory Opus file browser.
+    * This regressed in v1.7.
+      * Commit: cff90b5309a5bad29bdc4065abda743c32875ffa
+      * [win32] RP_ShellPropSheetExt: Initial scrolling for data widgets.
+    * Fixes #405: Crash when used inside Directory Opus
+      * Reported by @Kugelblitz360.
+  * Fixed several issues on big-endian systems, e.g. PowerPC.
+    * DreamcastSave: Byteswapping was incorrectly enabled on little-endian
+      instead of big-endian. This didn't have any actual effect on LE, since
+      the le*_to_cpu() macros are no-ops on little-endian systems, but it
+      resulted in failures on big-endian systems.
+    * rp_image::swizzle_cpp(): Fix swizzling on big-endian systems.
+    * ImageDecoderLinearTest: Fix 15-bit/16-bit tests.
+  * Linux: Fix build on GTK+ 3.x versions earlier than 3.15.8.
+    * gtk_popover_set_transitions_enabled() was added in GTK+ 3.15.8.
+      It's now used for GTK+ versions [3.15.8, 3.21.5).
+  * GTK: Fix the "Convert to PNG" context menu item not showing up.
+    * Affects: v2.2.1 - v2.3
+  * GTK, KDE: The banner and icon display in the properties tab are now
+    resized if they're too big.
+  * Windows: rp-config: Added a checkbox to enable/disable the Extended
+    Attributes tab. This was already added to the GTK and KDE UI frontends
+    when Extended Attributes was added, but I forgot to do so for Windows.
+  * KDE: MessageWidget sounds now work on KF6.
+  * Windows: Fix seemingly-empty ListViews for e.g. Win32 export/import tables.
+    Affects RFT_LISTDATA, but not RFT_LISTDATA_MULTI.
+    * Fixes #413: Exports/Imports table in win32 shell ext page showing blank rows
+      * Reported by @ksharperd.
+  * VGM: "YM2139" should be "YM2149".
+    * Affects: v1.4 - v2.3
+    * Fixes #415: Fix name of YM2149 from "YM2139"
+      * Reported by @TheEssem.
+  * Windows: Fix display of multi-line strings with multiple languages.
+    * Fixes #416: Win32 UI frontend: Localized multi-line strings aren't displayed correctly
+      (was: Line feeds not working in descriptions for GameCube titles with BNR2 banner)
+      * Reported by @rctgamer3.
+
+## v2.3 (released 2024/03/03)
 
 * New features:
   * Extended attributes: On Linux, XFS attributes are now displayed if they're
@@ -9,7 +90,7 @@
     * The following parsers support mipmaps: GodotSTEX, KhronosKTX, KhronosKTX2,
       PowerVR3, ValveVTF, and DirectDrawSurface.
     * The following parsers don't support mipmaps yet, but the format does:
-      DirectDrawSurface, SegaPVR
+      SegaPVR
   * ImageDecoderTest now has mipmap tests for various formats.
   * The GTK4 UI frontend now uses GdkTexture instead of GdkPixbuf, which has
     been deprecated. Cairo is also used for certain image transformations.
@@ -35,12 +116,22 @@
       GameCube disc images.
     * Fixes #397: Could you add support for PS2 ISO's compressed to zso and cso?
       * Reported by @60fpshacksrock.
+  * Linux: KDE Frameworks 6 is fully supported.
   * New Romanian translation (ro_RO), contributed by @ionuttbara.
+  * New Italian translation (it_IT), contributed by MaRod92.
 
 * New parsers:
   * Wim: Microsoft Windows Images, used by the Windows installer starting with
     Windows Vista. Contributed by @ecumber.
     * Pull requests: #391, #392
+  * CBMDOS: Commodore DOS floppy disk images. Supports D64, D71, D80, D82, D81,
+    D67, and (mostly supports) G64 and G71 images, plus GEOS file icons.
+  * ColecoVision: ColecoVision ROM images. Supports reading the title screen
+    message and copyright/release year from .col images, among other things.
+    Requires a .col file extension due to lack of magic number.
+  * Intellivision: Intellivision ROM images. Supports reading the game title
+    and copyright year (if present), and some flags. Requires a .int or .itv
+    file extension due to lack of magic number.
 
 * New parser features:
   * DMG: MMM01 and MBC1M multicarts are now detected, and the internal ROM
@@ -60,8 +151,8 @@
       (i.e. from a licensed game) GVR CI8 textures, please submit them in a
       GitHub issue.
   * Added mipmap support to the following texture format parsers:
-    * KhronosKTX
     * DirectDrawSurface
+    * KhronosKTX
   * EXE: Add CPU type 0x0601 for PowerPC big-endian. (MSVC for Mac)
     * Xbox 360 CPU is now "PowerPC (big-endian; Xenon)".
     * Fixes #396: PE machine value 0x0601 == PowerPC big-endian (classic Mac)
@@ -69,6 +160,7 @@
   * DirectDrawSurface: Detect DXT5nm (normal map) and swizzle the Red and Alpha
     channels for proper display. Also show both sRGB and Normal Map attributes
     as set by various nVidia tools.
+  * GameCube: DPF and RPF sparse disc images are now supported.
 
 * Bug fixes:
   * Windows: Truncate ListView strings to a maximum of 259+1 characters. (259
@@ -130,6 +222,7 @@
   * GTK UI frontend: Fix "standard sorting" in RFT_LISTDATA fields.
     * GTK3 defaults to case-insensitive sorting, which doesn't match our
       assumptions that "standard sorting" is case-sensitive.
+  * KDE: XAttrView didn't show up on KF5 older than 5.89.0.
 
 * Other changes:
   * Nintendo3DS: The "Options" menu no longer shows a grayed-out "Extract SRL"

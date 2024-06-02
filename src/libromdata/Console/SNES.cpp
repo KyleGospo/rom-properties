@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * SNES.cpp: Super Nintendo ROM image reader.                              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -19,6 +19,7 @@ using namespace LibRpText;
 using namespace LibRpFile;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -101,7 +102,7 @@ public:
 	 * Is a character a valid game ID character?
 	 * @return True if it is; false if it isn't.
 	 */
-	static inline bool isValidGameIDChar(char x)
+	static inline constexpr bool isValidGameIDChar(char x)
 	{
 		return (x >= '0' && x <= '9') || (x >= 'A' && x <= 'Z');
 	}
@@ -707,7 +708,7 @@ string SNESPrivate::getGameID(bool doFake) const
 		{"SNSP-", "-ESP"},	// Spain
 		{"SNSP-", "-NOE"},	// Germany
 		{"SNSP-", "-ITA"},	// Italy
-		{"SNSN-", "-ROC"},	// China
+		{"SNSN-", "-ROC"},	// Taiwan
 		{"",      ""},
 		{"SNSN-", "-KOR"},	// South Korea
 		{"",      ""},		// ALL region?
@@ -818,8 +819,8 @@ SNES::SNES(const IRpFilePtr &file)
 
 	if (d->romType == SNESPrivate::RomType::Unknown) {
 		// Check for BS-X "Memory Pack" headers.
-		static const std::array<uint16_t, 2> bsx_addrs = {0x7F00, 0xFF00};
-		static const uint8_t bsx_mempack_magic[6] = {'M', 0, 'P', 0, 0, 0};
+		static constexpr array<uint16_t, 2> bsx_addrs = {{0x7F00, 0xFF00}};
+		static constexpr uint8_t bsx_mempack_magic[6] = {'M', 0, 'P', 0, 0, 0};
 		uint8_t buf[7];
 
 		for (const uint16_t bsx_addr : bsx_addrs) {
@@ -886,13 +887,13 @@ SNES::SNES(const IRpFilePtr &file)
 		if (!isCopierHeader) {
 			// Check for "GAME DOCTOR SF ".
 			// (UCON64 uses "GAME DOCTOR SF 3", but there's multiple versions.)
-			static const char gdsf3[] = "GAME DOCTOR SF ";
+			static constexpr char gdsf3[] = "GAME DOCTOR SF ";
 			if (!memcmp(&smdHeader, gdsf3, sizeof(gdsf3)-1)) {
 				// Game Doctor ROM header.
 				isCopierHeader = true;
 			} else {
 				// Check for "SUPERUFO".
-				static const char superufo[] = "SUPERUFO";
+				static constexpr char superufo[] = "SUPERUFO";
 				const uint8_t *u8ptr = reinterpret_cast<const uint8_t*>(&smdHeader);
 				if (!memcmp(&u8ptr[8], superufo, sizeof(superufo)-1)) {
 					// Super UFO ROM header.
@@ -905,7 +906,7 @@ SNES::SNES(const IRpFilePtr &file)
 	// Header addresses to check.
 	// If a copier header is detected, use index 1,
 	// which checks +512 offsets first.
-	static const uint32_t all_header_addresses[2][4] = {
+	static constexpr uint32_t all_header_addresses[2][4] = {
 		// Non-headered first.
 		{0x7FB0, 0xFFB0, 0x7FB0+512, 0xFFB0+512},
 		// Headered first.
@@ -1010,14 +1011,14 @@ int SNES::isRomSupported_static(const DetectInfo *info)
 	if (info->header.addr == 0 && info->header.size >= 0x200) {
 		// Check for "GAME DOCTOR SF ".
 		// (UCON64 uses "GAME DOCTOR SF 3", but there's multiple versions.)
-		static const char gdsf3[] = "GAME DOCTOR SF ";
+		static constexpr char gdsf3[] = "GAME DOCTOR SF ";
 		if (!memcmp(info->header.pData, gdsf3, sizeof(gdsf3)-1)) {
 			// Game Doctor ROM header.
 			return static_cast<int>(SNESPrivate::RomType::SNES);
 		}
 
 		// Check for "SUPERUFO".
-		static const char superufo[] = "SUPERUFO";
+		static constexpr char superufo[] = "SUPERUFO";
 		if (!memcmp(&info->header.pData[8], superufo, sizeof(superufo)-8)) {
 			// Super UFO ROM header.
 			return static_cast<int>(SNESPrivate::RomType::SNES);
@@ -1207,7 +1208,7 @@ int SNES::loadFieldData(void)
 
 	// Cartridge HW
 	// TODO: Make this translatable.
-	static const std::array<const char*, 16> hw_base_tbl = {
+	static const array<const char*, 16> hw_base_tbl = {{
 		// 0
 		"ROM", "ROM, RAM", "ROM, RAM, Battery", "ROM, ",
 		"ROM, RAM, ", "ROM, RAM, Battery, ", "ROM, Battery, ", nullptr,
@@ -1218,13 +1219,13 @@ int SNES::loadFieldData(void)
 		"ROM, RAM, Battery, Overclocked ",
 		nullptr,
 		nullptr, nullptr, nullptr, nullptr
-	};
-	static const std::array<const char*, 16> hw_enh_tbl = {
+	}};
+	static const array<const char*, 16> hw_enh_tbl = {{
 		"DSP-1", "Super FX", "OBC-1", "SA-1",
 		"S-DD1", "S-RTC", "Unknown", "Unknown",
 		"Unknown", "Unknown", "Unknown", "Unknown",
 		"Unknown", "Unknown", "Other", "Custom Chip"
-	};
+	}};
 
 	string cart_hw;
 	uint8_t rom_mapping;
@@ -1318,7 +1319,7 @@ int SNES::loadFieldData(void)
 		uint8_t rom_mapping;
 		const char *s_rom_mapping;
 	};
-	static const std::array<rom_mapping_tbl_t, 10> rom_mapping_tbl = {{
+	static const array<rom_mapping_tbl_t, 10> rom_mapping_tbl = {{
 		{SNES_ROMMAPPING_LoROM,			"LoROM"},
 		{SNES_ROMMAPPING_HiROM,			"HiROM"},
 		{SNES_ROMMAPPING_LoROM_S_DD1,		"LoROM + S-DD1"},
@@ -1356,7 +1357,7 @@ int SNES::loadFieldData(void)
 
 	// Region
 	// NOTE: Not listed for BS-X because BS-X is Japan only.
-	static const std::array<const char*, 0x15> RegionCode_str_tbl = {
+	static const array<const char*, 0x15> RegionCode_str_tbl = {{
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "North America"),
 		NOP_C_("Region", "Europe"),
@@ -1377,7 +1378,7 @@ int SNES::loadFieldData(void)
 		NOP_C_("Region", "Other"),
 		NOP_C_("Region", "Other"),
 		NOP_C_("Region", "Other"),
-	};
+	}};
 	const char *const region_lkup = (romHeader->snes.destination_code < RegionCode_str_tbl.size())
 					? RegionCode_str_tbl[romHeader->snes.destination_code]
 					: nullptr;
@@ -1388,7 +1389,7 @@ int SNES::loadFieldData(void)
 			const char *const region_title = C_("RomData", "Region Code");
 			if (region_lkup) {
 				d->fields.addField_string(region_title,
-					dpgettext_expr(RP_I18N_DOMAIN, "Region", region_lkup));
+					pgettext_expr("Region", region_lkup));
 			} else {
 				d->fields.addField_string(region_title,
 					rp_sprintf(C_("RomData", "Unknown (0x%02X)"),
@@ -1459,7 +1460,7 @@ int SNES::loadFieldData(void)
 			const char *const program_type_title = C_("SNES", "Program Type");
 			if (program_type) {
 				d->fields.addField_string(program_type_title,
-					dpgettext_expr(RP_I18N_DOMAIN, "SNES|ProgramType", program_type));
+					pgettext_expr("SNES|ProgramType", program_type));
 			} else {
 				d->fields.addField_string(program_type_title,
 					rp_sprintf(C_("RomData", "Unknown (0x%08X)"),
@@ -1573,11 +1574,11 @@ int SNES::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 
 	// Determine the region code based on the destination code.
 	char region_code[4] = {'\0', '\0', '\0', '\0'};
-	static const std::array<char, 0x15> RegionCode_chr_tbl = {
+	static constexpr array<char, 0x15> RegionCode_chr_tbl = {{
 		'J', 'E', 'P', 'X', '\0', '\0', 'F', 'H',
 		'S', 'D', 'I', 'C', '\0',  'K', 'A', 'N',
 		'B', 'U', 'X', 'Y', 'Z'
-	};
+	}};
 	if (d->romType == SNESPrivate::RomType::BSX) {
 		// BS-X. Use a separate "region".
 		region_code[0] = 'B';

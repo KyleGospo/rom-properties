@@ -3,7 +3,7 @@
  * Xbox360_XDBF.cpp: Microsoft Xbox 360 game resource reader.              *
  * Handles XDBF files and sections.                                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -833,7 +833,7 @@ const char *Xbox360_XDBF_Private::getTitleType(void) const
 		return nullptr;
 	}
 
-	static const std::array<const char*, 4> title_type_tbl = {{
+	static const array<const char*, 4> title_type_tbl = {{
 		NOP_C_("Xbox360_XDBF|TitleType", "System Title"),
 		NOP_C_("Xbox360_XDBF|TitleType", "Full Game"),
 		NOP_C_("Xbox360_XDBF|TitleType", "Demo"),
@@ -842,7 +842,7 @@ const char *Xbox360_XDBF_Private::getTitleType(void) const
 
 	const uint32_t title_type = be32_to_cpu(xthd.title_type);
 	if (title_type < title_type_tbl.size()) {
-		return dpgettext_expr(RP_I18N_DOMAIN, "Xbox360_XDBF|TitleType",
+		return pgettext_expr("Xbox360_XDBF|TitleType",
 			title_type_tbl[title_type]);
 	}
 
@@ -956,9 +956,9 @@ int Xbox360_XDBF_Private::addFields_achievements_SPA(void)
 	// Sanity check:
 	// - Size must be at least sizeof(XDBF_XACH_Header).
 	// - Size must be a maximum of sizeof(XDBF_XACH_Header) + (sizeof(XDBF_XACH_Entry_SPA) * 512).
-	static const unsigned int XACH_MAX_COUNT = 512;
-	static const uint32_t XACH_MIN_SIZE = (uint32_t)sizeof(XDBF_XACH_Header);
-	static const uint32_t XACH_MAX_SIZE = XACH_MIN_SIZE + (uint32_t)(sizeof(XDBF_XACH_Entry_SPA) * XACH_MAX_COUNT);
+	static constexpr unsigned int XACH_MAX_COUNT = 512;
+	static constexpr uint32_t XACH_MIN_SIZE = (uint32_t)sizeof(XDBF_XACH_Header);
+	static constexpr uint32_t XACH_MAX_SIZE = XACH_MIN_SIZE + (uint32_t)(sizeof(XDBF_XACH_Entry_SPA) * XACH_MAX_COUNT);
 	assert(length > XACH_MIN_SIZE);
 	assert(length <= XACH_MAX_SIZE);
 	if (length < XACH_MIN_SIZE || length > XACH_MAX_SIZE) {
@@ -1160,9 +1160,9 @@ int Xbox360_XDBF_Private::addFields_avatarAwards_SPA(void)
 	// Sanity check:
 	// - Size must be at least sizeof(XDBF_XGAA_Header).
 	// - Size must be a maximum of sizeof(XDBF_XGAA_Header) + (sizeof(XDBF_XGAA_Entry) * 16).
-	static const unsigned int XGAA_MAX_COUNT = 16;
-	static const uint32_t XGAA_MIN_SIZE = (uint32_t)sizeof(XDBF_XGAA_Header);
-	static const uint32_t XGAA_MAX_SIZE = XGAA_MIN_SIZE + (uint32_t)(sizeof(XDBF_XGAA_Entry) * XGAA_MAX_COUNT);
+	static constexpr unsigned int XGAA_MAX_COUNT = 16;
+	static constexpr uint32_t XGAA_MIN_SIZE = (uint32_t)sizeof(XDBF_XGAA_Header);
+	static constexpr uint32_t XGAA_MAX_SIZE = XGAA_MIN_SIZE + (uint32_t)(sizeof(XDBF_XGAA_Entry) * XGAA_MAX_COUNT);
 	assert(length >= XGAA_MIN_SIZE);
 	assert(length <= XGAA_MAX_SIZE);
 	if (unlikely(length == XGAA_MIN_SIZE)) {

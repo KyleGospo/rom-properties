@@ -1,10 +1,4 @@
 # RomData subclasses and factory class.
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(romdata LANGUAGES CXX)
 
 IF(NOT WIN32)
@@ -18,12 +12,14 @@ SET(${PROJECT_NAME}_SRCS
 
 	Console/Atari7800.cpp
 	Console/CBMCart.cpp
+	Console/ColecoVision.cpp
 	Console/Dreamcast.cpp
 	Console/DreamcastSave.cpp
 	Console/GameCube.cpp
 	Console/GameCubeBNR.cpp
 	Console/GameCubeSave.cpp
 	Console/GameCubeRegions.cpp
+	Console/Intellivision.cpp
 	Console/iQuePlayer.cpp
 	Console/MegaDrive.cpp
 	Console/MegaDriveRegions.cpp
@@ -36,9 +32,13 @@ SET(${PROJECT_NAME}_SRCS
 	Console/SegaSaturn.cpp
 	Console/SNES.cpp
 	Console/SufamiTurbo.cpp
+	Console/WiiBNR.cpp
 	Console/WiiCommon.cpp
 	Console/WiiSave.cpp
+	Console/WiiTicket.cpp
+	Console/WiiTMD.cpp
 	Console/WiiU.cpp
+	Console/WiiUPackage.cpp
 	Console/WiiWAD.cpp
 	Console/WiiWAD_ops.cpp
 	Console/WiiWIBN.cpp
@@ -59,10 +59,13 @@ SET(${PROJECT_NAME}_SRCS
 	Handheld/Nintendo3DS_SMDH.cpp
 	Handheld/NintendoDS.cpp
 	Handheld/NintendoDS_ops.cpp
+	Handheld/NintendoDS_BNR.cpp
+	Handheld/PalmOS.cpp
 	Handheld/PokemonMini.cpp
 	Handheld/PSP.cpp
 	Handheld/VirtualBoy.cpp
 	Handheld/WonderSwan.cpp
+	Handheld/nds_crc.cpp
 
 	Audio/ADX.cpp
 	Audio/BCSTM.cpp
@@ -76,17 +79,19 @@ SET(${PROJECT_NAME}_SRCS
 	Audio/SPC.cpp
 	Audio/VGM.cpp
 
+	Media/CBMDOS.cpp
+	Media/ISO.cpp
+	Media/Wim.cpp
+
 	Other/Amiibo.cpp
 	Other/ELF.cpp
 	Other/EXE.cpp
 	Other/EXE_NE.cpp
 	Other/EXE_PE.cpp
-	Other/ISO.cpp
 	Other/MachO.cpp
 	Other/NintendoBadge.cpp
 	Other/RpTextureWrapper.cpp
 	Other/Lua.cpp
-	Other/Wim.cpp
 
 	data/AmiiboData.cpp
 	data/CBMData.cpp
@@ -112,6 +117,7 @@ SET(${PROJECT_NAME}_SRCS
 	disc/CIAReader.cpp
 	disc/CisoGcnReader.cpp
 	disc/CisoPspReader.cpp
+	disc/DpfReader.cpp
 	disc/GcnFst.cpp
 	disc/GcnPartition.cpp
 	disc/GcnPartition_p.cpp
@@ -125,6 +131,8 @@ SET(${PROJECT_NAME}_SRCS
 	disc/PEResourceReader.cpp
 	disc/WbfsReader.cpp
 	disc/WiiPartition.cpp
+	disc/WiiUFst.cpp
+	disc/WiiUH3Reader.cpp
 	disc/WuxReader.cpp
 	disc/XDVDFSPartition.cpp
 
@@ -144,12 +152,14 @@ SET(${PROJECT_NAME}_H
 
 	Console/Atari7800.hpp
 	Console/CBMCart.hpp
+	Console/ColecoVision.hpp
 	Console/Dreamcast.hpp
 	Console/DreamcastSave.hpp
 	Console/GameCube.hpp
 	Console/GameCubeBNR.hpp
 	Console/GameCubeSave.hpp
 	Console/GameCubeRegions.hpp
+	Console/Intellivision.hpp
 	Console/iQuePlayer.hpp
 	Console/MegaDrive.hpp
 	Console/MegaDriveRegions.hpp
@@ -162,9 +172,14 @@ SET(${PROJECT_NAME}_H
 	Console/SegaSaturn.hpp
 	Console/SNES.hpp
 	Console/SufamiTurbo.hpp
+	Console/WiiBNR.hpp
 	Console/WiiCommon.hpp
+	Console/WiiTicket.hpp
+	Console/WiiTMD.hpp
 	Console/WiiSave.hpp
 	Console/WiiU.hpp
+	Console/WiiUPackage.hpp
+	Console/WiiUPackage_p.hpp
 	Console/WiiWAD.hpp
 	Console/WiiWAD_p.hpp
 	Console/WiiWIBN.hpp
@@ -175,11 +190,13 @@ SET(${PROJECT_NAME}_H
 	Console/XboxDisc.hpp
 
 	Console/atari_7800_structs.h
+	Console/cv_structs.h
 	Console/cbm_cart_structs.h
 	Console/dc_structs.h
 	Console/gcn_structs.h
 	Console/gcn_banner.h
 	Console/gcn_card.h
+	Console/intv_structs.h
 	Console/ique_player_structs.h
 	Console/md_structs.h
 	Console/n64_structs.h
@@ -212,10 +229,13 @@ SET(${PROJECT_NAME}_H
 	Handheld/Nintendo3DS_SMDH.hpp
 	Handheld/NintendoDS.hpp
 	Handheld/NintendoDS_p.hpp
+	Handheld/NintendoDS_BNR.hpp
+	Handheld/PalmOS.hpp
 	Handheld/PokemonMini.hpp
 	Handheld/PSP.hpp
 	Handheld/VirtualBoy.hpp
 	Handheld/WonderSwan.hpp
+	Handheld/nds_crc.hpp
 
 	Handheld/dmg_structs.h
 	Handheld/gba_structs.h
@@ -223,6 +243,7 @@ SET(${PROJECT_NAME}_H
 	Handheld/n3ds_structs.h
 	Handheld/nds_structs.h
 	Handheld/ngpc_structs.h
+	Handheld/palmos_structs.h
 	Handheld/pkmnmini_structs.h
 	Handheld/lnx_structs.h
 	Handheld/vb_structs.h
@@ -250,16 +271,22 @@ SET(${PROJECT_NAME}_H
 	Audio/spc_structs.h
 	Audio/vgm_structs.h
 
+	Media/CBMDOS.hpp
+	Media/ISO.hpp
+	Media/Wim.hpp
+
+	Media/cbmdos_structs.h
+	Media/hsfs_structs.h
+	Media/wim_structs.h
+
 	Other/Amiibo.hpp
 	Other/ELF.hpp
 	Other/EXE.hpp
 	Other/EXE_p.hpp
-	Other/ISO.hpp
 	Other/MachO.hpp
 	Other/NintendoBadge.hpp
 	Other/RpTextureWrapper.hpp
 	Other/Lua.hpp
-	Other/Wim.hpp
 
 	Other/badge_structs.h
 	Other/elf_structs.h
@@ -270,18 +297,21 @@ SET(${PROJECT_NAME}_H
 	Other/exe_res_structs.h
 	Other/macho_structs.h
 	Other/nfp_structs.h
-	Other/wim_structs.h
 
 	data/AmiiboData.hpp
 	data/CBMData.hpp
 	data/CBM_C64_Cartridge_Type_data.h
+	data/CBM_Plus4_Cartridge_Type_data.h
+	data/CBM_VIC20_Cartridge_Type_data.h
 	data/DMGSpecialCases.hpp
 	data/ELFData.hpp
 	data/ELFMachineTypes_data.h
 	data/ELF_OSABI_data.h
 	data/EXEData.hpp
+	data/EXELEMachineTypes_data.h
 	data/EXENEEntries.hpp
 	data/EXENEEntries_data.h
+	data/EXEPEMachineTypes_data.h
 	data/MachOData.hpp
 	data/NESMappers.hpp
 	data/NESMappers_data.h
@@ -303,6 +333,7 @@ SET(${PROJECT_NAME}_H
 	disc/CIAReader.hpp
 	disc/CisoGcnReader.hpp
 	disc/CisoPspReader.hpp
+	disc/DpfReader.hpp
 	disc/GcnFst.hpp
 	disc/GcnPartition.hpp
 	disc/GcnPartition_p.hpp
@@ -317,11 +348,14 @@ SET(${PROJECT_NAME}_H
 	disc/PEResourceReader.hpp
 	disc/WbfsReader.hpp
 	disc/WiiPartition.hpp
+	disc/WiiUFst.hpp
+	disc/WiiUH3Reader.hpp
 	disc/WuxReader.hpp
 	disc/XDVDFSPartition.cpp
 
 	disc/ciso_gcn.h
 	disc/ciso_psp_structs.h
+	disc/dpf_structs.h
 	disc/gcz_structs.h
 	disc/libwbfs.h
 	disc/nasos_gcn.h
@@ -336,7 +370,10 @@ SET(${PROJECT_NAME}_H
 	)
 
 IF(ENABLE_XML)
-	SET(${PROJECT_NAME}_SRCS ${${PROJECT_NAME}_SRCS} Other/EXE_manifest.cpp)
+	SET(${PROJECT_NAME}_SRCS ${${PROJECT_NAME}_SRCS}
+		Console/WiiUPackage_xml.cpp
+		Other/EXE_manifest.cpp
+		)
 	IF(MSVC AND (NOT USE_INTERNAL_XML OR USE_INTERNAL_XML_DLL))
 		SET(${PROJECT_NAME}_SRCS ${${PROJECT_NAME}_SRCS} Other/EXE_delayload.cpp)
 	ENDIF(MSVC AND (NOT USE_INTERNAL_XML OR USE_INTERNAL_XML_DLL))
@@ -349,7 +386,6 @@ IF(ENABLE_DECRYPTION)
 		crypto/KeyStoreUI.cpp
 
 		Handheld/ndscrypt.cpp
-		Handheld/nds_crc.cpp
 		)
 	SET(${PROJECT_NAME}_CRYPTO_H
 		crypto/CtrKeyScrambler.hpp
@@ -357,7 +393,6 @@ IF(ENABLE_DECRYPTION)
 		crypto/KeyStoreUI.hpp
 
 		Handheld/ndscrypt.hpp
-		Handheld/nds_crc.hpp
 		)
 ENDIF(ENABLE_DECRYPTION)
 
@@ -415,8 +450,8 @@ IF(RP_LIBROMDATA_IS_DLL)
 	ADD_DEFINITIONS(-DRP_BUILDING_FOR_DLL=1)
 	# NOTE: Not using the project version here.
 	# This represents the ABI version.
-	SET(${PROJECT_NAME}_VERSION 4.0)
-	SET(${PROJECT_NAME}_SOVERSION 4)
+	SET(${PROJECT_NAME}_VERSION 5.0)
+	SET(${PROJECT_NAME}_SOVERSION 5)
 	IF(MSVC)
 		# Delay-load sources.
 		SET(${PROJECT_NAME}-DELAYLOAD_SRC ../libwin32common/DelayLoadHelper.c)
@@ -535,11 +570,12 @@ IF(${PROJECT_NAME}_LINKAGE STREQUAL SHARED)
 	# should be linked in as PRIVATE, and include directories added
 	# manually. Otherwise, the .a libraries get linked in to the
 	# UI frontend plugins.
-	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpcpu-dll rptexture-dll rpfile-dll rpbase-dll rptext-dll)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpbyteswap-dll rptexture-dll rpfile-dll rpbase-dll rptext-dll)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpthreads-dll cachecommon-dll)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpcpuid)	# for CPU dispatch
 	TARGET_INCLUDE_DIRECTORIES(${PROJECT_NAME} INTERFACE
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../librpcpu>
-		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../librpcpu>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../librpbyteswap>
+		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../librpbyteswap>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../librptexture>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../librptexture>
 		$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../librpfile>
@@ -585,8 +621,9 @@ IF(${PROJECT_NAME}_LINKAGE STREQUAL SHARED)
 			)
 	ENDIF()
 ELSE()
-	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC rpcpu rptexture rpfile rpbase rptext)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC rpbyteswap rptexture rpfile rpbase rptext)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC rpthreads cachecommon)
+	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE rpcpuid)	# for CPU dispatch
 	IF(ENABLE_NLS)
 		TARGET_LINK_LIBRARIES(${PROJECT_NAME} PUBLIC i18n)
 	ENDIF(ENABLE_NLS)
@@ -621,8 +658,6 @@ IF(${PROJECT_NAME}_LINKAGE STREQUAL SHARED)
 		RP_LibRpFile_VectorFile_ForceLinkage
 		RP_LibRpFile_XAttrReader_ForceLinkage
 		RP_LibRpFile_XAttrReader_impl_ForceLinkage
-		ext2AttrCheckboxInfo	# librpfile
-		xfsAttrCheckboxInfo	# librpfile
 		)
 	IF(WIN32)
 		SET(SYMS_FORCE ${SYMS_FORCE}
@@ -632,6 +667,13 @@ IF(${PROJECT_NAME}_LINKAGE STREQUAL SHARED)
 		IF(CPU_i386)
 			SET(SYM_PREFIX "_")
 		ENDIF(CPU_i386)
+	ELSE(WIN32)
+		# FIXME: Getting a missing symbol error on MSVC ARM64EC builds if these
+		# are unconditionally added to SYMS_FORCE.
+		SET(SYMS_FORCE ${SYMS_FORCE}
+			ext2AttrCheckboxInfo	# librpfile
+			xfsAttrCheckboxInfo	# librpfile
+			)
 	ENDIF(WIN32)
 	IF(MSVC)
 		FOREACH(_sym ${SYMS_FORCE})

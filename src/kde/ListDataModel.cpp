@@ -17,6 +17,7 @@ using namespace LibRpTexture;
 using LibRpBase::RomFields;
 
 // C++ STL classes
+using std::array;
 using std::set;
 using std::string;
 using std::unordered_map;
@@ -110,14 +111,16 @@ public:
 	void updateLC(uint32_t def_lc, uint32_t user_lc);
 
 public:
-	// Column data alignment table.
-	static const std::array<uint8_t, 4> align_tbl;
+	// Column data alignment table
+	// All values are known to fit in uint8_t.
+	// NOTE: Need to include AlignVCenter.
+	static const array<uint8_t, 4> align_tbl;
 };
 
-// Format table.
+// Column data alignment table
 // All values are known to fit in uint8_t.
 // NOTE: Need to include AlignVCenter.
-const std::array<uint8_t, 4> ListDataModelPrivate::align_tbl = {{
+const array<uint8_t, 4> ListDataModelPrivate::align_tbl = {{
 	// Order: TXA_D, TXA_L, TXA_C, TXA_R
 	Qt::AlignLeft | Qt::AlignVCenter,
 	Qt::AlignLeft | Qt::AlignVCenter,
@@ -206,8 +209,8 @@ vector<QString> ListDataModelPrivate::convertListDataToVector(const RomFields::L
 	const unsigned int flags = pField->flags;
 	const bool hasCheckboxes = !!(flags & RomFields::RFT_LISTDATA_CHECKBOXES);
 
-	const int columnCount = static_cast<int>(list_data->at(0).size());
-	const int rowCount = list_data->size();
+	const size_t columnCount = list_data->at(0).size();
+	const size_t rowCount = list_data->size();
 
 	data.reserve(columnCount * rowCount);
 	for (const vector<string> &data_row : *list_data) {
@@ -217,8 +220,8 @@ vector<QString> ListDataModelPrivate::convertListDataToVector(const RomFields::L
 		}
 
 		// Add item text.
-		assert((int)data_row.size() == columnCount);
-		int cols = columnCount;
+		assert(data_row.size() == columnCount);
+		int cols = static_cast<int>(columnCount);
 		unsigned int is_timestamp = listDataDesc.col_attrs.is_timestamp;
 		for (const string &u8_str : data_row) {
 			if (unlikely(is_timestamp & 1)) {
@@ -244,9 +247,10 @@ vector<QString> ListDataModelPrivate::convertListDataToVector(const RomFields::L
 				break;
 			}
 		}
+
 		// If there's fewer columns in the data row than we have allocated,
 		// add blank QStrings.
-		for (int i = (int)data_row.size(); i < columnCount; i++) {
+		for (size_t i = columnCount; i < data_row.size(); i++) {
 			data.emplace_back();
 		}
 	}
@@ -715,7 +719,7 @@ set<uint32_t> ListDataModel::getLCs(void) const
  * Set the icon size.
  * @param iconSize Icon size.
  */
-void ListDataModel::setIconSize(const QSize &iconSize)
+void ListDataModel::setIconSize(QSize iconSize)
 {
 	Q_D(ListDataModel);
 	if (d->iconSize == iconSize) {

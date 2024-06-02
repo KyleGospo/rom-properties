@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * WonderSwan.cpp: Bandai WonderSwan (Color) ROM reader.                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,6 +17,7 @@ using namespace LibRpText;
 using namespace LibRpFile;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -423,145 +424,6 @@ const char *WonderSwan::systemName(unsigned int type) const
 }
 
 /**
- * Load field data.
- * Called by RomData::fields() if the field data hasn't been loaded yet.
- * @return Number of fields read on success; negative POSIX error code on error.
- */
-int WonderSwan::loadFieldData(void)
-{
-	RP_D(WonderSwan);
-	if (!d->fields.empty()) {
-		// Field data *has* been loaded...
-		return 0;
-	} else if (!d->file || !d->file->isOpen()) {
-		// File isn't open.
-		return -EBADF;
-	} else if (!d->isValid) {
-		// ROM image isn't valid.
-		return -EIO;
-	}
-
-	// WonderSwan ROM footer
-	const WS_RomFooter *const romFooter = &d->romFooter;
-	d->fields.reserve(10);	// Maximum of 10 fields.
-
-	// Game ID
-	const char *const game_id_title = C_("RomData", "Game ID");
-	const string game_id = d->getGameID();
-	if (!game_id.empty()) {
-		d->fields.addField_string(game_id_title, game_id);
-	} else {
-		d->fields.addField_string(game_id_title, C_("WonderSwan", "None"));
-	}
-
-	// Revision
-	d->fields.addField_string_numeric(C_("RomData", "Revision"), romFooter->revision);
-
-	// Publisher
-	const char *const publisher = WonderSwanPublishers::lookup_name(romFooter->publisher);
-	string s_publisher;
-	if (publisher) {
-		s_publisher = publisher;
-	} else {
-		s_publisher = rp_sprintf(C_("RomData", "Unknown (0x%02X)"), romFooter->publisher);
-	}
-	d->fields.addField_string(C_("RomData", "Publisher"), s_publisher);
-
-	// System
-	static const char *const system_bitfield_names[] = {
-		"WonderSwan", "WonderSwan Color"
-	};
-	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(
-		system_bitfield_names, ARRAY_SIZE(system_bitfield_names));
-	const uint32_t ws_system = (romFooter->system_id & 1) ? 3 : 1;
-	d->fields.addField_bitfield(C_("WonderSwan", "System"),
-		v_system_bitfield_names, 0, ws_system);
-
-	// ROM size
-	static const uint16_t rom_size_tbl[] = {
-		128, 256, 512, 1024,
-		2048, 3072, 4096, 6144,
-		8192, 16384,
-	};
-	const char *const rom_size_title = C_("WonderSwan", "ROM Size");
-	if (romFooter->rom_size < ARRAY_SIZE(rom_size_tbl)) {
-		d->fields.addField_string(rom_size_title,
-			formatFileSizeKiB(rom_size_tbl[romFooter->rom_size]));
-	} else {
-		d->fields.addField_string(rom_size_title,
-			rp_sprintf(C_("RomData", "Unknown (%u)"), romFooter->publisher));
-	}
-
-	// Save size and type
-	static const uint16_t sram_size_tbl[] = {
-		0, 8, 32, 128, 256, 512,
-	};
-	const char *const save_memory_title = C_("WonderSwan", "Save Memory");
-	if (romFooter->save_type == 0) {
-		d->fields.addField_string(save_memory_title, C_("WonderSwan|SaveMemory", "None"));
-	} else if (romFooter->save_type < ARRAY_SIZE(sram_size_tbl)) {
-		d->fields.addField_string(save_memory_title,
-			// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
-			rp_sprintf_p(C_("WonderSwan|SaveMemory", "%1$u KiB (%2$s)"),
-				sram_size_tbl[romFooter->save_type],
-				C_("WonderSwan|SaveMemory", "SRAM")));
-	} else {
-		// EEPROM save
-		unsigned int eeprom_bytes;
-		switch (romFooter->save_type) {
-			case 0x10:	eeprom_bytes = 128; break;
-			case 0x20:	eeprom_bytes = 2048; break;
-			case 0x50:	eeprom_bytes = 1024; break;
-			default:	eeprom_bytes = 0; break;
-		}
-		if (eeprom_bytes == 0) {
-			d->fields.addField_string(save_memory_title, C_("WonderSwan|SaveMemory", "None"));
-		} else {
-			const char *fmtstr;
-			if (eeprom_bytes >= 1024) {
-				// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
-				fmtstr = C_("WonderSwan|SaveMemory", "%1$u KiB (%2$s)");
-				eeprom_bytes /= 1024;
-			} else {
-				// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
-				fmtstr = C_("WonderSwan|SaveMemory", "%1$u bytes (%2$s)");
-			}
-			d->fields.addField_string(save_memory_title,
-				rp_sprintf_p(fmtstr, eeprom_bytes, C_("WonderSwan|SaveMemory", "EEPROM")));
-		}
-	}
-
-	// Features (aka RTC Present)
-	static const char *const ws_feature_bitfield_names[] = {
-		NOP_C_("WonderSwan|Features", "RTC Present"),
-	};
-	vector<string> *const v_ws_feature_bitfield_names = RomFields::strArrayToVector_i18n(
-		"WonderSwan|Features", ws_feature_bitfield_names, ARRAY_SIZE(ws_feature_bitfield_names));
-	d->fields.addField_bitfield(C_("WonderSwan", "Features"),
-		v_ws_feature_bitfield_names, 0, romFooter->rtc_present);
-
-	// Flags: Display orientation
-	d->fields.addField_string(C_("WonderSwan", "Orientation"),
-		((romFooter->flags & WS_FLAG_DISPLAY_MASK) == WS_FLAG_DISPLAY_VERTICAL)
-			? C_("WonderSwan|Orientation", "Vertical")
-			: C_("WonderSwan|Orientation", "Horizontal"));
-
-	// Flags: Bus width
-	d->fields.addField_string(C_("WonderSwan", "Bus Width"),
-		((romFooter->flags & WS_FLAG_ROM_BUS_WIDTH_MASK) == WS_FLAG_ROM_BUS_WIDTH_8_BIT)
-			? C_("WonderSwan|BusWidth", "8-bit")
-			: C_("WonderSwan|BusWidth", "16-bit"));
-
-	// Flags: ROM access speed
-	d->fields.addField_string(C_("WonderSwan", "ROM Access Speed"),
-		((romFooter->flags & WS_FLAG_ROM_ACCESS_SPEED_MASK) == WS_FLAG_ROM_ACCESS_SPEED_1_CYCLE)
-			? C_("WonderSwan|ROMAccessSpeed", "1 cycle")
-			: C_("WonderSwan|ROMAccessSpeed", "3 cycles"));
-
-	return static_cast<int>(d->fields.count());
-}
-
-/**
  * Get a bitfield of image types this class can retrieve.
  * @return Bitfield of supported image types. (ImageTypesBF)
  */
@@ -641,6 +503,145 @@ uint32_t WonderSwan::imgpf(ImageType imageType) const
 			break;
 	}
 	return ret;
+}
+
+/**
+ * Load field data.
+ * Called by RomData::fields() if the field data hasn't been loaded yet.
+ * @return Number of fields read on success; negative POSIX error code on error.
+ */
+int WonderSwan::loadFieldData(void)
+{
+	RP_D(WonderSwan);
+	if (!d->fields.empty()) {
+		// Field data *has* been loaded...
+		return 0;
+	} else if (!d->file || !d->file->isOpen()) {
+		// File isn't open.
+		return -EBADF;
+	} else if (!d->isValid) {
+		// ROM image isn't valid.
+		return -EIO;
+	}
+
+	// WonderSwan ROM footer
+	const WS_RomFooter *const romFooter = &d->romFooter;
+	d->fields.reserve(10);	// Maximum of 10 fields.
+
+	// Game ID
+	const char *const game_id_title = C_("RomData", "Game ID");
+	const string game_id = d->getGameID();
+	if (!game_id.empty()) {
+		d->fields.addField_string(game_id_title, game_id);
+	} else {
+		d->fields.addField_string(game_id_title, C_("WonderSwan", "None"));
+	}
+
+	// Revision
+	d->fields.addField_string_numeric(C_("RomData", "Revision"), romFooter->revision);
+
+	// Publisher
+	const char *const publisher = WonderSwanPublishers::lookup_name(romFooter->publisher);
+	string s_publisher;
+	if (publisher) {
+		s_publisher = publisher;
+	} else {
+		s_publisher = rp_sprintf(C_("RomData", "Unknown (0x%02X)"), romFooter->publisher);
+	}
+	d->fields.addField_string(C_("RomData", "Publisher"), s_publisher);
+
+	// System
+	static const char *const system_bitfield_names[] = {
+		"WonderSwan", "WonderSwan Color"
+	};
+	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(
+		system_bitfield_names, ARRAY_SIZE(system_bitfield_names));
+	const uint32_t ws_system = (romFooter->system_id & 1) ? 3 : 1;
+	d->fields.addField_bitfield(C_("WonderSwan", "System"),
+		v_system_bitfield_names, 0, ws_system);
+
+	// ROM size
+	static constexpr array<uint16_t, 10> rom_size_tbl = {{
+		128, 256, 512, 1024,
+		2048, 3072, 4096, 6144,
+		8192, 16384,
+	}};
+	const char *const rom_size_title = C_("WonderSwan", "ROM Size");
+	if (romFooter->rom_size < rom_size_tbl.size()) {
+		d->fields.addField_string(rom_size_title,
+			formatFileSizeKiB(rom_size_tbl[romFooter->rom_size]));
+	} else {
+		d->fields.addField_string(rom_size_title,
+			rp_sprintf(C_("RomData", "Unknown (%u)"), romFooter->publisher));
+	}
+
+	// Save size and type
+	static constexpr array<uint16_t, 6> sram_size_tbl = {{
+		0, 8, 32, 128, 256, 512,
+	}};
+	const char *const save_memory_title = C_("WonderSwan", "Save Memory");
+	if (romFooter->save_type == 0) {
+		d->fields.addField_string(save_memory_title, C_("WonderSwan|SaveMemory", "None"));
+	} else if (romFooter->save_type < sram_size_tbl.size()) {
+		d->fields.addField_string(save_memory_title,
+			// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
+			rp_sprintf_p(C_("WonderSwan|SaveMemory", "%1$u KiB (%2$s)"),
+				sram_size_tbl[romFooter->save_type],
+				C_("WonderSwan|SaveMemory", "SRAM")));
+	} else {
+		// EEPROM save
+		unsigned int eeprom_bytes;
+		switch (romFooter->save_type) {
+			case 0x10:	eeprom_bytes = 128; break;
+			case 0x20:	eeprom_bytes = 2048; break;
+			case 0x50:	eeprom_bytes = 1024; break;
+			default:	eeprom_bytes = 0; break;
+		}
+		if (eeprom_bytes == 0) {
+			d->fields.addField_string(save_memory_title, C_("WonderSwan|SaveMemory", "None"));
+		} else {
+			const char *fmtstr;
+			if (eeprom_bytes >= 1024) {
+				// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
+				fmtstr = C_("WonderSwan|SaveMemory", "%1$u KiB (%2$s)");
+				eeprom_bytes /= 1024;
+			} else {
+				// tr: Parameter 2 indicates the save type, e.g. "SRAM" or "EEPROM".
+				fmtstr = C_("WonderSwan|SaveMemory", "%1$u bytes (%2$s)");
+			}
+			d->fields.addField_string(save_memory_title,
+				rp_sprintf_p(fmtstr, eeprom_bytes, C_("WonderSwan|SaveMemory", "EEPROM")));
+		}
+	}
+
+	// Features (aka RTC Present)
+	static const char *const ws_feature_bitfield_names[] = {
+		NOP_C_("WonderSwan|Features", "RTC Present"),
+	};
+	vector<string> *const v_ws_feature_bitfield_names = RomFields::strArrayToVector_i18n(
+		"WonderSwan|Features", ws_feature_bitfield_names, ARRAY_SIZE(ws_feature_bitfield_names));
+	d->fields.addField_bitfield(C_("WonderSwan", "Features"),
+		v_ws_feature_bitfield_names, 0, romFooter->rtc_present);
+
+	// Flags: Display orientation
+	d->fields.addField_string(C_("WonderSwan", "Orientation"),
+		((romFooter->flags & WS_FLAG_DISPLAY_MASK) == WS_FLAG_DISPLAY_VERTICAL)
+			? C_("WonderSwan|Orientation", "Vertical")
+			: C_("WonderSwan|Orientation", "Horizontal"));
+
+	// Flags: Bus width
+	d->fields.addField_string(C_("WonderSwan", "Bus Width"),
+		((romFooter->flags & WS_FLAG_ROM_BUS_WIDTH_MASK) == WS_FLAG_ROM_BUS_WIDTH_8_BIT)
+			? C_("WonderSwan|BusWidth", "8-bit")
+			: C_("WonderSwan|BusWidth", "16-bit"));
+
+	// Flags: ROM access speed
+	d->fields.addField_string(C_("WonderSwan", "ROM Access Speed"),
+		((romFooter->flags & WS_FLAG_ROM_ACCESS_SPEED_MASK) == WS_FLAG_ROM_ACCESS_SPEED_1_CYCLE)
+			? C_("WonderSwan|ROMAccessSpeed", "1 cycle")
+			: C_("WonderSwan|ROMAccessSpeed", "3 cycles"));
+
+	return static_cast<int>(d->fields.count());
 }
 
 /**

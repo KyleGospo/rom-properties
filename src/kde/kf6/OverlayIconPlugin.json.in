@@ -1,0 +1,14 @@
+{
+    "KPlugin": {
+        "MimeTypes": [
+@MIMETYPES_ALL_JSON_ARRAY@
+        ],
+        "Name": "overlayiconplugin_rom-properties-kf6",
+        "Description": "Overlay icon for rom-properties"
+    },
+    "MimeType": "@MIMETYPES_ALL@",
+    "X-KDE-Protocols": [
+        "file",
+        "desktop"
+    ]
+}
