@@ -2,14 +2,14 @@
  * ROM Properties Page shell extension. (amiibo-data)                      *
  * amiiboc.cpp: Nintendo amiibo binary data compiler.                      *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "amiibo_bin_structs.h"
 
 // librpsecure
-// TODO: rp_secure_enable()?
+#include "librpsecure/os-secure.h"
 #include "librpsecure/restrict-dll.h"
 
 // Byteswapping
@@ -17,13 +17,13 @@
 // Unsigned ctype
 #include "ctypex.h"
 
-// C includes. (C++ namespace)
+// C includes (C++ namespace)
 #include <cassert>
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
 
-// C++ includes.
+// C++ includes
 #include <map>
 #include <string>
 #include <unordered_map>
@@ -32,6 +32,9 @@ using std::map;
 using std::string;
 using std::unordered_map;
 using std::vector;
+
+// tchar
+#include "tcharx.h"
 
 static bool verbose = false;
 
@@ -83,7 +86,6 @@ static uint32_t getStringTableOffset(const char *str)
 	}
 
 	// Not found. Add the string
-	// TODO: Check generated assembly; maybe memcmp() with rp::uvector<> is faster?
 	const uint32_t offset = static_cast<uint32_t>(stringTable.size());
 	string entry(str);
 	stringTable.insert(stringTable.end(), entry.c_str(), entry.c_str() + entry.size() + 1);
@@ -107,43 +109,92 @@ static void alignFileTo16Bytes(FILE *f)
 	fwrite(zerobytes, 1, count, f);
 }
 
-int main(int argc, char *argv[])
+/**
+ * Set security options.
+ * @return 0 on success; non-zero on error.
+ */
+static int set_security_options(void)
 {
 	// Restrict DLL lookups.
+	// NOTE: Not checking the return value.
 	rp_secure_restrict_dll_lookups();
+
+	// Set OS-specific security options.
+	rp_secure_param_t param;
+#if defined(_WIN32)
+	param.bHighSec = 1;	// Disable Win32k syscalls. (NTUser/GDI)
+#elif defined(HAVE_SECCOMP)
+	static constexpr int syscall_wl[] = {
+		// Syscalls used by amiiboc.
+		SCMP_SYS(close),
+		SCMP_SYS(fstat),     SCMP_SYS(fstat64),		// __GI___fxstat() [printf()]
+		SCMP_SYS(fstatat64), SCMP_SYS(newfstatat),	// Ubuntu 19.10 (32-bit)
+		SCMP_SYS(gettimeofday),	// 32-bit only?
+		SCMP_SYS(lseek), SCMP_SYS(_llseek),
+		SCMP_SYS(open),		// Ubuntu 16.04
+		SCMP_SYS(openat),	// glibc-2.31
+#if defined(__SNR_openat2)
+		SCMP_SYS(openat2),	// Linux 5.6
+#elif defined(__NR_openat2)
+		__NR_openat2,		// Linux 5.6
+#endif /* __SNR_openat2 || __NR_openat2 */
+
+		// Ubuntu 16.04: mmap() is used by fgets() for some reason. (glibc-2.23)
+		SCMP_SYS(mmap), SCMP_SYS(mmap2), SCMP_SYS(munmap),
+
+		-1	// End of whitelist
+	};
+	param.syscall_wl = syscall_wl;
+	param.threading = false;
+#elif defined(HAVE_PLEDGE)
+	// Promises:
+	// - stdio: General stdio functionality.
+	// - rpath: Read from the specified file.
+	// - wpath: Write to the specified file.
+	param.promises = "stdio rpath wpath";
+#elif defined(HAVE_TAME)
+	param.tame_flags = TAME_STDIO | TAME_RPATH | TAME_WPATH;
+#else
+	param.dummy = 0;
+#endif
+
+	return rp_secure_enable(param);
+}
+
+int _tmain(int argc, TCHAR *argv[])
+{
+	// Set security options.
+	set_security_options();
 
 	// TODO: Better command line parsing.
 	if (argc < 3) {
-		fprintf(stderr, "syntax: %s [-v] amiibo-data.txt amiibo.bin\n", argv[0]);
+		_ftprintf(stderr, _T("syntax: %s [-v] amiibo-data.txt amiibo.bin\n"), argv[0]);
 		return EXIT_FAILURE;
 	}
 
 	int optind = 1;
-	if (!strcmp(argv[optind], "-v")) {
+	if (!_tcscmp(argv[optind], _T("-v"))) {
 		// Verbose mode.
 		verbose = true;
 		optind++;
 	}
 
-	FILE *f_in = fopen(argv[optind++], "r");
+	FILE *f_in = _tfopen(argv[optind++], _T("r"));
 	if (!f_in) {
-		fprintf(stderr, "*** ERROR opening input file '%s': %s\n", argv[1], strerror(errno));
+		_ftprintf(stderr, _T("*** ERROR opening input file '%s': %s\n"), argv[1], _tcserror(errno));
 		return EXIT_FAILURE;
 	}
 
 	// Initialize the header and tables.
-	// TODO: Check map::reserve(), unordered_map::reserve()
 	memset(&binHeader, 0, sizeof(binHeader));
 	charSeriesTable.reserve(0x3A4/4);
-	//charTable.reserve(1024);
-	//charVarTable.reserve(128);
 	amiiboSeriesTable.reserve(32);
 	amiiboTable.reserve(0x1000);
 
 	// Initialize the string table.
 	// The string table always starts with a NULL byte. (empty string)
-	stringTable.reserve(32768);	// TODO: Optimal reservation?
-	stringTableMap.reserve(2048);	// TODO: Optimal reservation?
+	stringTable.reserve(32768);
+	stringTableMap.reserve(2048);
 	stringTable.push_back('\0');
 	stringTableMap.emplace("", 0);
 
@@ -210,7 +261,7 @@ int main(int argc, char *argv[])
 			// ID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CS' command is missing ID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CS' command is missing ID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -221,7 +272,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (id > 16384) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CS' command: ID is out of range: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CS' command: ID is out of range: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -229,14 +280,14 @@ int main(int argc, char *argv[])
 			// Name
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token || token[0] == '\0') {
-				fprintf(stderr, "*** ERROR: Line %d: 'CS' command is missing Name field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CS' command is missing Name field.\n"), line);
 				err = true;
 				break;
 			}
 
 			// Check if the ID is a multiple of 4.
 			if (id % 4 != 0) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CS' command has non-multiple-of-4 ID: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CS' command has non-multiple-of-4 ID: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -245,7 +296,7 @@ int main(int argc, char *argv[])
 			const unsigned int idx = id / 4;
 			if (idx < charSeriesTable.size()) {
 				if (charSeriesTable[idx] != 0) {
-					fprintf(stderr, "*** ERROR: Line %d: 'CS' command has duplicate ID: %u (0x%04X)\n", line, id, id);
+					_ftprintf(stderr, _T("*** ERROR: Line %d: 'CS' command has duplicate ID: %u (0x%04X)\n"), line, id, id);
 					err = true;
 					break;
 				}
@@ -265,7 +316,7 @@ int main(int argc, char *argv[])
 			// ID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'C' command is missing ID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'C' command is missing ID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -276,7 +327,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (id > 0xFFFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'C' command: ID is out of range: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'C' command: ID is out of range: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -284,7 +335,7 @@ int main(int argc, char *argv[])
 			// Name
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token || token[0] == '\0') {
-				fprintf(stderr, "*** ERROR: Line %d: 'C' command is missing Name field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'C' command is missing Name field.\n"), line);
 				err = true;
 				break;
 			}
@@ -292,7 +343,7 @@ int main(int argc, char *argv[])
 			// Check if we already have this character.
 			auto iter = charTable.find(id);
 			if (iter != charTable.end()) {
-				fprintf(stderr, "*** ERROR: Line %d: 'C' command has duplicate ID: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'C' command has duplicate ID: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -312,7 +363,7 @@ int main(int argc, char *argv[])
 			// ID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command is missing ID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command is missing ID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -323,7 +374,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (id > 0xFFFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command: ID is out of range: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command: ID is out of range: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -331,7 +382,7 @@ int main(int argc, char *argv[])
 			// VarID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command is missing VarID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command is missing VarID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -341,7 +392,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (var_id > 0xFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command: VarID is out of range: %u (0x%04X)\n", line, var_id, var_id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command: VarID is out of range: %u (0x%04X)\n"), line, var_id, var_id);
 				err = true;
 				break;
 			}
@@ -349,7 +400,7 @@ int main(int argc, char *argv[])
 			// Name
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token || token[0] == '\0') {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command is missing Name field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command is missing Name field.\n"), line);
 				err = true;
 				break;
 			}
@@ -357,7 +408,7 @@ int main(int argc, char *argv[])
 			// Check if this character was set.
 			auto iter = charTable.find(id);
 			if (iter == charTable.end()) {
-				fprintf(stderr, "*** ERROR: Line %d: 'CV' command has unassigned char ID: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'CV' command has unassigned char ID: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -373,7 +424,7 @@ int main(int argc, char *argv[])
 				pMap = &(iterV->second);
 				auto iterV2 = pMap->find(var_id);
 				if (iterV2 != pMap->end()) {
-					fprintf(stderr, "*** ERROR: Line %d: 'C' command has duplicate variant ID: %u:%u (0x%04X:0x%02X)\n", line, id, var_id, id, var_id);
+					_ftprintf(stderr, _T("*** ERROR: Line %d: 'C' command has duplicate variant ID: %u:%u (0x%04X:0x%02X)\n"), line, id, var_id, id, var_id);
 					err = true;
 					break;
 				}
@@ -400,7 +451,7 @@ int main(int argc, char *argv[])
 			// ID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'AS' command is missing ID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'AS' command is missing ID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -411,7 +462,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (id > 0xFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'AS' command: ID is out of range: %u (0x%02X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'AS' command: ID is out of range: %u (0x%02X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -419,7 +470,7 @@ int main(int argc, char *argv[])
 			// Name
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token || token[0] == '\0') {
-				fprintf(stderr, "*** ERROR: Line %d: 'AS' command is missing Name field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'AS' command is missing Name field.\n"), line);
 				err = true;
 				break;
 			}
@@ -427,7 +478,7 @@ int main(int argc, char *argv[])
 			// Check if we already have this amiibo series.
 			if (id < amiiboSeriesTable.size()) {
 				if (amiiboSeriesTable[id] != 0) {
-					fprintf(stderr, "*** ERROR: Line %d: 'AS' command has duplicate ID: %u (0x%04X)\n", line, id, id);
+					_ftprintf(stderr, _T("*** ERROR: Line %d: 'AS' command has duplicate ID: %u (0x%04X)\n"), line, id, id);
 					err = true;
 					break;
 				}
@@ -447,7 +498,7 @@ int main(int argc, char *argv[])
 			// ID
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command is missing ID field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command is missing ID field.\n"), line);
 				err = true;
 				break;
 			}
@@ -458,7 +509,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (id > 0xFFFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command: ID is out of range: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command: ID is out of range: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -466,7 +517,7 @@ int main(int argc, char *argv[])
 			// Release No.
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command is missing Release No. field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command is missing Release No. field.\n"), line);
 				err = true;
 				break;
 			}
@@ -476,7 +527,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (release_no > 0xFFFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command: Release No. is out of range: %u (0x%04X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command: Release No. is out of range: %u (0x%04X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -484,7 +535,7 @@ int main(int argc, char *argv[])
 			// Wave
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command is missing Wave field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command is missing Wave field.\n"), line);
 				err = true;
 				break;
 			}
@@ -494,7 +545,7 @@ int main(int argc, char *argv[])
 				err = true;
 				break;
 			} else if (wave_no > 0xFF) {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command: Wave is out of range: %u (0x%02X)\n", line, id, id);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command: Wave is out of range: %u (0x%02X)\n"), line, id, id);
 				err = true;
 				break;
 			}
@@ -502,7 +553,7 @@ int main(int argc, char *argv[])
 			// Name
 			token = strtok_r(nullptr, ":", &saveptr);
 			if (!token || token[0] == '\0') {
-				fprintf(stderr, "*** ERROR: Line %d: 'A' command is missing Name field.\n", line);
+				_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command is missing Name field.\n"), line);
 				err = true;
 				break;
 			}
@@ -510,7 +561,7 @@ int main(int argc, char *argv[])
 			// Check if we already have this amiibo.
 			if (id < amiiboTable.size()) {
 				if (amiiboTable[id].name != 0) {
-					fprintf(stderr, "*** ERROR: Line %d: 'A' command has duplicate ID: %u (0x%04X)\n", line, id, id);
+					_ftprintf(stderr, _T("*** ERROR: Line %d: 'A' command has duplicate ID: %u (0x%04X)\n"), line, id, id);
 					err = true;
 					break;
 				}
@@ -541,15 +592,32 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
+	// Check if any tables are 0 bytes.
+	if (stringTable.empty()) {
+		_fputts(_T("*** ERROR: String table is empty.\n"), stderr);
+		return EXIT_FAILURE;
+	} else if (charSeriesTable.empty()) {
+		_fputts(_T("*** ERROR: Character Series table is empty.\n"), stderr);
+		return EXIT_FAILURE;
+	} else if (charTable.empty()) {
+		_fputts(_T("*** ERROR: Character table is empty.\n"), stderr);
+		return EXIT_FAILURE;
+	} else if (amiiboSeriesTable.empty()) {
+		_fputts(_T("*** ERROR: amiibo Series table is empty.\n"), stderr);
+		return EXIT_FAILURE;
+	} else if (amiiboTable.empty()) {
+		_fputts(_T("*** ERROR: amiibo table is empty.\n"), stderr);
+		return EXIT_FAILURE;
+	}
+
 	// Write the binary data.
-	FILE *f_out = fopen(argv[optind++], "wb");
+	FILE *f_out = _tfopen(argv[optind++], _T("wb"));
 	if (!f_out) {
-		fprintf(stderr, "*** ERROR opening output file '%s': %s\n", argv[2], strerror(errno));
+		_ftprintf(stderr, _T("*** ERROR opening output file '%s': %s\n"), argv[2], _tcserror(errno));
 		return EXIT_FAILURE;
 	}
 
 	// TODO: Check fwrite() return values.
-	// TODO: Check if any tables are 0 bytes.
 
 	// Write the initial header.
 	// It will be rewritten once everything is finalized.

@@ -2,22 +2,17 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * ImageTypesConfig.cpp: Image Types non-templated common functions.       *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
-// NOTE: This is #included in other files,
-// so don't use any 'using' statements!
-
+#include "stdafx.h"
 #include "ImageTypesConfig.hpp"
 #include "librpbase/config/Config.hpp"
 
 // librpbase
 #include "librpbase/RomData.hpp"	// for IMG_* constants
 using namespace LibRpBase;
-
-// libi18n
-#include "libi18n/i18n.h"
 
 // RomData subclasses with images.
 // Does not include texture files, since those are always
@@ -34,15 +29,15 @@ using namespace LibRpBase;
 #include "Console/WiiU.hpp"
 #include "Console/WiiWAD.hpp"
 
-// C++ includes.
-#include <string>
+// C++ STL classes
+using std::array;
 
 namespace LibRomData { namespace ImageTypesConfig {
 
 // Number of image types. (columns)
-static const unsigned int IMG_TYPE_COUNT = LibRpBase::RomData::IMG_EXT_MAX+1;
+static constexpr unsigned int IMG_TYPE_COUNT = LibRpBase::RomData::IMG_EXT_MAX+1;
 // Number of systems. (rows)
-static const unsigned int SYS_COUNT = 11;
+static constexpr unsigned int SYS_COUNT = 11;
 
 namespace Private {
 
@@ -57,7 +52,7 @@ struct SysData_t {
 	{#klass, LibRomData::klass::supportedImageTypes_static}
 
 // System data.
-static const SysData_t sysData[SYS_COUNT] = {
+static const array<SysData_t, SYS_COUNT> sysData = {{
 	SysDataEntry(Amiibo),
 	SysDataEntry(NintendoBadge),
 	SysDataEntry(DreamcastSave),
@@ -69,7 +64,7 @@ static const SysData_t sysData[SYS_COUNT] = {
 	SysDataEntry(PlayStationSave),
 	SysDataEntry(WiiU),
 	SysDataEntry(WiiWAD),
-};
+}};
 
 }
 
@@ -90,7 +85,7 @@ unsigned int imageTypeCount(void)
 const char *imageTypeName(unsigned int imageType)
 {
 	// Image type names.
-	static const std::array<const char*, IMG_TYPE_COUNT> imageType_names = {{
+	static const array<const char*, IMG_TYPE_COUNT> imageType_names = {{
 		/** Internal **/
 
 		// tr: IMG_INT_ICON
@@ -121,7 +116,7 @@ const char *imageTypeName(unsigned int imageType)
 	assert(imageType < imageType_names.size());
 	if (imageType >= imageType_names.size())
 		return nullptr;
-	return dpgettext_expr(RP_I18N_DOMAIN, "ImageTypesConfig|ImageTypeDisp", imageType_names[imageType]);
+	return pgettext_expr("ImageTypesConfig|ImageTypeDisp", imageType_names[imageType]);
 }
 
 /**
@@ -141,7 +136,7 @@ unsigned int sysCount(void)
 const char *sysName(unsigned int sys)
 {
 	// System names.
-	static const std::array<const char*, SYS_COUNT> sysNames = {{
+	static const array<const char*, SYS_COUNT> sysNames = {{
 		// tr: amiibo
 		NOP_C_("ImageTypesConfig|SysName", "amiibo"),
 		// tr: NintendoBadge
@@ -169,7 +164,7 @@ const char *sysName(unsigned int sys)
 	assert(sys < sysNames.size());
 	if (sys >= sysNames.size())
 		return nullptr;
-	return dpgettext_expr(RP_I18N_DOMAIN, "ImageTypesConfig|SysName", sysNames[sys]);
+	return pgettext_expr("ImageTypesConfig|SysName", sysNames[sys]);
 }
 
 /**

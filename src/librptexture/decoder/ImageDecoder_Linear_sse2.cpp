@@ -3,7 +3,7 @@
  * ImageDecoder_Linear.cpp: Image decoding functions: Linear               *
  * SSE2-optimized version.                                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -244,7 +244,7 @@ rp_image_ptr fromLinear16_sse2(PixelFormat px_format,
 	const uint16_t *RESTRICT img_buf, size_t img_siz, int stride)
 {
 	ASSERT_ALIGNMENT(16, img_buf);
-	static const int bytespp = 2;
+	static constexpr int bytespp = 2;
 
 	// FIXME: Add support for these formats.
 	// For now, redirect back to the C++ version.

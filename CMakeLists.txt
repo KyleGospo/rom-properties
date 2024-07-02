@@ -1,6 +1,14 @@
 # ROM Properties Page Shell Extension
-CMAKE_MINIMUM_REQUIRED(VERSION 3.4)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.5)
+
+# CMP0048: Set VERSION variables based on the project version specified in PROJECT().
+# Introduced in CMake 3.0.
 CMAKE_POLICY(SET CMP0048 NEW)
+
+# CMP0063: Honor visibility properties for all target types,
+# including static libraries and executables.
+# Introduced in CMake 3.3.
+CMAKE_POLICY(SET CMP0063 NEW)
 
 # Read the project version.
 CONFIGURE_FILE(version.txt version.txt.tmp)
@@ -316,6 +324,11 @@ IF(BUILD_TESTING)
 	SET(EXTLIB_BUILD "${EXTLIB_BUILD}- Google Test\n")
 ENDIF(BUILD_TESTING)
 
+IF(BUILD_TRACKER_EXTRACTOR)
+	SET(TRACKER_API_DISPLAY "${TRACKER_INSTALL_API_VERSION}")
+ELSE(BUILD_TRACKER_EXTRACTOR)
+	SET(TRACKER_API_DISPLAY "(none)")
+ENDIF(BUILD_TRACKER_EXTRACTOR)
 
 INCLUDE(DirInstallPaths)
 MESSAGE(STATUS "
@@ -326,6 +339,7 @@ Build Summary:
 - Target CPU architecture: ${TARGET_CPU_ARCH}
 - Building these UI frontends: ${UI_FRONTENDS}
 - Building command-line frontend: ${CLI_BUILD_MSG}
+- GNOME Tracker API version: ${TRACKER_API_DISPLAY}
 - libromdata is built as: ${LIBROMDATA_LIB_TYPE}
 - Security mechanism: ${SECURITY_MECHANISM}
 - Decryption functionality: ${ENABLE_DECRYPTION_MSG}

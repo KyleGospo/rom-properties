@@ -14,6 +14,7 @@ using namespace LibRpBase;
 // C++ includes
 #include <algorithm>
 #include <array>
+using std::array;
 
 namespace LibWin32UI {
 
@@ -43,22 +44,27 @@ LPVOID LoadResource_i18n(HMODULE hModule, LPCTSTR lpType, DWORD dwResId)
 		uint32_t lc;
 		WORD wLanguage;
 	};
-	static const std::array<lc_mapping_t, 7> lc_mappings = {{
+	static const array<lc_mapping_t, 8> lc_mappings = {{
 		{'de', MAKELANGID(LANG_GERMAN, SUBLANG_GERMAN)},
 		{'es', MAKELANGID(LANG_SPANISH, SUBLANG_SPANISH)},
 		{'fr', MAKELANGID(LANG_FRENCH, SUBLANG_FRENCH)},
+		{'it', MAKELANGID(LANG_ITALIAN, SUBLANG_DEFAULT)},
 		{'pt', MAKELANGID(LANG_PORTUGUESE, SUBLANG_PORTUGUESE_BRAZILIAN)},
 		{'ro', MAKELANGID(LANG_ROMANIAN, SUBLANG_DEFAULT)},
 		{'ru', MAKELANGID(LANG_RUSSIAN, SUBLANG_DEFAULT)},
 		{'uk', MAKELANGID(LANG_UKRAINIAN, SUBLANG_DEFAULT)},
 	}};
 
-	auto iter = std::find_if(lc_mappings.cbegin(), lc_mappings.cend(),
-		[lc](const lc_mapping_t lc_mapping) {
-			return (lc == lc_mapping.lc);
-		});
-	if (iter != lc_mappings.cend()) {
-		wLanguage = iter->wLanguage;
+	if (lc != 0 && lc != 'en') {
+		// Search for the specified language code.
+		// NOTE: 'en' is special-cased and skips this search.
+		auto iter = std::lower_bound(lc_mappings.cbegin(), lc_mappings.cend(), lc,
+			[](const lc_mapping_t lc_mapping, uint32_t lc) {
+				return (lc_mapping.lc < lc);
+			});
+		if (iter != lc_mappings.cend() && iter->lc == lc) {
+			wLanguage = iter->wLanguage;
+		}
 	}
 
 	// Search for the requested language.

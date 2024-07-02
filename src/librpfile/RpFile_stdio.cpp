@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpfile)                        *
  * RpFile_stdio.cpp: Standard file object. (stdio implementation)          *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -15,6 +15,9 @@
 
 #include "RpFile.hpp"
 #include "RpFile_p.hpp"
+
+// librpbyteswap
+#include "librpbyteswap/byteswap_rp.h"
 
 // C includes
 #include <fcntl.h>	// AT_EMPTY_PATH
@@ -159,7 +162,7 @@ int RpFilePrivate::reOpenFile(void)
 		// MSVC 2015 and gcc-4.5.2. In order to get it to work correctly,
 		// we have to store the length byte separately from the actual
 		// image type name.
-		static const char fileNamePatterns[][16] = {
+		static constexpr char fileNamePatterns[][16] = {
 #if defined(__linux__)
 			"\x07" "/dev/sr",
 			"\x08" "/dev/scd",

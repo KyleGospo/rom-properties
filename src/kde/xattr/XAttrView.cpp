@@ -2,13 +2,15 @@
  * ROM Properties Page shell extension. (KDE4/KF5)                         *
  * XAttrView.cpp: Extended attribute viewer property page.                 *
  *                                                                         *
- * Copyright (c) 2022-2023 by David Korth.                                 *
+ * Copyright (c) 2022-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 // Reference: https://doc.qt.io/qt-5/dnd.html
 #include "stdafx.h"
+
 #include "XAttrView.hpp"
+#include "RpQUrl.hpp"
 
 // XAttrReader
 #include "librpfile/xattr/XAttrReader.hpp"
@@ -16,6 +18,7 @@ using LibRpFile::XAttrReader;
 
 // C++ STL classes
 using std::string;
+using std::unique_ptr;
 
 /** XAttrViewPrivate **/
 
@@ -23,17 +26,11 @@ using std::string;
 class XAttrViewPrivate
 {
 public:
-	// TODO: Reomve localizeQUrl() once non-local QUrls are supported.
+	// TODO: Remove localizeQUrl() once non-local QUrls are supported.
 	explicit XAttrViewPrivate(const QUrl &filename)
 		: filename(localizeQUrl(filename))
-		, xattrReader(nullptr)
 		, hasAttributes(false)
 	{}
-
-	~XAttrViewPrivate()
-	{
-		delete xattrReader;
-	}
 
 private:
 	Q_DISABLE_COPY(XAttrViewPrivate)
@@ -43,7 +40,7 @@ public:
 	QUrl filename;
 
 	// XAttrReader
-	XAttrReader *xattrReader;
+	unique_ptr<XAttrReader> xattrReader;
 
 	// Do we have attributes for this file?
 	bool hasAttributes;
@@ -178,6 +175,9 @@ int XAttrViewPrivate::loadPosixXattrs(void)
 		return -ENOENT;
 	}
 
+	// Disable sorting while we add items.
+	ui.treeXAttr->setSortingEnabled(false);
+
 	const XAttrReader::XAttrList &xattrList = xattrReader->genericXAttrs();
 	for (const auto &xattr : xattrList) {
 		QTreeWidgetItem *const treeWidgetItem = new QTreeWidgetItem(ui.treeXAttr);
@@ -200,6 +200,12 @@ int XAttrViewPrivate::loadPosixXattrs(void)
 		ui.treeXAttr->resizeColumnToContents(i);
 	}
 #endif
+
+	// QTreeWidget uses a case-insensitive sort by default.
+	// For case-sensitive, we'd have to subclass QTreeWidgetItem.
+	// Leaving it as-is for now.
+	ui.treeXAttr->sortByColumn(0, Qt::AscendingOrder);
+	ui.treeXAttr->setSortingEnabled(true);
 
 	// Extended attributes retrieved.
 	ui.grpXAttr->show();
@@ -230,18 +236,19 @@ int XAttrViewPrivate::loadAttributes(void)
 		return -ENOTSUP;
 	}
 
-	const string s_local_filename = filename.toLocalFile().toUtf8().constData();
-
-	// Close the XAttrReader if it's already open.
-	delete xattrReader;
+	string s_local_filename;
+	if (filename.scheme().isEmpty()) {
+		s_local_filename = filename.path().toUtf8().constData();
+	} else if (filename.isLocalFile()) {
+		s_local_filename = filename.toLocalFile().toUtf8().constData();
+	}
 
 	// Open an XAttrReader.
-	xattrReader = new XAttrReader(s_local_filename.c_str());
+	xattrReader.reset(new XAttrReader(s_local_filename.c_str()));
 	int err = xattrReader->lastError();
 	if (err != 0) {
 		// Error reading attributes.
-		delete xattrReader;
-		xattrReader = nullptr;
+		xattrReader.reset();
 		return err;
 	}
 

@@ -3,12 +3,6 @@
 # - Caja 1.18 (MATE)
 # - Nemo (Cinnamon)
 # - Thunar 1.8 (XFCE)
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-gtk3 LANGUAGES C CXX)
 
 FIND_PACKAGE(GLib2 ${REQUIRE_GTK3} ${GLIB_MIN_VERSION})
@@ -74,9 +68,13 @@ ENDIF()
 # Ensure we don't use functions not available in GLib 2.34.
 ADD_DEFINITIONS(-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_34 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_34)
 
-# Sources and headers. (GTK+ common)
+# Sources and headers (GTK+ common)
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_SRCS "${rom-properties-gtk_SRCS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_H    "${rom-properties-gtk_H}")
+
+# Sources and headers (GTK3 maximum)
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK3MAX_SRCS "${rom-properties-gtk_GTK3MAX_SRCS}")
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK3MAX_H    "${rom-properties-gtk_GTK3MAX_H}")
 
 # CairoImageConv (GTK+ 3.x)
 SET(${PROJECT_NAME}_SRCS ${${PROJECT_NAME}_SRCS} CairoImageConv.cpp)
@@ -88,46 +86,31 @@ IF(ENABLE_ACHIEVEMENTS)
 	SET(${PROJECT_NAME}-notify_SRCS ${${PROJECT_NAME}-notify_SRCS})
 ENDIF(ENABLE_ACHIEVEMENTS)
 
-# CPU-specific and optimized sources.
-IF(${PROJECT_NAME}_SSSE3_SRCS)
-	STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_SSSE3_SRCS "${${PROJECT_NAME}_SSSE3_SRCS}")
-
-	IF(MSVC AND NOT CMAKE_CL_64)
-		SET(SSSE3_FLAG "/arch:SSE2")
-	ELSEIF(NOT MSVC)
-		# TODO: Other compilers?
-		SET(SSSE3_FLAG "-mssse3")
-	ENDIF()
-	IF(SSSE3_FLAG)
-		SET_SOURCE_FILES_PROPERTIES(${${PROJECT_NAME}_SSSE3_SRCS}
-			APPEND_STRING PROPERTIES COMPILE_FLAGS " ${SSSE3_FLAG} ")
-	ENDIF(SSSE3_FLAG)
-ENDIF()
-UNSET(arch)
-
-# Sources and headers. (GTK3-specific)
+# Sources and headers (GTK3-specific)
 SET(${PROJECT_NAME}_SRCS
-	${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_H}
-	${${PROJECT_NAME}-notify_SRCS} ${${PROJECT_NAME}-notify_H}
+	${${PROJECT_NAME}_SRCS}
+	${${PROJECT_NAME}_GTK3MAX_SRCS}
+	${${PROJECT_NAME}-notify_SRCS}
 	${${PROJECT_NAME}_IFUNC_SRCS}
-	${${PROJECT_NAME}_SSSE3_SRCS}
 	NautilusPlugin.cpp
 	NautilusPropertyPageProvider.cpp
-	NautilusMenuProvider.cpp
+	NautilusMenuProvider.c
 	ThunarPlugin.cpp
 	ThunarPropertyPageProvider.cpp
-	ThunarMenuProvider.cpp
+	ThunarMenuProvider.c
 	MenuProviderCommon.c
 	)
 SET(${PROJECT_NAME}_H
-	${${PROJECT_NAME}_H} ${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_GTK3MAX_H}
+	${${PROJECT_NAME}-notify_H}
 	../plugin-helper.h
 	NautilusPlugin.hpp
 	NautilusPropertyPageProvider.hpp
-	NautilusMenuProvider.hpp
+	NautilusMenuProvider.h
 	ThunarPlugin.hpp
 	ThunarPropertyPageProvider.hpp
-	ThunarMenuProvider.hpp
+	ThunarMenuProvider.h
 	thunarx-mini.h
 	nautilus-extension-mini.h
 	mime-types.convert-to-png.h

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * exe_pe_structs.h: DOS/Windows executable structures. (PE)               *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -23,6 +23,8 @@ extern "C" {
 // - https://docs.microsoft.com/en-us/windows/win32/menurc/resource-types
 // - http://sandsprite.com/CodeStuff/Understanding_imports.html
 // - https://docs.microsoft.com/en-us/windows/win32/debug/pe-format
+
+#ifndef IMAGE_NT_SIGNATURE
 
 #define IMAGE_NT_SIGNATURE 0x00004550
 #define IMAGE_NT_OPTIONAL_HDR32_MAGIC 0x10b
@@ -61,52 +63,6 @@ typedef enum {
 	IMAGE_FILE_UP_SYSTEM_ONLY		= 0x4000,
 	IMAGE_FILE_BYTES_REVERSED_HI		= 0x8000,
 } PE_Characteristics;
-
-typedef enum {
-	IMAGE_FILE_MACHINE_UNKNOWN	= 0x0000,
-	IMAGE_FILE_MACHINE_I386		= 0x014C, /* Intel 386 or later processors 
-						     and compatible processors */
-	IMAGE_FILE_MACHINE_R3000_BE	= 0x0160, /* MIPS big-endian */
-	IMAGE_FILE_MACHINE_R3000	= 0x0162, /* MIPS little-endian */
-	IMAGE_FILE_MACHINE_R4000	= 0x0166, /* MIPS little-endian */
-	IMAGE_FILE_MACHINE_R10000	= 0x0168, /* MIPS little-endian */
-	IMAGE_FILE_MACHINE_WCEMIPSV2	= 0x0169, /* MIPS little-endian WCE v2 */
-	IMAGE_FILE_MACHINE_ALPHA	= 0x0184, /* Alpha AXP */
-	IMAGE_FILE_MACHINE_SH3		= 0x01A2, /* Hitachi SH3 */
-	IMAGE_FILE_MACHINE_SH3DSP	= 0x01A3, /* Hitachi SH3 DSP */
-	IMAGE_FILE_MACHINE_SH3E		= 0x01A4, /* Hitachi SH3E */
-	IMAGE_FILE_MACHINE_SH4		= 0x01A6, /* Hitachi SH4 */
-	IMAGE_FILE_MACHINE_SH5		= 0x01A8, /* Hitachi SH5 */
-	IMAGE_FILE_MACHINE_ARM		= 0x01C0, /* ARM little endian */
-	IMAGE_FILE_MACHINE_THUMB	= 0x01C2, /* Thumb */
-	IMAGE_FILE_MACHINE_ARMNT	= 0x01C4, /* Thumb-2 */
-	IMAGE_FILE_MACHINE_AM33		= 0x01D3, /* Matsushita AM33 */
-	IMAGE_FILE_MACHINE_POWERPC	= 0x01F0, /* PowerPC little-endian */
-	IMAGE_FILE_MACHINE_POWERPCFP	= 0x01F1, /* PowerPC with floating point support */
-	IMAGE_FILE_MACHINE_POWERPCBE	= 0x01F2, /* PowerPC big-endian (Xbox 360) */
-	IMAGE_FILE_MACHINE_IA64		= 0x0200, /* Intel Itanium processor family */
-	IMAGE_FILE_MACHINE_MIPS16	= 0x0266, /* MIPS16 */
-	IMAGE_FILE_MACHINE_M68K		= 0x0268, /* Motorola 68000 */
-	IMAGE_FILE_MACHINE_ALPHA64	= 0x0284, /* Alpha AXP (64-bit) */
-	IMAGE_FILE_MACHINE_PA_RISC	= 0x0290, /* PA-RISC */
-	IMAGE_FILE_MACHINE_MIPSFPU	= 0x0366, /* MIPS with FPU */
-	IMAGE_FILE_MACHINE_MIPSFPU16	= 0x0466, /* MIPS16 with FPU */
-	IMAGE_FILE_MACHINE_AXP64	= IMAGE_FILE_MACHINE_ALPHA64, /* Alpha AXP (64-bit) */
-	IMAGE_FILE_MACHINE_TRICORE	= 0x0520, /* Infineon TriCore */
-	IMAGE_FILE_MACHINE_MPPC_601	= 0x0601, /* PowerPC big-endian (MSVC for Mac) */
-	IMAGE_FILE_MACHINE_CEF		= 0x0CEF, /* Common Executable Format (Windows CE) */
-	IMAGE_FILE_MACHINE_EBC		= 0x0EBC, /* EFI byte code */
-	IMAGE_FILE_MACHINE_RISCV32	= 0x5032, /* RISC-V 32-bit address space */
-	IMAGE_FILE_MACHINE_RISCV64	= 0x5064, /* RISC-V 64-bit address space */
-	IMAGE_FILE_MACHINE_RISCV128	= 0x5128, /* RISC-V 128-bit address space */
-	IMAGE_FILE_MACHINE_LOONGARCH32	= 0x6232, /* LoongArch 32-bit */
-	IMAGE_FILE_MACHINE_LOONGARCH64	= 0x6264, /* LoongArch 64-bit */
-	IMAGE_FILE_MACHINE_AMD64	= 0x8664, /* x64 */
-	IMAGE_FILE_MACHINE_M32R		= 0x9041, /* Mitsubishi M32R little endian */
-	IMAGE_FILE_MACHINE_ARM64EC	= 0xA641, /* ARM64 ("emulation-compatible") */
-	IMAGE_FILE_MACHINE_ARM64	= 0xAA64, /* ARM64 little-endian */
-	IMAGE_FILE_MACHINE_CEE		= 0xC0EE, /* MSIL (.NET) */
-} PE_Machine;
 
 typedef enum {
 	IMAGE_SUBSYSTEM_UNKNOWN				= 0,
@@ -153,29 +109,6 @@ typedef struct _IMAGE_FILE_HEADER {
 	uint16_t Characteristics;	// See PE_Characteristics
 } IMAGE_FILE_HEADER;
 ASSERT_STRUCT(IMAGE_FILE_HEADER, IMAGE_SIZEOF_FILE_HEADER);
-
-/**
- * PE image data directory indexes.
- * Reference: https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_data_directory
- */
-typedef enum {
-	IMAGE_DATA_DIRECTORY_EXPORT_TABLE		= 0,
-	IMAGE_DATA_DIRECTORY_IMPORT_TABLE		= 1,
-	IMAGE_DATA_DIRECTORY_RESOURCE_TABLE		= 2,
-	IMAGE_DATA_DIRECTORY_EXCEPTION_TABLE		= 3,
-	IMAGE_DATA_DIRECTORY_CERTIFICATE_TABLE		= 4,
-	IMAGE_DATA_DIRECTORY_RELOCATION_TABLE		= 5,
-	IMAGE_DATA_DIRECTORY_DEBUG_INFO			= 6,
-	IMAGE_DATA_DIRECTORY_ARCH_SPECIFIC_DATA		= 7,
-	IMAGE_DATA_DIRECTORY_GLOBAL_PTR_REG		= 8,
-	IMAGE_DATA_DIRECTORY_TLS_TABLE			= 9,
-	IMAGE_DATA_DIRECTORY_LOAD_CONFIG_TABLE		= 10,
-	IMAGE_DATA_DIRECTORY_BOUND_IMPORT_TABLE		= 11,
-	IMAGE_DATA_DIRECTORY_IMPORT_ADDR_TABLE		= 12,
-	IMAGE_DATA_DIRECTORY_DELAY_IMPORT_DESCRIPTOR	= 13,
-	IMAGE_DATA_DIRECTORY_CLR_HEADER			= 14,
-	IMAGE_DATA_DIRECTORY_RESERVED			= 15,
-} ImageDataDirectoryIndex;
 
 /**
  * PE image data directory
@@ -421,7 +354,7 @@ ASSERT_STRUCT(IMAGE_NT_HEADERS64, 264);
  * Section header.
  */
 typedef struct _IMAGE_SECTION_HEADER {
-	char Name[IMAGE_SIZEOF_SHORT_NAME];
+	uint8_t Name[IMAGE_SIZEOF_SHORT_NAME];
 	union {
 		uint32_t PhysicalAddress;
 		uint32_t VirtualSize;
@@ -455,24 +388,6 @@ typedef struct _IMAGE_EXPORT_DIRECTORY {
 	uint32_t AddressOfNameOrdinals;	// RVA of name-to-ordinal table
 } IMAGE_EXPORT_DIRECTORY;
 ASSERT_STRUCT(IMAGE_EXPORT_DIRECTORY, 10*sizeof(uint32_t));
-
-/** Import table. **/
-// Reference: http://sandsprite.com/CodeStuff/Understanding_imports.html
-
-/**
- * Import directory.
- */
-typedef struct _IMAGE_IMPORT_DIRECTORY {
-	uint32_t rvaImportLookupTable;	// RVA of the import lookup table
-	uint32_t TimeDateStamp;		// UNIX timestamp
-	uint32_t ForwarderChain;
-	uint32_t rvaModuleName;		// RVA of the DLL filename
-	uint32_t rvaImportAddressTable;	// RVA of the thunk table
-} IMAGE_IMPORT_DIRECTORY;
-ASSERT_STRUCT(IMAGE_IMPORT_DIRECTORY, 5*sizeof(uint32_t));
-
-// Import lookup table consists of 32-bit values which are either
-// RVAs to the function name or, if the low(?) bit is set, an ordinal.
 
 /** Win32 resources **/
 
@@ -509,6 +424,93 @@ typedef struct _IMAGE_RESOURCE_DATA_ENTRY {
 	uint32_t Reserved;
 } IMAGE_RESOURCE_DATA_ENTRY;
 ASSERT_STRUCT(IMAGE_RESOURCE_DATA_ENTRY, 4*sizeof(uint32_t));
+
+#else /* IMAGE_NT_SIGNATURE */
+
+// Windows headers are already included, and the various structs are defined.
+// Don't re-define the structs, but ensure they have the correct sizes.
+ASSERT_STRUCT(IMAGE_FILE_HEADER, IMAGE_SIZEOF_FILE_HEADER);
+ASSERT_STRUCT(IMAGE_DATA_DIRECTORY, 2*sizeof(uint32_t));
+ASSERT_STRUCT(IMAGE_OPTIONAL_HEADER32, 224);
+ASSERT_STRUCT(IMAGE_OPTIONAL_HEADER64, 240);
+ASSERT_STRUCT(IMAGE_LOAD_CONFIG_CODE_INTEGRITY, 12);
+ASSERT_STRUCT(IMAGE_LOAD_CONFIG_DIRECTORY32, 192);
+ASSERT_STRUCT(IMAGE_LOAD_CONFIG_DIRECTORY64, 320);
+ASSERT_STRUCT(IMAGE_NT_HEADERS32, 248);
+ASSERT_STRUCT(IMAGE_NT_HEADERS64, 264);
+ASSERT_STRUCT(IMAGE_SECTION_HEADER, IMAGE_SIZEOF_SECTION_HEADER);
+ASSERT_STRUCT(IMAGE_EXPORT_DIRECTORY, 10*sizeof(uint32_t));
+ASSERT_STRUCT(IMAGE_RESOURCE_DIRECTORY, 16);
+ASSERT_STRUCT(IMAGE_RESOURCE_DIRECTORY_ENTRY, 2*sizeof(uint32_t));
+ASSERT_STRUCT(IMAGE_RESOURCE_DATA_ENTRY, 4*sizeof(uint32_t));
+
+#endif /* IMAGE_NT_SIGNATURE */
+
+// Machine types
+#ifndef IMAGE_FILE_MACHINE_I386
+#  define IMAGE_FILE_MACHINE_I386		0x014C	/* Intel i386 */
+#endif
+#ifndef IMAGE_FILE_MACHINE_POWERPCBE
+#  define IMAGE_FILE_MACHINE_POWERPCBE		0x01F2	/* PowerPC big-endian (Xbox 360) */
+#endif
+#ifndef IMAGE_FILE_MACHINE_AMD64
+#  define IMAGE_FILE_MACHINE_AMD64		0x8664	/* AMD64 */
+#endif
+#ifndef IMAGE_FILE_MACHINE_ARM64
+#  define IMAGE_FILE_MACHINE_ARM64		0xAA64	/* ARM64 little-endian */
+#endif
+#ifndef IMAGE_FILE_MACHINE_CEE
+#  define IMAGE_FILE_MACHINE_CEE		0xC0EE	/* MSIL (.NET) */
+#endif
+
+/**
+ * PE image data directory indexes.
+ * Reference: https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_data_directory
+ * NOTE: *NOT* defined in the Windows SDK.
+ */
+typedef enum {
+	IMAGE_DATA_DIRECTORY_EXPORT_TABLE		= 0,
+	IMAGE_DATA_DIRECTORY_IMPORT_TABLE		= 1,
+	IMAGE_DATA_DIRECTORY_RESOURCE_TABLE		= 2,
+	IMAGE_DATA_DIRECTORY_EXCEPTION_TABLE		= 3,
+	IMAGE_DATA_DIRECTORY_CERTIFICATE_TABLE		= 4,
+	IMAGE_DATA_DIRECTORY_RELOCATION_TABLE		= 5,
+	IMAGE_DATA_DIRECTORY_DEBUG_INFO			= 6,
+	IMAGE_DATA_DIRECTORY_ARCH_SPECIFIC_DATA		= 7,
+	IMAGE_DATA_DIRECTORY_GLOBAL_PTR_REG		= 8,
+	IMAGE_DATA_DIRECTORY_TLS_TABLE			= 9,
+	IMAGE_DATA_DIRECTORY_LOAD_CONFIG_TABLE		= 10,
+	IMAGE_DATA_DIRECTORY_BOUND_IMPORT_TABLE		= 11,
+	IMAGE_DATA_DIRECTORY_IMPORT_ADDR_TABLE		= 12,
+	IMAGE_DATA_DIRECTORY_DELAY_IMPORT_DESCRIPTOR	= 13,
+	IMAGE_DATA_DIRECTORY_CLR_HEADER			= 14,
+	IMAGE_DATA_DIRECTORY_RESERVED			= 15,
+} ImageDataDirectoryIndex;
+
+/** Import table **/
+// Reference: http://sandsprite.com/CodeStuff/Understanding_imports.html
+// NOTE: *NOT* defined in the Windows SDK.
+
+/**
+ * Import directory
+ *
+ * Import lookup table consists of 32-bit values which are either
+ * RVAs to the function name or, if the low(?) bit is set, an ordinal.
+ */
+typedef struct _IMAGE_IMPORT_DIRECTORY {
+	uint32_t rvaImportLookupTable;	// RVA of the import lookup table
+	uint32_t TimeDateStamp;		// UNIX timestamp
+	uint32_t ForwarderChain;
+	uint32_t rvaModuleName;		// RVA of the DLL filename
+	uint32_t rvaImportAddressTable;	// RVA of the thunk table
+} IMAGE_IMPORT_DIRECTORY;
+ASSERT_STRUCT(IMAGE_IMPORT_DIRECTORY, 5*sizeof(uint32_t));
+
+#ifdef CREATEPROCESS_MANIFEST_RESOURCE_ID
+#  undef CREATEPROCESS_MANIFEST_RESOURCE_ID
+#  undef ISOLATIONAWARE_MANIFEST_RESOURCE_ID
+#  undef ISOLATIONAWARE_NOSTATICIMPORT_MANIFEST_RESOURCE_ID
+#endif /* CREATEPROCESS_MANIFEST_RESOURCE_ID */
 
 // Manifest IDs
 typedef enum {

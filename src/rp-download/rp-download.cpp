@@ -320,12 +320,11 @@ int RP_C_API _tmain(int argc, TCHAR *argv[])
 #if defined(_WIN32)
 	param.bHighSec = FALSE;
 #elif defined(HAVE_SECCOMP)
-	static const int syscall_wl[] = {
+	static constexpr int syscall_wl[] = {
 		// Syscalls used by rp-download.
 		// TODO: Add more syscalls.
 		// FIXME: glibc-2.31 uses 64-bit time syscalls that may not be
 		// defined in earlier versions, including Ubuntu 14.04.
-		SCMP_SYS(access),
 		SCMP_SYS(clock_gettime),
 #if defined(__SNR_clock_gettime64) || defined(__NR_clock_gettime64)
 		SCMP_SYS(clock_gettime64),
@@ -362,11 +361,6 @@ int RP_C_API _tmain(int argc, TCHAR *argv[])
 		SCMP_SYS(statx),
 #endif /* __SNR_statx || __NR_statx */
 
-#ifndef NDEBUG
-		// Needed for assert() on some systems.
-		SCMP_SYS(uname),
-#endif /* NDEBUG */
-
 		// glibc ncsd
 		// TODO: Restrict connect() to AF_UNIX.
 		SCMP_SYS(connect), SCMP_SYS(recvmsg), SCMP_SYS(sendto),
@@ -402,6 +396,10 @@ int RP_C_API _tmain(int argc, TCHAR *argv[])
 		// Some update, either cURL 8.4.0 -> 8.5.0 or glibc 2.38 -> 2.39,
 		// is now using the pipe2() syscall.
 		SCMP_SYS(pipe2),
+
+		// Needed on 32-bit Ubuntu 16.04 (glibc-2.23, cURL 7.47.0) for some reason...
+		// (called from getaddrinfo())
+		SCMP_SYS(time),
 
 		-1	// End of whitelist
 	};

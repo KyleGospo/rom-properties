@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpfile)                        *
  * FileSystem_posix.cpp: File system functions. (POSIX implementation)     *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -19,6 +19,10 @@
 // C++ includes
 #include <algorithm>
 
+// C++ STL classes
+using std::array;
+using std::string;
+
 // DT_* enumeration
 #include "d_type.h"
 
@@ -27,6 +31,9 @@
 #  include <sys/vfs.h>
 #  include <linux/magic.h>
 // from `man 2 fstatfs`, but not present in linux/magic.h on 4.14-r1
+#  ifndef BPF_FS_MAGIC
+#    define BPF_FS_MAGIC 0xcafe4a11
+#  endif
 #  ifndef CGROUP2_SUPER_MAGIC
 #    define CGROUP2_SUPER_MAGIC 0x63677270
 #  endif
@@ -58,9 +65,6 @@
 #    define SYSV4_SUPER_MAGIC 0x012ff7b5
 #  endif
 #endif /* __linux__ */
-
-// C++ STL classes
-using std::string;
 
 namespace LibRpFile { namespace FileSystem {
 
@@ -118,8 +122,8 @@ int rmkdir(const string &path)
 
 /**
  * Does a file exist?
- * @param pathname Pathname.
- * @param mode Mode.
+ * @param pathname Pathname (UTF-8)
+ * @param mode Mode
  * @return 0 if the file exists with the specified mode; non-zero if not.
  */
 int access(const char *pathname, int mode)
@@ -129,7 +133,7 @@ int access(const char *pathname, int mode)
 
 /**
  * Get a file's size.
- * @param filename Filename.
+ * @param filename Filename (UTF-8)
  * @return Size on success; -1 on error.
  */
 off64_t filesize(const char *filename)
@@ -162,7 +166,7 @@ off64_t filesize(const char *filename)
 
 /**
  * Set the modification timestamp of a file.
- * @param filename	[in] Filename (UTF-16)
+ * @param filename	[in] Filename (UTF-8)
  * @param mtime		[in] Modification time (UNIX timestamp)
  * @return 0 on success; negative POSIX error code on error.
  */
@@ -172,9 +176,6 @@ int set_mtime(const char *filename, time_t mtime)
 	if (!filename || filename[0] == '\0')
 		return -EINVAL;
 
-	// FIXME: time_t is 32-bit on 32-bit Linux.
-	// TODO: Add a static_warning() macro?
-	// - http://stackoverflow.com/questions/8936063/does-there-exist-a-static-warning
 	struct utimbuf utbuf;
 	utbuf.actime = time(nullptr);
 	utbuf.modtime = mtime;
@@ -195,10 +196,6 @@ int get_mtime(const char *filename, time_t *pMtime)
 	assert(pMtime != nullptr);
 	if (!filename || filename[0] == '\0' || !pMtime)
 		return -EINVAL;
-
-	// FIXME: time_t is 32-bit on 32-bit Linux.
-	// TODO: Add a static_warning() macro?
-	// - http://stackoverflow.com/questions/8936063/does-there-exist-a-static-warning
 
 #ifdef HAVE_STATX
 	struct statx sbx;
@@ -224,7 +221,7 @@ int get_mtime(const char *filename, time_t *pMtime)
 
 /**
  * Delete a file.
- * @param filename Filename.
+ * @param filename Filename (UTF-8)
  * @return 0 on success; negative POSIX error code on error.
  */
 int delete_file(const char *filename)
@@ -369,7 +366,7 @@ bool isOnBadFS(const char *filename, bool allowNetFS)
 	const uint32_t f_type = static_cast<uint32_t>(sfbuf.f_type);
 
 	// Virtual file systems; ignore these completely
-	static const std::array<uint32_t, 23> vfs_types = {{
+	static constexpr array<uint32_t, 23> vfs_types = {{
 		ANON_INODE_FS_MAGIC,
 		BDEVFS_MAGIC,
 		BPF_FS_MAGIC,
@@ -396,7 +393,7 @@ bool isOnBadFS(const char *filename, bool allowNetFS)
 	}};
 
 	// Network file systems; ignore only if !netFS
-	static const std::array<uint32_t, 9> netfs_types = {{
+	static constexpr array<uint32_t, 9> netfs_types = {{
 		AFS_SUPER_MAGIC,
 		CIFS_MAGIC_NUMBER,
 		CODA_SUPER_MAGIC,
@@ -453,10 +450,6 @@ int get_file_size_and_mtime(const char *filename, off64_t *pFileSize, time_t *pM
 	if (unlikely(!filename || filename[0] == '\0' || !pFileSize || !pMtime)) {
 		return -EINVAL;
 	}
-
-	// FIXME: time_t is 32-bit on 32-bit Linux.
-	// TODO: Add a static_warning() macro?
-	// - http://stackoverflow.com/questions/8936063/does-there-exist-a-static-warning
 
 #ifdef HAVE_STATX
 	struct statx sbx;

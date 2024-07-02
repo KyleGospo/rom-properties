@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * GcnFst.cpp: GameCube/Wii FST parser.                                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -101,7 +101,8 @@ GcnFstPrivate::GcnFstPrivate(const uint8_t *fstData, uint32_t len, uint8_t offse
 		return;
 	}
 
-	// String table is stored directly after the root entry.
+	// String table is stored after the file table.
+	// Use the root entry to determine how many files are present.
 	const GCN_FST_Entry *root_entry = reinterpret_cast<const GCN_FST_Entry*>(fstData);
 	const uint32_t file_count = be32_to_cpu(root_entry->root_dir.file_count);
 	if (file_count <= 1 || file_count > (fstData_sz / sizeof(GCN_FST_Entry))) {
@@ -120,6 +121,14 @@ GcnFstPrivate::GcnFstPrivate(const uint8_t *fstData, uint32_t len, uint8_t offse
 		return;
 	}
 
+	// Sanity check: String table cannot contain '/'.
+	string_table_sz = fstData_sz - string_table_offset;
+	if (memchr(&fstData[string_table_offset], '/', string_table_sz) != nullptr) {
+		// String table has '/'!
+		hasErrors = true;
+		return;
+	}
+
 	// Copy the FST data.
 	// NOTE: +1 for NULL termination.
 	uint8_t *const fst8 = new uint8_t[fstData_sz + 1];
@@ -129,7 +138,6 @@ GcnFstPrivate::GcnFstPrivate(const uint8_t *fstData, uint32_t len, uint8_t offse
 
 	// Save a pointer to the string table.
 	string_table_ptr = reinterpret_cast<char*>(&fst8[string_table_offset]);
-	string_table_sz = fstData_sz - string_table_offset;
 
 #ifdef HAVE_UNORDERED_MAP_RESERVE
 	// Reserve space in the string table.
@@ -262,6 +270,10 @@ const GCN_FST_Entry *GcnFstPrivate::find_path(const char *path) const
 		return fst_entry;
 	}
 
+	// Set of directory indexes that have already been processed.
+	// Used to prevent infinite loops if the FST has weird corruption.
+	std::unordered_set<int> idx_already;
+
 	// Skip the initial slash.
 	int idx = 1;	// Ignore the root directory.
 	// NOTE: This is the index *after* the last file.
@@ -293,8 +305,16 @@ const GCN_FST_Entry *GcnFstPrivate::find_path(const char *path) const
 		}
 
 		// Search this directory for a matching path component.
+		idx_already.clear();
 		bool found = false;
 		for (; idx < last_fst_idx; idx++) {
+			auto iter = idx_already.find(idx);
+			if (iter != idx_already.end()) {
+				// Something is wrong! We've already iterated over this directory.
+				return nullptr;
+			}
+			idx_already.insert(idx);
+
 			const char *pName;
 			fst_entry = this->entry(idx, &pName);
 			if (!fst_entry) {
@@ -500,6 +520,7 @@ IFst::DirEnt *GcnFst::readdir(IFst::Dir *dirp)
 	const bool is_fst_dir = d->is_dir(fst_entry);
 	dirp->entry.type = is_fst_dir ? DT_DIR : DT_REG;
 	dirp->entry.name = pName;
+	dirp->entry.ptnum = 0;
 	if (is_fst_dir) {
 		// offset and size are not valid for directories.
 		dirp->entry.offset = 0;
@@ -561,6 +582,7 @@ int GcnFst::find_file(const char *filename, DirEnt *dirent)
 	const bool is_fst_dir = d->is_dir(fst_entry);
 	dirent->type = is_fst_dir ? DT_DIR : DT_REG;
 	dirent->name = d->entry_name(fst_entry);
+	dirent->ptnum = 0;	// not used for GCN/Wii
 	if (is_fst_dir) {
 		// offset and size are not valid for directories.
 		dirent->offset = 0;

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * Config.cpp: Configuration manager.                                      *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,7 +13,8 @@
 #include "ConfReader_p.hpp"
 #include "ctypex.h"
 
-// C++ STL classes.
+// C++ STL classes
+using std::array;
 using std::string;
 using std::unordered_map;
 
@@ -60,8 +61,10 @@ public:
 	 * Default image type priority.
 	 * Used if a custom configuration is not defined
 	 * for a given system.
+	 *
+	 * TODO: Per-system defaults?
 	 */
-	static const std::array<uint8_t, 8> defImgTypePrio;
+	static const array<uint8_t, 8> defImgTypePrio;
 
 	// Image type priority data.
 	// Managed as a single block in order to reduce
@@ -77,6 +80,11 @@ public:
 	 */
 	unordered_map<string, uint32_t> mapImgTypePrio;
 
+	// PAL language codes for GameTDB (NULL-terminated array)
+	// NOTE: 'au' is technically not a language code, but
+	// GameTDB handles it as a separate language.
+	static const array<uint32_t, 9+1> pal_lc;
+
 	// Download options
 	uint32_t palLanguageForGameTDB;
 	bool extImgDownloadEnabled;
@@ -91,34 +99,35 @@ public:
 	bool downloadHighResScans;
 
 	// DMG title screen mode [index is ROM type]
-	std::array<Config::DMG_TitleScreen_Mode, Config::DMG_TitleScreen_Mode::DMG_TS_MAX> dmgTSMode;
+	array<Config::DMG_TitleScreen_Mode, static_cast<size_t>(Config::DMG_TitleScreen_Mode::Max)> dmgTSMode;
 
 	// Other options
 	bool showDangerousPermissionsOverlayIcon;
 	bool enableThumbnailOnNetworkFS;
 	bool showXAttrView;
+	bool thumbnailDirectoryPackages;
 
 public:
 	/** Default values **/
 
 	// Download options
-	static const constexpr uint32_t palLanguageForGameTDB_default = 'en';
-	static const constexpr bool extImgDownloadEnabled_default = true;
-	static const constexpr bool useIntIconForSmallSizes_default = true;
-	static const constexpr bool storeFileOriginInfo_default = true;
+	static constexpr uint32_t palLanguageForGameTDB_default = 'en';
+	static constexpr bool extImgDownloadEnabled_default = true;
+	static constexpr bool useIntIconForSmallSizes_default = true;
+	static constexpr bool storeFileOriginInfo_default = true;
 
 	// Image bandwidth options
-	static const constexpr Config::ImgBandwidth imgBandwidthUnmetered_default = Config::ImgBandwidth::HighRes;
-	static const constexpr Config::ImgBandwidth imgBandwidthMetered_default = Config::ImgBandwidth::NormalRes;
+	static constexpr Config::ImgBandwidth imgBandwidthUnmetered_default = Config::ImgBandwidth::HighRes;
+	static constexpr Config::ImgBandwidth imgBandwidthMetered_default = Config::ImgBandwidth::NormalRes;
 
 	// DMG title screen mode [index is ROM type]
-	// NOTE: Can't use constexpr here because it breaks on gcc-7.5.0. (Ubuntu 18.04)
-	static const std::array<Config::DMG_TitleScreen_Mode, Config::DMG_TitleScreen_Mode::DMG_TS_MAX> dmgTSMode_default;
+	static const array<Config::DMG_TitleScreen_Mode, static_cast<size_t>(Config::DMG_TitleScreen_Mode::Max)> dmgTSMode_default;
 
 	// Other options
-	static const constexpr bool showDangerousPermissionsOverlayIcon_default = true;
-	static const constexpr bool enableThumbnailOnNetworkFS_default = false;
-	static const constexpr bool showXAttrView_default = true;
+	static constexpr bool showDangerousPermissionsOverlayIcon_default = true;
+	static constexpr bool enableThumbnailOnNetworkFS_default = false;
+	static constexpr bool showXAttrView_default = true;
+	static constexpr bool thumbnailDirectoryPackages_default = true;
 };
 
 /** ConfigPrivate **/
@@ -135,7 +144,7 @@ Config ConfigPrivate::instance;
  *
  * TODO: Per-system defaults?
  */
-const std::array<uint8_t, 8> ConfigPrivate::defImgTypePrio = {
+const array<uint8_t, 8> ConfigPrivate::defImgTypePrio = {{
 	RomData::IMG_EXT_TITLE_SCREEN,	// WiiWare only
 	RomData::IMG_EXT_MEDIA,
 	RomData::IMG_EXT_COVER,
@@ -144,14 +153,19 @@ const std::array<uint8_t, 8> ConfigPrivate::defImgTypePrio = {
 	RomData::IMG_INT_MEDIA,
 	RomData::IMG_INT_ICON,
 	RomData::IMG_INT_BANNER,
-};
+}};
+
+// PAL language codes for GameTDB (NULL-terminated array)
+// NOTE: 'au' is technically not a language code, but
+// GameTDB handles it as a separate language.
+const array<uint32_t, 9+1> ConfigPrivate::pal_lc = {{'au', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pt', 'ru', 0}};
 
 // DMG title screen mode [index is ROM type]
-const std::array<Config::DMG_TitleScreen_Mode, Config::DMG_TitleScreen_Mode::DMG_TS_MAX> ConfigPrivate::dmgTSMode_default = {
-	Config::DMG_TitleScreen_Mode::DMG_TS_DMG,
-	Config::DMG_TitleScreen_Mode::DMG_TS_SGB,
-	Config::DMG_TitleScreen_Mode::DMG_TS_CGB
-};
+const array<Config::DMG_TitleScreen_Mode, static_cast<size_t>(Config::DMG_TitleScreen_Mode::Max)> ConfigPrivate::dmgTSMode_default = {{
+	Config::DMG_TitleScreen_Mode::DMG,
+	Config::DMG_TitleScreen_Mode::SGB,
+	Config::DMG_TitleScreen_Mode::CGB
+}};
 
 ConfigPrivate::ConfigPrivate()
 	: super("rom-properties.conf")
@@ -172,6 +186,8 @@ ConfigPrivate::ConfigPrivate()
 	, enableThumbnailOnNetworkFS(enableThumbnailOnNetworkFS_default)
 	// Show the Extended Attributes tab
 	, showXAttrView(showXAttrView_default)
+	// Thumbnail directory packages (e.g. Wii U)
+	, thumbnailDirectoryPackages(thumbnailDirectoryPackages_default)
 {
 	// NOTE: Configuration is also initialized in the reset() function.
 	dmgTSMode = dmgTSMode_default;
@@ -214,6 +230,8 @@ void ConfigPrivate::reset(void)
 	enableThumbnailOnNetworkFS = enableThumbnailOnNetworkFS_default;
 	// Show the Extended Attributes tab
 	showXAttrView = showXAttrView_default;
+	// Thumbnail directory packages (e.g. Wii U)
+	thumbnailDirectoryPackages = thumbnailDirectoryPackages_default;
 }
 
 /**
@@ -306,11 +324,11 @@ int ConfigPrivate::processConfigLine(const char *section, const char *name, cons
 
 		// Parse the key.
 		if (!strcasecmp(name, "DMG")) {
-			dmg_key = Config::DMG_TitleScreen_Mode::DMG_TS_DMG;
+			dmg_key = Config::DMG_TitleScreen_Mode::DMG;
 		} else if (!strcasecmp(name, "SGB")) {
-			dmg_key = Config::DMG_TitleScreen_Mode::DMG_TS_SGB;
+			dmg_key = Config::DMG_TitleScreen_Mode::SGB;
 		} else if (!strcasecmp(name, "CGB")) {
-			dmg_key = Config::DMG_TitleScreen_Mode::DMG_TS_CGB;
+			dmg_key = Config::DMG_TitleScreen_Mode::CGB;
 		} else {
 			// Invalid key.
 			return 1;
@@ -318,26 +336,28 @@ int ConfigPrivate::processConfigLine(const char *section, const char *name, cons
 
 		// Parse the value.
 		if (!strcasecmp(value, "DMG")) {
-			dmg_value = Config::DMG_TitleScreen_Mode::DMG_TS_DMG;
+			dmg_value = Config::DMG_TitleScreen_Mode::DMG;
 		} else if (!strcasecmp(value, "SGB")) {
-			dmg_value = Config::DMG_TitleScreen_Mode::DMG_TS_SGB;
+			dmg_value = Config::DMG_TitleScreen_Mode::SGB;
 		} else if (!strcasecmp(value, "CGB")) {
-			dmg_value = Config::DMG_TitleScreen_Mode::DMG_TS_CGB;
+			dmg_value = Config::DMG_TitleScreen_Mode::CGB;
 		} else {
 			// Invalid value.
 			return 1;
 		}
 
-		dmgTSMode[dmg_key] = dmg_value;
+		dmgTSMode[static_cast<size_t>(dmg_key)] = dmg_value;
 	} else if (!strcasecmp(section, "Options")) {
 		// Options.
-		bool *param;
+		bool *bParam;
 		if (!strcasecmp(name, "ShowDangerousPermissionsOverlayIcon")) {
-			param = &showDangerousPermissionsOverlayIcon;
+			bParam = &showDangerousPermissionsOverlayIcon;
 		} else if (!strcasecmp(name, "EnableThumbnailOnNetworkFS")) {
-			param = &enableThumbnailOnNetworkFS;
+			bParam = &enableThumbnailOnNetworkFS;
 		} else if (!strcasecmp(name, "ShowXAttrView")) {
-			param = &showXAttrView;
+			bParam = &showXAttrView;
+		} else if (!strcasecmp(name, "ThumbnailDirectoryPackages")) {
+			bParam = &thumbnailDirectoryPackages;
 		} else {
 			// Invalid option.
 			return 1;
@@ -346,9 +366,9 @@ int ConfigPrivate::processConfigLine(const char *section, const char *name, cons
 		// Parse the value.
 		// Acceptable values are "true", "false", "1", and "0".
 		if (!strcasecmp(value, "true") || !strcmp(value, "1")) {
-			*param = true;
+			*bParam = true;
 		} else if (!strcasecmp(value, "false") || !strcmp(value, "0")) {
-			*param = false;
+			*bParam = false;
 		} else {
 			// TODO: Show a warning or something?
 		}
@@ -427,7 +447,7 @@ int ConfigPrivate::processConfigLine(const char *section, const char *name, cons
 			// MSVC 2015 and gcc-4.5.2. In order to get it to work correctly,
 			// we have to store the length byte separately from the actual
 			// image type name.
-			static const char *const imageTypeNames[] = {
+			static const array<const char*, RomData::IMG_EXT_MAX+1> imageTypeNames = {{
 				"\x07" "IntIcon",
 				"\x09" "IntBanner",
 				"\x08" "IntMedia",
@@ -438,11 +458,11 @@ int ConfigPrivate::processConfigLine(const char *section, const char *name, cons
 				"\x0C" "ExtCoverFull",
 				"\x06" "ExtBox",
 				"\x0E" "ExtTitleScreen",
-			};
+			}};
 			static_assert(ARRAY_SIZE(imageTypeNames) == RomData::IMG_EXT_MAX+1, "imageTypeNames[] is the wrong size.");
 
 			RomData::ImageType imgType = static_cast<RomData::ImageType>(-1);
-			for (size_t i = 0; i < ARRAY_SIZE(imageTypeNames); i++) {
+			for (size_t i = 0; i < imageTypeNames.size(); i++) {
 				if (static_cast<size_t>(imageTypeNames[i][0]) == len &&
 				    !strncasecmp(pos, &imageTypeNames[i][1], len))
 				{
@@ -590,50 +610,24 @@ Config::ImgTypeResult Config::getImgTypePrio(const char *className, ImgTypePrio_
  * is not defined for a given class.
  * @param imgTypePrio	[out] Image type priority data.
  */
-void Config::getDefImgTypePrio(ImgTypePrio_t *imgTypePrio) const
+void Config::getDefImgTypePrio(ImgTypePrio_t *imgTypePrio)
 {
 	assert(imgTypePrio != nullptr);
 	if (imgTypePrio) {
-		RP_D(const Config);
-		imgTypePrio->imgTypes = d->defImgTypePrio.data();
-		imgTypePrio->length = d->defImgTypePrio.size();
+		imgTypePrio->imgTypes = ConfigPrivate::defImgTypePrio.data();
+		imgTypePrio->length = ConfigPrivate::defImgTypePrio.size();
 	}
 }
 
 /** Download options **/
 
 /**
- * Should we download images from external databases?
- * NOTE: Call load() before using this function.
- * @return True if downloads are enabled; false if not.
+ * Get the array of language codes available on GameTDB.
+ * @return NULL-terminated array of language codes.
  */
-bool Config::extImgDownloadEnabled(void) const
+const uint32_t *Config::get_all_pal_lcs(void)
 {
-	RP_D(const Config);
-	return d->extImgDownloadEnabled;
-}
-
-/**
- * Always use the internal icon (if present) for small sizes.
- * TODO: Clarify "small sizes".
- * NOTE: Call load() before using this function.
- * @return True if we should use the internal icon for small sizes; false if not.
- */
-bool Config::useIntIconForSmallSizes(void) const
-{
-	RP_D(const Config);
-	return d->useIntIconForSmallSizes;
-}
-
-/**
- * Store file origin information?
- * NOTE: Call load() before using this function.
- * @return True if we should; false if not.
- */
-bool Config::storeFileOriginInfo(void) const
-{
-	RP_D(const Config);
-	return d->storeFileOriginInfo;
+	return ConfigPrivate::pal_lc.data();
 }
 
 /**
@@ -693,52 +687,51 @@ Config::ImgBandwidth Config::imgBandwidthMetered(void) const
  */
 Config::DMG_TitleScreen_Mode Config::dmgTitleScreenMode(DMG_TitleScreen_Mode romType) const
 {
-	assert(romType >= DMG_TitleScreen_Mode::DMG_TS_DMG);
-	assert(romType <  DMG_TitleScreen_Mode::DMG_TS_MAX);
-	if (romType <  DMG_TitleScreen_Mode::DMG_TS_DMG ||
-	    romType >= DMG_TitleScreen_Mode::DMG_TS_MAX)
+	assert(romType >= DMG_TitleScreen_Mode::DMG);
+	assert(romType <  DMG_TitleScreen_Mode::Max);
+	if (romType <  DMG_TitleScreen_Mode::DMG ||
+	    romType >= DMG_TitleScreen_Mode::Max)
 	{
 		// Invalid ROM type. Return DMG.
-		return DMG_TitleScreen_Mode::DMG_TS_DMG;
+		return DMG_TitleScreen_Mode::DMG;
 	}
 
 	RP_D(const Config);
-	return d->dmgTSMode[romType];
+	return d->dmgTSMode[static_cast<size_t>(romType)];
 }
 
-/** Other options **/
+/** Boolean configuration options **/
 
 /**
- * Show an overlay icon for "dangerous" permissions?
- * NOTE: Call load() before using this function.
- * @return True if we should show the overlay icon; false if not.
+ * Get a boolean configuration option.
+ * @param option Boolean configuration option
+ * @return Value. (If the option is invalid, returns false.)
  */
-bool Config::showDangerousPermissionsOverlayIcon(void) const
+bool Config::getBoolConfigOption(BoolConfig option) const
 {
 	RP_D(const Config);
-	return d->showDangerousPermissionsOverlayIcon;
-}
 
-/**
- * Enable thumbnailing and metadata on network filesystems?
- * NOTE: Call load() before using this function.
- * @return True if we should enable; false if not.
- */
-bool Config::enableThumbnailOnNetworkFS(void) const
-{
-	RP_D(const Config);
-	return d->enableThumbnailOnNetworkFS;
-}
+	switch (option) {
+		default:
+			assert(!"Invalid BoolConfig option.");
+			return false;
 
-/**
- * Show the Extended Attributes tab?
- * NOTE: Call load() before using this function.
- * @return True if we should enable; false if not.
- */
-bool Config::showXAttrView(void) const
-{
-	RP_D(const Config);
-	return d->showXAttrView;
+		case BoolConfig::Downloads_ExtImgDownloadEnabled:
+			return d->extImgDownloadEnabled;
+		case BoolConfig::Downloads_UseIntIconForSmallSizes:
+			return d->useIntIconForSmallSizes;
+		case BoolConfig::Downloads_StoreFileOriginInfo:
+			return d->storeFileOriginInfo;
+
+		case BoolConfig::Options_ShowDangerousPermissionsOverlayIcon:
+			return d->showDangerousPermissionsOverlayIcon;
+		case BoolConfig::Options_EnableThumbnailOnNetworkFS:
+			return d->enableThumbnailOnNetworkFS;
+		case BoolConfig::Options_ShowXAttrView:
+			return d->showXAttrView;
+		case BoolConfig::Options_ThumbnailDirectoryPackages:
+			return d->thumbnailDirectoryPackages;
+	}
 }
 
 /**** Default values ****/
@@ -750,29 +743,52 @@ T Config::name##_default(void) \
 { \
 	return ConfigPrivate::name##_default; \
 }
-DEFAULT_VALUE_IMPL(bool, extImgDownloadEnabled)
-DEFAULT_VALUE_IMPL(bool, useIntIconForSmallSizes)
-DEFAULT_VALUE_IMPL(bool, storeFileOriginInfo)
 DEFAULT_VALUE_IMPL(uint32_t, palLanguageForGameTDB)
 DEFAULT_VALUE_IMPL(Config::ImgBandwidth, imgBandwidthUnmetered)
 DEFAULT_VALUE_IMPL(Config::ImgBandwidth, imgBandwidthMetered)
 
 Config::DMG_TitleScreen_Mode Config::dmgTitleScreenMode_default(DMG_TitleScreen_Mode romType)
 {
-	assert(romType >= DMG_TitleScreen_Mode::DMG_TS_DMG);
-	assert(romType <  DMG_TitleScreen_Mode::DMG_TS_MAX);
-	if (romType <  DMG_TitleScreen_Mode::DMG_TS_DMG ||
-	    romType >= DMG_TitleScreen_Mode::DMG_TS_MAX)
+	assert(romType >= DMG_TitleScreen_Mode::DMG);
+	assert(romType <  DMG_TitleScreen_Mode::Max);
+	if (romType <  DMG_TitleScreen_Mode::DMG ||
+	    romType >= DMG_TitleScreen_Mode::Max)
 	{
 		// Invalid ROM type. Return DMG.
-		return DMG_TitleScreen_Mode::DMG_TS_DMG;
+		return DMG_TitleScreen_Mode::DMG;
 	}
 
-	return ConfigPrivate::dmgTSMode_default[romType];
+	return ConfigPrivate::dmgTSMode_default[static_cast<size_t>(romType)];
 }
 
-DEFAULT_VALUE_IMPL(bool, showDangerousPermissionsOverlayIcon)
-DEFAULT_VALUE_IMPL(bool, enableThumbnailOnNetworkFS)
-DEFAULT_VALUE_IMPL(bool, showXAttrView)
+/**
+ * Get the default value for a boolean configuration option.
+ * @param option Boolean configuration option
+ * @return Value. (If the option is invalid, returns false.)
+ */
+bool Config::getBoolConfigOption_default(BoolConfig option)
+{
+	switch (option) {
+		default:
+			assert(!"Invalid BoolConfig option.");
+			return false;
+
+		case BoolConfig::Downloads_ExtImgDownloadEnabled:
+			return ConfigPrivate::extImgDownloadEnabled_default;
+		case BoolConfig::Downloads_UseIntIconForSmallSizes:
+			return ConfigPrivate::useIntIconForSmallSizes_default;
+		case BoolConfig::Downloads_StoreFileOriginInfo:
+			return ConfigPrivate::storeFileOriginInfo_default;
+
+		case BoolConfig::Options_ShowDangerousPermissionsOverlayIcon:
+			return ConfigPrivate::showDangerousPermissionsOverlayIcon_default;
+		case BoolConfig::Options_EnableThumbnailOnNetworkFS:
+			return ConfigPrivate::enableThumbnailOnNetworkFS_default;
+		case BoolConfig::Options_ShowXAttrView:
+			return ConfigPrivate::showXAttrView_default;
+		case BoolConfig::Options_ThumbnailDirectoryPackages:
+			return ConfigPrivate::thumbnailDirectoryPackages_default;
+	}
+}
 
 }

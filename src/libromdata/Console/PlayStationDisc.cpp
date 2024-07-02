@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * PlayStationDisc.cpp: PlayStation 1 and 2 disc image reader.             *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -24,14 +24,15 @@ using namespace LibRpText;
 #include "../disc/IsoPartition.hpp"
 
 // Other RomData subclasses
-#include "Other/ISO.hpp"
 #include "Console/PlayStationEXE.hpp"
+#include "Media/ISO.hpp"
 #include "Other/ELF.hpp"
 
 // inih for SYSTEM.CNF
 #include "ini.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unordered_map;
 using std::vector;
@@ -344,7 +345,7 @@ PlayStationDisc::PlayStationDisc(const IRpFilePtr &file)
 		discReader = std::make_shared<DiscReader>(d->file);
 	} else {
 		// Check for a PVD with 2352-byte or 2448-byte sectors.
-		static const std::array<uint16_t, 2> sector_sizes = {{2352, 2448}};
+		static constexpr array<uint16_t, 2> sector_sizes = {{2352, 2448}};
 		CDROM_2352_Sector_t sector;
 
 		for (const unsigned int p : sector_sizes) {
@@ -762,7 +763,7 @@ int PlayStationDisc::loadFieldData(void)
 			// Version
 			auto iter = d->system_cnf.find("VER");
 			if (iter != d->system_cnf.end() && !iter->second.empty()) {
-				d->fields.addField_string(C_("PlayStationDisc", "Version"), iter->second);
+				d->fields.addField_string(C_("RomData", "Version"), iter->second);
 			}
 
 			// Video mode
@@ -935,7 +936,7 @@ int PlayStationDisc::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int 
 	}
 
 	// System ID
-	static const char sys_tbl[][4] = {
+	static constexpr char sys_tbl[][4] = {
 		"ps1", "ps2"
 	};
 	if (d->consoleType >= PlayStationDiscPrivate::ConsoleType::Max)

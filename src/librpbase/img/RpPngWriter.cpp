@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * RpPngWriter.cpp: PNG image writer.                                      *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -11,7 +11,6 @@
 #include "RpPngWriter.hpp"
 
 // Other rom-properties libraries
-#include "librpcpu/byteorder.h"
 #include "librpfile/RpFile.hpp"
 #include "img/rp_image.hpp"
 using namespace LibRpText;
@@ -374,6 +373,7 @@ void RpPngWriterPrivate::init(int width, int height, rp_image::Format format)
 	{
 		// Invalid parameters.
 		lastError = EINVAL;
+		file.reset();
 		return;
 	}
 
@@ -383,6 +383,7 @@ void RpPngWriterPrivate::init(int width, int height, rp_image::Format format)
 	if (DelayLoad_test_zlib_and_png() != 0) {
 		// Delay load failed.
 		lastError = ENOTSUP;
+		file.reset();
 		return;
 	}
 #else /* !defined(_MSC_VER) || (!defined(ZLIB_IS_DLL) && !defined(PNG_IS_DLL)) */
@@ -408,6 +409,7 @@ void RpPngWriterPrivate::init(int width, int height, rp_image::Format format)
 		if (lastError == 0) {
 			lastError = EIO;
 		}
+		file.reset();
 		return;
 	}
 
@@ -420,6 +422,7 @@ void RpPngWriterPrivate::init(int width, int height, rp_image::Format format)
 	if (ret != 0) {
 		// FIXME: Unlink the file if necessary.
 		lastError = -ret;
+		file.reset();
 	}
 
 	// Cache the image parameters.
@@ -435,6 +438,7 @@ void RpPngWriterPrivate::init(const rp_image_const_ptr &img)
 	if (!file || !img || !img->isValid()) {
 		// Invalid parameters.
 		lastError = EINVAL;
+		file.reset();
 		return;
 	}
 
@@ -444,6 +448,7 @@ void RpPngWriterPrivate::init(const rp_image_const_ptr &img)
 	if (DelayLoad_test_zlib_and_png() != 0) {
 		// Delay load failed.
 		lastError = ENOTSUP;
+		file.reset();
 		return;
 	}
 #endif /* defined(_MSC_VER) && (defined(ZLIB_IS_DLL) || defined(PNG_IS_DLL)) */
@@ -454,6 +459,7 @@ void RpPngWriterPrivate::init(const rp_image_const_ptr &img)
 		if (lastError == 0) {
 			lastError = EIO;
 		}
+		file.reset();
 		return;
 	}
 
@@ -464,6 +470,7 @@ void RpPngWriterPrivate::init(const rp_image_const_ptr &img)
 		if (lastError == 0) {
 			lastError = EIO;
 		}
+		file.reset();
 		return;
 	}
 
@@ -476,6 +483,7 @@ void RpPngWriterPrivate::init(const rp_image_const_ptr &img)
 	if (ret != 0) {
 		// FIXME: Unlink the file if necessary.
 		lastError = -ret;
+		file.reset();
 	}
 
 	// Cache the image parameters.
@@ -489,6 +497,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 	if (!file || !iconAnimData || iconAnimData->seq_count <= 0) {
 		// Invalid parameters.
 		lastError = EINVAL;
+		file.reset();
 		return;
 	}
 
@@ -498,6 +507,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 	if (DelayLoad_test_zlib_and_png() != 0) {
 		// Delay load failed.
 		lastError = ENOTSUP;
+		file.reset();
 		return;
 	}
 #endif /* defined(_MSC_VER) && (defined(ZLIB_IS_DLL) || defined(PNG_IS_DLL)) */
@@ -508,6 +518,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 		if (ret != 0) {
 			// Error loading APNG.
 			lastError = ENOTSUP;
+			file.reset();
 			return;
 		}
 		imageTag = ImageTag::IconAnimData;
@@ -521,6 +532,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 		if (lastError == 0) {
 			lastError = EIO;
 		}
+		file.reset();
 		return;
 	}
 
@@ -532,6 +544,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 		if (lastError == 0) {
 			lastError = EIO;
 		}
+		file.reset();
 		return;
 	}
 
@@ -561,6 +574,7 @@ void RpPngWriterPrivate::init(const IconAnimDataConstPtr &iconAnimData)
 	if (ret != 0) {
 		// FIXME: Unlink the file if necessary.
 		lastError = -ret;
+		file.reset();
 	}
 }
 
@@ -1152,7 +1166,7 @@ RpPngWriter::~RpPngWriter()
 bool RpPngWriter::isOpen(void) const
 {
 	RP_D(const RpPngWriter);
-	return (d->file != nullptr);
+	return ((bool)d->file);
 }
 
 /**
@@ -1228,7 +1242,7 @@ int RpPngWriter::write_IHDR(void)
 #ifdef PNG_sBIT_SUPPORTED
 			const int color_type = (d->cache.skip_alpha ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGB_ALPHA);
 #else /* !PNG_sBIT_SUPPORTED */
-			static const int color_type = PNG_COLOR_TYPE_RGB_ALPHA;
+			static constexpr int color_type = PNG_COLOR_TYPE_RGB_ALPHA;
 #endif /* PNG_sBIT_SUPPORTED */
 			png_set_IHDR(d->png_ptr, d->info_ptr,
 					d->cache.width, d->cache.height, 8,

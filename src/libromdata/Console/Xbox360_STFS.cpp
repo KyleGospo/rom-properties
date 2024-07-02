@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * Xbox360_STFS.cpp: Microsoft Xbox 360 package reader.                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -20,12 +20,14 @@
 // Other rom-properties libraries
 #include "librpbase/img/RpPng.hpp"
 #include "librpfile/MemFile.hpp"
+#include "librpfile/SubFile.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::shared_ptr;
 using std::string;
 using std::vector;
@@ -914,7 +916,8 @@ int Xbox360_STFS::loadFieldData(void)
 
 	// File type
 	// TODO: Show console-specific information for 'CON '.
-	static const std::array<const char*, (int)Xbox360_STFS_Private::StfsType::Max> file_type_tbl = {{
+	const char *const s_package_type_title = C_("Xbox360_STFS", "Package Type");
+	static const array<const char*, (int)Xbox360_STFS_Private::StfsType::Max> file_type_tbl = {{
 		NOP_C_("Xbox360_STFS|FileType", "Console-Specific Package"),
 		NOP_C_("Xbox360_STFS|FileType", "Non-Xbox Live Package"),
 		NOP_C_("Xbox360_STFS|FileType", "Xbox Live Package"),
@@ -922,21 +925,22 @@ int Xbox360_STFS::loadFieldData(void)
 	if (d->stfsType > Xbox360_STFS_Private::StfsType::Unknown &&
 	    d->stfsType < Xbox360_STFS_Private::StfsType::Max)
 	{
-		d->fields.addField_string(C_("Xbox360_STFS", "Package Type"),
-			dpgettext_expr(RP_I18N_DOMAIN, "Xbox360_STFS|FileType",
+		d->fields.addField_string(s_package_type_title,
+			pgettext_expr("Xbox360_STFS|FileType",
 				file_type_tbl[(int)d->stfsType]));
 	} else {
-		d->fields.addField_string(C_("Xbox360_STFS|RomData", "Type"),
+		d->fields.addField_string(s_package_type_title,
 			C_("RomData", "Unknown"));
 	}
 
 	// Content type
+	const char *const s_content_type_title = C_("Xbox360_STFS", "Content Type");
 	const char *const s_content_type = Xbox360_STFS_ContentType::lookup(
 		be32_to_cpu(stfsMetadata->content_type));
 	if (s_content_type) {
-		d->fields.addField_string(C_("Xbox360_STFS", "Content Type"), s_content_type);
+		d->fields.addField_string(s_content_type_title, s_content_type);
 	} else {
-		d->fields.addField_string(C_("Xbox360_STFS", "Content Type"),
+		d->fields.addField_string(s_content_type_title,
 			rp_sprintf(C_("RomData", "Unknown (0x%08X)"),
 				be32_to_cpu(stfsMetadata->content_type)));
 	}
@@ -980,7 +984,7 @@ int Xbox360_STFS::loadFieldData(void)
 	Xbox360_Version_t ver, basever;
 	ver.u32 = be32_to_cpu(stfsMetadata->version.u32);
 	basever.u32 = be32_to_cpu(stfsMetadata->base_version.u32);
-	d->fields.addField_string(C_("Xbox360_XEX", "Version"),
+	d->fields.addField_string(C_("RomData", "Version"),
 		rp_sprintf("%u.%u.%u.%u",
 			static_cast<unsigned int>(ver.major),
 			static_cast<unsigned int>(ver.minor),

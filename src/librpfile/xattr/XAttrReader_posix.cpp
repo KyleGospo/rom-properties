@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpfile)                        *
  * XAttrReader_posix.cpp: Extended Attribute reader (POSIX version)        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -11,7 +11,8 @@
 #include "XAttrReader.hpp"
 #include "XAttrReader_p.hpp"
 
-#include "librpcpu/byteswap_rp.h"
+// librpbyteswap
+#include "librpbyteswap/byteswap_rp.h"
 
 #include <fcntl.h>	// AT_FDCWD
 #include <sys/stat.h>	// stat(), statx()
@@ -71,8 +72,8 @@ struct fsxattr {
 #include "uvector.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
-using std::unique_ptr;
 
 // XAttrReader isn't used by libromdata directly,
 // so use some linker hax to force linkage.
@@ -314,7 +315,7 @@ int XAttrReaderPrivate::loadDosAttrs(void)
 		const char name[23];
 		bool be32;
 	};
-	static const std::array<DosAttrName, 3> dosAttrNames = {{
+	static const array<DosAttrName, 3> dosAttrNames = {{
 		{"system.ntfs_attrib_be", true},
 		{"system.ntfs_attrib", false},
 		{"system.dos_attrib", false},

@@ -42,14 +42,14 @@ STYLE DS_3DLOOK | DS_CONTROL | DS_SHELLFONT | WS_VISIBLE | WS_CHILDWINDOW | WS_T
 EXSTYLE WS_EX_NOPARENTNOTIFY | WS_EX_CONTROLPARENT
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    GROUPBOX        "Game Boy Title Screens", IDC_SYSTEMS_DMGTS_GROUPBOX, 7, 7, 397, 74
-    LTEXT           "Selectați modelul de Game Boy pentru a utiliza pentru ecranele de titlu pentru diferite tipuri de imagini de la Game Boy ROM.", IDC_STATIC, 15, 18, 381, 8
-    LTEXT           "Game Boy", IDC_STATIC, 15, 30, 80, 9
-    COMBOBOX        IDC_SYSTEMS_DMGTS_DMG, 77, 29, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Super Game Boy:", IDC_STATIC, 15, 45, 80, 9
-    COMBOBOX        IDC_SYSTEMS_DMGTS_SGB, 77, 44, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Game Boy Color:", IDC_STATIC, 15, 60, 80, 9
-    COMBOBOX        IDC_SYSTEMS_DMGTS_CGB, 77, 59, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Game Boy Title Screens", IDC_SYSTEMS_DMGTS_GROUPBOX, 7, 7, 397, 82
+    LTEXT           "Selectați modelul de Game Boy pentru a utiliza pentru ecranele de titlu pentru diferite tipuri de imagini de la\nGame Boy ROM.", IDC_STATIC, 15, 18, 381, 16
+    LTEXT           "Game Boy", IDC_STATIC, 15, 38, 80, 9
+    COMBOBOX        IDC_SYSTEMS_DMGTS_DMG, 77, 37, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Super Game Boy:", IDC_STATIC, 15, 53, 80, 9
+    COMBOBOX        IDC_SYSTEMS_DMGTS_SGB, 77, 52, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Game Boy Color:", IDC_STATIC, 15, 68, 80, 9
+    COMBOBOX        IDC_SYSTEMS_DMGTS_CGB, 77, 67, 69, 30, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 END
 
 /**
@@ -74,9 +74,11 @@ BEGIN
     // FIXME: Determine best height. (Compare to RP_ShellPropSheetExt for multi-language.)
     CONTROL         "", IDC_OPTIONS_PALLANGUAGEFORGAMETDB, WC_LANGUAGECOMBOBOX, CBS_DROPDOWNLIST | WS_CHILD | WS_TABSTOP | WS_VISIBLE, 138, 108, 68, 128, WS_EX_LEFT
 
-    GROUPBOX        "&Opţiuni", IDC_OPTIONS_GRPOPTIONS, 7, 133, 397, 54, BS_GROUPBOX, WS_EX_TRANSPARENT
+    GROUPBOX        "&Opţiuni", IDC_OPTIONS_GRPOPTIONS, 7, 133, 397, 90, BS_GROUPBOX, WS_EX_TRANSPARENT
     AUTOCHECKBOX    "Arată o pictogramă suprapusă de securitate pentru imaginile ROM cu permisiunile de tip\n""periculos"".", IDC_OPTIONS_DANGEROUSPERMISSIONS, 15, 144, 381, 16, BS_MULTILINE, WS_EX_TRANSPARENT
     AUTOCHECKBOX    "Activați extragerea miniaturilor și metadatelor în sistemele de fișiere de rețea\nAcest lucru poate încetini navigarea fișierelor.", IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS, 15, 165, 381, 16, BS_MULTILINE, WS_EX_TRANSPARENT
+    AUTOCHECKBOX    "Enable thumbnailing and metadata extraction of directory-based\npackages, e.g. for Wii U. This may slow down file browsing.", IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES, 15, 186, 381, 16, BS_MULTILINE, WS_EX_TRANSPARENT
+    AUTOCHECKBOX    "Arată fila cu atribute extinse.", IDC_OPTIONS_SHOWXATTRVIEW, 15, 207, 381, 8, BS_MULTILINE, WS_EX_TRANSPARENT
 END
 
 /**
@@ -112,7 +114,7 @@ BEGIN
     EDITTEXT        IDC_CACHE_XP_PATH, 7, 46, 343, 14, NOT WS_VISIBLE | ES_AUTOHSCROLL, WS_EX_LEFT
     PUSHBUTTON      "Răsfoire...", IDC_CACHE_XP_BROWSE, 355, 45, 50, 15, NOT WS_VISIBLE, WS_EX_LEFT
     PUSHBUTTON      "Găsește și șterge fișierele Thumbs.db", IDC_CACHE_XP_CLEAR_SYS_THUMBS, 7, 95, 398, 20, WS_DISABLED | BS_MULTILINE, WS_EX_LEFT
-    LTEXT           "Pagina de Proprietăți ROM întreține propria geocutie pentru imaginile externe. Ștergerea acestei geocutii va forța redescărcarea imaginilor externe.", IDC_STATIC, 7, 125, 313, 20, SS_LEFT, WS_EX_TRANSPARENT
+    LTEXT           "Pagina de Proprietăți ROM întreține propria geocutie pentru imaginile externe.\nȘtergerea acestei geocutii va forța redescărcarea imaginilor externe.", IDC_STATIC, 7, 125, 313, 20, SS_LEFT, WS_EX_TRANSPARENT
     PUSHBUTTON      "Elimină", IDC_CACHE_CLEAR_RP_DL, 323, 127, 82, 15, 0, WS_EX_LEFT
     LTEXT           "", IDC_CACHE_STATUS, 7, 205, 397, 9, NOT WS_VISIBLE | SS_LEFT, WS_EX_LEFT
     CONTROL         "", IDC_CACHE_PROGRESS, PROGRESS_CLASS, NOT WS_VISIBLE, 7, 216, 397, 16, WS_EX_LEFT

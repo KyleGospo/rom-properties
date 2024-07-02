@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * IDiscReader.hpp: Disc reader interface.                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -22,12 +22,12 @@
 
 namespace LibRpBase {
 
-class NOVTABLE IDiscReader : public LibRpFile::IRpFile
+class NOVTABLE IDiscReader : public LibRpFile::IRpFile, public std::enable_shared_from_this<IDiscReader>
 {
 	protected:
 		explicit IDiscReader(const LibRpFile::IRpFilePtr &file);
 	public:
-		virtual ~IDiscReader() = default;
+		~IDiscReader() override = default;
 
 	private:
 		RP_DISABLE_COPY(IDiscReader)

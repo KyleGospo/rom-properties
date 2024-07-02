@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * RomData.cpp: ROM data base class.                                       *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth                                  *
+ * Copyright (c) 2016-2024 by David Korth                                  *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -18,6 +18,7 @@ using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -565,7 +566,7 @@ const char *RomData::fileType_to_string(FileType fileType)
 		fileType = FileType::Unknown;
 	}
 
-	static const std::array<const char*, (int)FileType::Max> fileType_names = {{
+	static const array<const char*, (int)FileType::Max> fileType_names = {{
 		// FileType::Unknown
 		NOP_C_("RomData|FileType", "(unknown file type)"),
 		// tr: FileType::ROM_Image
@@ -624,11 +625,13 @@ const char *RomData::fileType_to_string(FileType fileType)
 		NOP_C_("RomData|FileType", "Metadata File"),
 		// tr: FileType::PatchFile
 		NOP_C_("RomData|FileType", "Patch File"),
+		// tr: FileType::Ticket
+		NOP_C_("RomData|FileType", "Ticket"),
 	}};
  
 	const char *const s_fileType = fileType_names[(int)fileType];
 	assert(s_fileType != nullptr);
-	return dpgettext_expr(RP_I18N_DOMAIN, "RomData|FileType", s_fileType);
+	return pgettext_expr("RomData|FileType", s_fileType);
 }
 
 /**
@@ -923,17 +926,17 @@ int RomData::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) co
 }
 
 /**
-* Get name of an image type
-* @param imageType Image type.
-* @return String containing user-friendly name of an image type.
-*/
+ * Get the name of an image type
+ * @param imageType Image type.
+ * @return String containing user-friendly name of an image type.
+ */
 const char *RomData::getImageTypeName(ImageType imageType) {
 	assert(imageType >= IMG_INT_MIN && imageType <= IMG_EXT_MAX);
 	if (imageType < IMG_INT_MIN || imageType > IMG_EXT_MAX) {
 		return nullptr;
 	}
 
-	static const std::array<const char*, IMG_EXT_MAX+1> imageType_names = {{
+	static const array<const char*, IMG_EXT_MAX+1> imageType_names = {{
 		/** Internal **/
 
 		// tr: IMG_INT_ICON
@@ -961,7 +964,7 @@ const char *RomData::getImageTypeName(ImageType imageType) {
 		NOP_C_("RomData|ImageType", "External title screen"),
 	}};
 
-	return dpgettext_expr(RP_I18N_DOMAIN, "RomData|ImageType", imageType_names[imageType]);
+	return pgettext_expr("RomData|ImageType", imageType_names[imageType]);
 }
 
 /**
@@ -1036,14 +1039,14 @@ int RomData::doRomOp(int id, RomOpParams *pParams)
 	} else {
 		// Reopen the file.
 		closeFileAfter = true;
-		RpFile *file;
+		IRpFilePtr file;
 #ifdef _WIN32
 		if (d->filenameW) {
-			file = new RpFile(d->filenameW, RpFile::FM_OPEN_WRITE);
+			file = std::make_shared<RpFile>(d->filenameW, RpFile::FM_OPEN_WRITE);
 		} else
 #endif /* _WIN32 */
 		{
-			file = new RpFile(d->filename, RpFile::FM_OPEN_WRITE);
+			file = std::make_shared<RpFile>(d->filename, RpFile::FM_OPEN_WRITE);
 		}
 
 		if (!file->isOpen()) {
@@ -1054,10 +1057,9 @@ int RomData::doRomOp(int id, RomOpParams *pParams)
 			}
 			pParams->status = ret;
 			pParams->msg = C_("RomData", "Unable to reopen the file for writing.");
-			delete file;
 			return ret;
 		}
-		d->file.reset(file);
+		d->file = std::move(file);
 	}
 
 	// If the ROM operation requires a writable file,

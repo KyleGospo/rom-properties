@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase/tests)                  *
  * RpPngFormatTest.cpp: RpPng format test.                                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -35,7 +35,7 @@
 #include "uvector.h"
 
 // Other rom-properties libraries
-#include "librpcpu/byteswap_rp.h"
+#include "librpbyteswap/byteswap_rp.h"
 #include "librpfile/FileSystem.hpp"
 #include "librpfile/MemFile.hpp"
 #include "librpfile/RpFile.hpp"
@@ -55,9 +55,11 @@ using namespace LibRpTexture;
 #include <cstring>
 
 // C++ includes
+#include <array>
 #include <memory>
 #include <ostream>
 #include <string>
+using std::array;
 using std::shared_ptr;
 using std::string;
 
@@ -1325,7 +1327,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 
 	// Check for the png_data directory and chdir() into it.
 #ifdef _WIN32
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR*, 11> subdirs = {{
 		_T("png_data"),
 		_T("bin\\png_data"),
 		_T("src\\librpbase\\tests\\img\\png_data"),
@@ -1337,9 +1339,9 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("..\\..\\..\\bin\\png_data"),
 		_T("..\\..\\..\\bin\\Debug\\png_data"),
 		_T("..\\..\\..\\bin\\Release\\png_data"),
-	};
+	}};
 #else /* !_WIN32 */
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR*, 9> subdirs = {{
 		_T("png_data"),
 		_T("bin/png_data"),
 		_T("src/librpbase/tests/img/png_data"),
@@ -1349,7 +1351,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("../../../../src/librpbase/tests/img/png_data"),
 		_T("../../../../../src/librpbase/tests/img/png_data"),
 		_T("../../../bin/png_data"),
-	};
+	}};
 #endif /* _WIN32 */
 
 	bool is_found = false;

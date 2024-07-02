@@ -30,7 +30,7 @@ IF(MINGW)
 	# MinGW: Ignore warnings caused by casting from GetProcAddress().
 	SET(CFLAGS_WARNINGS ${CFLAGS_WARNINGS} -Wno-cast-function-type)
 ENDIF(MINGW)
-FOREACH(FLAG_TEST ${CFLAGS_WARNINGS} ${CFLAGS_WERROR_FORMAT} "-fstrict-aliasing" "-fno-common" "-fcf-protection")
+FOREACH(FLAG_TEST ${CFLAGS_WARNINGS} ${CFLAGS_WERROR_FORMAT} "-fstrict-aliasing" "-Werror=strict-aliasing" "-fno-common" "-fcf-protection" "-fno-math-errno")
 	# CMake doesn't like certain characters in variable names.
 	STRING(REGEX REPLACE "/|:|=" "_" FLAG_TEST_VARNAME "${FLAG_TEST}")
 
@@ -45,14 +45,19 @@ FOREACH(FLAG_TEST ${CFLAGS_WARNINGS} ${CFLAGS_WERROR_FORMAT} "-fstrict-aliasing"
 		SET(RP_CXX_FLAGS_COMMON "${RP_CXX_FLAGS_COMMON} ${FLAG_TEST}")
 	ENDIF(CXXFLAG_${FLAG_TEST_VARNAME})
 	UNSET(CXXFLAG_${FLAG_TEST_VARNAME})
-ENDFOREACH()
+ENDFOREACH(FLAG_TEST)
 
-# -Wimplicit-function-declaration should be an error. (C only)
-CHECK_C_COMPILER_FLAG("-Werror=implicit-function-declaration" CFLAG_IMPLFUNC)
-IF(CFLAG_IMPLFUNC)
-	SET(RP_C_FLAGS_COMMON "${RP_C_FLAGS_COMMON} -Werror=implicit-function-declaration")
-ENDIF(CFLAG_IMPLFUNC)
-UNSET(CFLAG_IMPLFUNC)
+# Certain warnings should be errors. (C only)
+FOREACH(FLAG_TEST -Werror=implicit -Werror=implicit-function-declaration -Werror=incompatible-pointer-types -Werror=int-conversion)
+	# CMake doesn't like certain characters in variable names.
+	STRING(REGEX REPLACE "/|:|=" "_" FLAG_TEST_VARNAME "${FLAG_TEST}")
+
+	CHECK_C_COMPILER_FLAG("${FLAG_TEST}" CFLAG_${FLAG_TEST_VARNAME})
+	IF(CFLAG_${FLAG_TEST_VARNAME})
+		SET(RP_C_FLAGS_COMMON "${RP_C_FLAGS_COMMON} ${FLAG_TEST}")
+	ENDIF(CFLAG_${FLAG_TEST_VARNAME})
+	UNSET(CFLAG_${FLAG_TEST_VARNAME})
+ENDFOREACH(FLAG_TEST)
 
 # Enable "suggest override" if available. (C++ only)
 # NOTE: If gcc, only enable on 9.2 and later, since earlier versions
@@ -106,6 +111,8 @@ ENDIF(ENABLE_COVERAGE)
 # NOTE: CHECK_C_COMPILER_FLAG() doesn't seem to work, even with
 # CMAKE_TRY_COMPILE_TARGET_TYPE. Check `ld --help` for the various
 # parameters instead.
+# NOTE 2: Emscripten doesn't like these LDFLAGS.
+IF(NOT EMSCRIPTEN)
 EXECUTE_PROCESS(COMMAND ${CMAKE_LINKER} --help
 	OUTPUT_VARIABLE _ld_out
 	ERROR_QUIET)
@@ -236,6 +243,7 @@ IF(NOT CMAKE_SYSTEM MATCHES "Linux")
 		STRING(REPLACE "-Wl,${FLAG_REMOVE}" "" RP_MODULE_LINKER_FLAGS_COMMON "${RP_MODULE_LINKER_FLAGS_COMMON}")
 	ENDFOREACH(FLAG_REMOVE)
 ENDIF(NOT CMAKE_SYSTEM MATCHES "Linux")
+ENDIF(NOT EMSCRIPTEN)
 
 # Debug builds: Check for -Og.
 # This flag was added in gcc-4.8, and enables optimizations that
@@ -263,11 +271,16 @@ IF(CFLAG_OPTIMIZE_FTREE_VECTORIZE)
 	ENDIF()
 ENDIF(CFLAG_OPTIMIZE_FTREE_VECTORIZE)
 
-# Debug/release flags.
+### Debug/Release flags ###
+
 SET(RP_C_FLAGS_DEBUG		"${CFLAG_OPTIMIZE_DEBUG} -ggdb -DDEBUG -D_DEBUG")
 SET(RP_CXX_FLAGS_DEBUG		"${CFLAG_OPTIMIZE_DEBUG} -ggdb -DDEBUG -D_DEBUG")
-SET(RP_C_FLAGS_RELEASE		"-O2 -ggdb -DNDEBUG ${CFLAGS_VECTORIZE}")
-SET(RP_CXX_FLAGS_RELEASE	"-O2 -ggdb -DNDEBUG ${CFLAGS_VECTORIZE}")
+
+SET(RP_C_FLAGS_RELEASE		"-O2 -DNDEBUG ${CFLAGS_VECTORIZE}")
+SET(RP_CXX_FLAGS_RELEASE	"-O2 -DNDEBUG ${CFLAGS_VECTORIZE}")
+
+SET(RP_C_FLAGS_RELWITHDEBINFO	"-O2 -ggdb -DNDEBUG ${CFLAGS_VECTORIZE}")
+SET(RP_CXX_FLAGS_RELWITHDEBINFO	"-O2 -ggdb -DNDEBUG ${CFLAGS_VECTORIZE}")
 
 # Unset temporary variables.
 UNSET(CFLAG_OPTIMIZE_DEBUG)
@@ -321,6 +334,12 @@ IF(ENABLE_LTO)
 			SET(RP_EXE_LINKER_FLAGS_RELEASE    "${RP_EXE_LINKER_FLAGS_RELEASE} -flto -fuse-linker-plugin")
 			SET(RP_SHARED_LINKER_FLAGS_RELEASE "${RP_SHARED_LINKER_FLAGS_RELEASE} -flto -fuse-linker-plugin")
 			SET(RP_MODULE_LINKER_FLAGS_RELEASE "${RP_MODULE_LINKER_FLAGS_RELEASE} -flto -fuse-linker-plugin")
+
+			SET(RP_C_FLAGS_RELWITHDEBINFO   "${RP_C_FLAGS_RELWITHDEBINFO} -flto")
+			SET(RP_CXX_FLAGS_RELWITHDEBINFO "${RP_CXX_FLAGS_RELWITHDEBINFO} -flto")
+			SET(RP_EXE_LINKER_FLAGS_RELWITHDEBINFO    "${RP_EXE_LINKER_FLAGS_RELWITHDEBINFO} -flto -fuse-linker-plugin")
+			SET(RP_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${RP_SHARED_LINKER_FLAGS_RELWITHDEBINFO} -flto -fuse-linker-plugin")
+			SET(RP_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${RP_MODULE_LINKER_FLAGS_RELWITHDEBINFO} -flto -fuse-linker-plugin")
 		ELSE(CFLAG_LTO)
 			MESSAGE(FATAL_ERROR "LTO optimization requested but -flto is not supported.")
 		ENDIF(CFLAG_LTO)

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * TGA.cpp: TrueVision TGA reader.                                         *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -26,6 +26,7 @@ using LibRpBase::RomFields;
 #include "decoder/ImageDecoder_Linear.hpp"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 
@@ -118,6 +119,15 @@ const char *const TGAPrivate::exts[] = {
 const char *const TGAPrivate::mimeTypes[] = {
 	// Unofficial MIME types from FreeDesktop.org.
 	"image/x-tga",
+	"image/x-targa",
+
+	// shared-mime-info lists these MIME types as aliases.
+	"image/targa",
+	"image/tga",
+	"image/x-icb",
+	"application/tga",
+	"application/x-targa",
+	"application/x-tga",
 
 	nullptr
 };
@@ -129,7 +139,6 @@ TGAPrivate::TGAPrivate(TGA *q, const IRpFilePtr &file)
 	: super(q, file, &textureInfo)
 	, texType(TexType::Unknown)
 	, alphaType(TGA_ALPHATYPE_PRESENT)
-	, img(nullptr)
 	, flipOp(rp_image::FLIP_V)	// default orientation requires vertical flip
 {
 	// Clear the structs.
@@ -276,7 +285,7 @@ rp_image_const_ptr TGAPrivate::loadImage(void)
 		} else {
 			// Color map is present, but this is not a colormap image.
 			// Skip over the color map.
-			file->seek(file->tell() + cmap_size);
+			file->seek_cur(cmap_size);
 		}
 	}
 
@@ -524,7 +533,7 @@ TGA::TGA(const IRpFilePtr &file)
 	: super(new TGAPrivate(this, file))
 {
 	RP_D(TGA);
-	d->mimeType = "image/x-tga";	// unofficial
+	d->mimeType = TGAPrivate::mimeTypes[0];	// unofficial
 	d->textureFormatName = "TrueVision TGA";
 
 	if (!d->file) {
@@ -793,14 +802,14 @@ int TGA::getFields(RomFields *fields) const
 	// Alpha channel
 	// TODO: dpgettext_expr()
 	const char *s_alphaType;
-	static const char *const alphaType_tbl[] = {
+	static const array<const char*, 5> alphaType_tbl = {{
 		NOP_C_("TGA|AlphaType", "None"),
 		NOP_C_("TGA|AlphaType", "Undefined (ignore)"),
 		NOP_C_("TGA|AlphaType", "Undefined (retain)"),
 		NOP_C_("TGA|AlphaType", "Present"),
 		NOP_C_("TGA|AlphaType", "Premultiplied"),
-	};
-	s_alphaType = alphaType_tbl[d->alphaType >= 0 && (int)d->alphaType < 5
+	}};
+	s_alphaType = alphaType_tbl[d->alphaType >= 0 && (int)d->alphaType < (int)alphaType_tbl.size()
 		? d->alphaType : TGA_ALPHATYPE_UNDEFINED_IGNORE];
 	fields->addField_string(C_("TGA", "Alpha Type"), s_alphaType);
 

@@ -79,7 +79,6 @@ const TextureInfo ASTCPrivate::textureInfo = {
 
 ASTCPrivate::ASTCPrivate(ASTC *q, const IRpFilePtr &file)
 	: super(q, file, &textureInfo)
-	, img(nullptr)
 {
 	// Clear the structs and arrays.
 	memset(&astcHeader, 0, sizeof(astcHeader));
@@ -95,7 +94,7 @@ rp_image_const_ptr ASTCPrivate::loadImage(void)
 	if (img) {
 		// Image has already been loaded.
 		return img;
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the image.
 		return nullptr;
 	}

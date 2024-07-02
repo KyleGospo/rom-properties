@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * GameCubeSave.hpp: Nintendo GameCube save file reader.                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -20,6 +20,7 @@ using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -302,9 +303,9 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 	if (iconAnimData) {
 		// Icon has already been loaded.
 		return iconAnimData->frames[0];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the icon.
-		return nullptr;
+		return {};
 	}
 
 	// Calculate the icon start address.
@@ -312,22 +313,16 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 	uint32_t iconaddr = direntry.iconaddr;
 	if (unlikely(iconaddr == 0xFFFFFFFFU)) {
 		// No icon.
-		return nullptr;
+		return {};
 	}
-	switch (direntry.bannerfmt & CARD_BANNER_MASK) {
-		case CARD_BANNER_CI:
-			// CI8 banner.
-			iconaddr += (CARD_BANNER_W * CARD_BANNER_H * 1);
-			iconaddr += (256 * 2);	// RGB5A3 palette
-			break;
-		case CARD_BANNER_RGB:
-			// RGB5A3 banner.
-			iconaddr += (CARD_BANNER_W * CARD_BANNER_H * 2);
-			break;
-		default:
-			// No banner.
-			break;
-	}
+
+	static constexpr array<uint16_t, 4> banner_sizes = {{
+		0,							// CARD_BANNER_NONE
+		(CARD_BANNER_W * CARD_BANNER_H * 1) + (256 * 2),	// CARD_BANNER_CI
+		(CARD_BANNER_W * CARD_BANNER_H * 2),			// CARD_BANNER_RGB
+		0,							// CARD_BANNER_MASK
+	}};
+	iconaddr += banner_sizes[direntry.bannerfmt & CARD_BANNER_MASK];
 
 	// Calculate the icon sizes.
 	unsigned int iconsizetotal = 0;
@@ -377,14 +372,7 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 	size_t size = file->seekAndRead(dataOffset + iconaddr, icondata.get(), iconsizetotal);
 	if (size != iconsizetotal) {
 		// Seek and/or read error.
-		return nullptr;
-	}
-
-	const uint16_t *pal_CI8_shared = nullptr;
-	if (is_CI8_shared) {
-		// Shared CI8 palette is at the end of the data.
-		pal_CI8_shared = reinterpret_cast<const uint16_t*>(
-			icondata.get() + (iconsizetotal - (256*2)));
+		return {};
 	}
 
 	this->iconAnimData = std::make_shared<IconAnimData>();
@@ -410,7 +398,7 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 		switch (iconfmt & CARD_ICON_MASK) {
 			case CARD_ICON_RGB: {
 				// RGB5A3
-				static const size_t iconsize = CARD_ICON_W * CARD_ICON_H * 2;
+				static constexpr size_t iconsize = CARD_ICON_W * CARD_ICON_H * 2;
 				iconAnimData->frames[i] = ImageDecoder::fromGcn16(
 					ImageDecoder::PixelFormat::RGB5A3, CARD_ICON_W, CARD_ICON_H,
 					reinterpret_cast<const uint16_t*>(icondata.get() + iconaddr_cur),
@@ -422,7 +410,7 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 			case CARD_ICON_CI_UNIQUE: {
 				// CI8 with a unique palette.
 				// Palette is located immediately after the icon.
-				static const size_t iconsize = CARD_ICON_W * CARD_ICON_H * 1;
+				static constexpr size_t iconsize = CARD_ICON_W * CARD_ICON_H * 1;
 				iconAnimData->frames[i] = ImageDecoder::fromGcnCI8(
 					CARD_ICON_W, CARD_ICON_H,
 					icondata.get() + iconaddr_cur, iconsize,
@@ -432,7 +420,11 @@ rp_image_const_ptr GameCubeSavePrivate::loadIcon(void)
 			}
 
 			case CARD_ICON_CI_SHARED: {
-				static const size_t iconsize = CARD_ICON_W * CARD_ICON_H * 1;
+				// Shared CI8 palette is at the end of the data.
+				const uint16_t *const pal_CI8_shared = reinterpret_cast<const uint16_t*>(
+					icondata.get() + (iconsizetotal - (256*2)));
+
+				static constexpr size_t iconsize = CARD_ICON_W * CARD_ICON_H * 1;
 				iconAnimData->frames[i] = ImageDecoder::fromGcnCI8(
 					CARD_ICON_W, CARD_ICON_H,
 					icondata.get() + iconaddr_cur, iconsize,
@@ -485,35 +477,33 @@ rp_image_const_ptr GameCubeSavePrivate::loadBanner(void)
 	if (img_banner) {
 		// Banner is already loaded.
 		return img_banner;
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the banner.
-		return nullptr;
+		return {};
 	}
 
 	// Banner is located at direntry.iconaddr.
 	// Determine the banner format and size.
-	size_t bannersize;
-	switch (direntry.bannerfmt & CARD_BANNER_MASK) {
-		case CARD_BANNER_CI:
-			// CI8 banner.
-			bannersize = (CARD_BANNER_W * CARD_BANNER_H * 1);
-			break;
-		case CARD_BANNER_RGB:
-			bannersize = (CARD_BANNER_W * CARD_BANNER_H * 2);
-			break;
-		default:
-			// No banner.
-			return nullptr;
+	static constexpr array<uint16_t, 4> banner_sizes = {{
+		0,					// CARD_BANNER_NONE
+		CARD_BANNER_W * CARD_BANNER_H * 1,	// CARD_BANNER_CI
+		CARD_BANNER_W * CARD_BANNER_H * 2,	// CARD_BANNER_RGB
+		0,					// CARD_BANNER_MASK
+	}};
+	const unsigned int bannersize = banner_sizes[direntry.bannerfmt & CARD_BANNER_MASK];
+	if (bannersize == 0) {
+		// No banner.
+		return {};
 	}
 
 	// Read the banner data.
-	static const int MAX_BANNER_SIZE = (CARD_BANNER_W * CARD_BANNER_H * 2);
+	static constexpr int MAX_BANNER_SIZE = (CARD_BANNER_W * CARD_BANNER_H * 2);
 	uint8_t bannerbuf[MAX_BANNER_SIZE];
 	size_t size = file->seekAndRead(dataOffset + direntry.iconaddr,
 					bannerbuf, bannersize);
 	if (size != bannersize) {
 		// Seek and/or read error.
-		return nullptr;
+		return {};
 	}
 
 	if ((direntry.bannerfmt & CARD_BANNER_MASK) == CARD_BANNER_RGB) {
@@ -528,7 +518,7 @@ rp_image_const_ptr GameCubeSavePrivate::loadBanner(void)
 					 palbuf, sizeof(palbuf));
 		if (size != sizeof(palbuf)) {
 			// Seek and/or read error.
-			return nullptr;
+			return {};
 		}
 
 		// Convert the banner from GCN CI8 format to CI8.
@@ -701,7 +691,7 @@ int GameCubeSave::isRomSupported_static(const DetectInfo *info)
 	}
 
 	// Check for GCS. (GameShark)
-	static const uint8_t gcs_magic[] = {'G','C','S','A','V','E'};
+	static constexpr uint8_t gcs_magic[] = {'G','C','S','A','V','E'};
 	if (!memcmp(info->header.pData, gcs_magic, sizeof(gcs_magic))) {
 		// Is the size correct?
 		// GCS files are a multiple of 8 KB, plus 336 bytes:
@@ -721,7 +711,7 @@ int GameCubeSave::isRomSupported_static(const DetectInfo *info)
 	}
 
 	// Check for SAV. (MaxDrive)
-	static const uint8_t sav_magic[] = "DATELGC_SAVE\x00\x00\x00\x00";
+	static constexpr uint8_t sav_magic[] = "DATELGC_SAVE\x00\x00\x00\x00";
 	if (!memcmp(info->header.pData, sav_magic, sizeof(sav_magic)-1)) {
 		// Is the size correct?
 		// SAVE files are a multiple of 8 KB, plus 192 bytes:
@@ -918,12 +908,12 @@ int GameCubeSave::loadFieldData(void)
 	if (!filename.empty() && filename[filename.size()-1] == '\r') {
 		filename.resize(filename.size()-1);
 	}
-	d->fields.addField_string(C_("GameCubeSave", "Filename"), filename);
+	d->fields.addField_string(C_("RomData", "Filename"), filename);
 
 	// Description
 	string description = d->getComment();
 	if (likely(!description.empty())) {
-		d->fields.addField_string(C_("GameCubeSave", "Description"), description);
+		d->fields.addField_string(C_("RomData", "Description"), description);
 	}
 
 	// Last Modified timestamp

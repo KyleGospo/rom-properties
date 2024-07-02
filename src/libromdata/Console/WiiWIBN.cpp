@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * WiiWIBN.hpp: Nintendo Wii save file banner reader.                      *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -19,6 +19,7 @@ using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -114,15 +115,15 @@ rp_image_const_ptr WiiWIBNPrivate::loadIcon(void)
 	if (iconAnimData) {
 		// Icon has already been loaded.
 		return iconAnimData->frames[0];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the icon.
 		return nullptr;
 	}
 
 	// Icon starts after the header and banner.
 	// Read up to 8 icons.
-	static const unsigned int iconstartaddr = BANNER_WIBN_STRUCT_SIZE;
-	static const unsigned int iconsizetotal = BANNER_WIBN_ICON_SIZE*CARD_MAXICONS;
+	static constexpr unsigned int iconstartaddr = BANNER_WIBN_STRUCT_SIZE;
+	static constexpr unsigned int iconsizetotal = BANNER_WIBN_ICON_SIZE*CARD_MAXICONS;
 	// FIXME: Some compilers are reporting that `icondata.get()` is NULL here,
 	// which results in an error due to -Werror=nonnull.
 	auto icondata = aligned_uptr<uint8_t>(16, iconsizetotal);
@@ -166,7 +167,7 @@ rp_image_const_ptr WiiWIBNPrivate::loadIcon(void)
 		// Icon delay.
 		// Using 62ms for the fastest speed.
 		// TODO: Verify this?
-		static const std::array<uint8_t, 4> ms_tbl = {{0, 62/*.5*/, 125, 250}};
+		static constexpr array<uint8_t, 4> ms_tbl = {{0, 62/*.5*/, 125, 250}};
 		iconAnimData->delays[i].numer = static_cast<uint16_t>(delay);
 		iconAnimData->delays[i].denom = 8;
 		iconAnimData->delays[i].ms = ms_tbl[delay];
@@ -216,7 +217,7 @@ rp_image_const_ptr WiiWIBNPrivate::loadBanner(void)
 	if (img_banner) {
 		// Banner is already loaded.
 		return img_banner;
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the banner.
 		return nullptr;
 	}
@@ -435,25 +436,26 @@ int WiiWIBN::loadFieldData(void)
 	if (!d->fields.empty()) {
 		// Field data *has* been loaded...
 		return 0;
-	} else if (!d->file || !d->file->isOpen()) {
-		// File isn't open.
+	} else if (!d->file) {
+		// No file.
+		// A closed file is OK, since we already loaded the header.
 		return -EBADF;
 	} else if (!d->isValid) {
 		// Unknown save banner file type.
 		return -EIO;
 	}
 
-	// Wii WIBN header.
+	// Wii WIBN header
 	const Wii_WIBN_Header_t *const wibnHeader = &d->wibnHeader;
 	d->fields.reserve(3);	// Maximum of 3 fields.
 
 	// TODO: Combine title and subtitle into one field?
 
-	// Title.
+	// Title
 	d->fields.addField_string(C_("WiiWIBN", "Title"),
 		utf16be_to_utf8(wibnHeader->gameTitle, ARRAY_SIZE_I(wibnHeader->gameTitle)));
 
-	// Subtitle.
+	// Subtitle
 	// NOTE: Skipping empty subtitles.
 	const char16_t chr1 = wibnHeader->gameSubTitle[0];
 	const char16_t chr2 = wibnHeader->gameSubTitle[1];
@@ -462,17 +464,52 @@ int WiiWIBN::loadFieldData(void)
 			utf16be_to_utf8(wibnHeader->gameSubTitle, ARRAY_SIZE_I(wibnHeader->gameSubTitle)));
 	}
 
-	// Flags.
+	// Flags
 	static const char *const flags_names[] = {
 		NOP_C_("WiiWIBN|Flags", "No Copy"),
 	};
 	vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n(
 		"WiiWIBN|Flags", flags_names, ARRAY_SIZE(flags_names));
-	d->fields.addField_bitfield(C_("WiiWIBN", "Flags"),
+	d->fields.addField_bitfield(C_("RomData", "Flags"),
 		v_flags_names, 0, be32_to_cpu(wibnHeader->flags));
 
 	// Finished reading the field data.
 	return static_cast<int>(d->fields.count());
+}
+
+/**
+ * Load metadata properties.
+ * Called by RomData::metaData() if the metadata hasn't been loaded yet.
+ * @return Number of metadata properties read on success; negative POSIX error code on error.
+ */
+int WiiWIBN::loadMetaData(void)
+{
+	RP_D(WiiWIBN);
+	if (d->metaData != nullptr) {
+		// Metadata *has* been loaded...
+		return 0;
+	} else if (!d->file) {
+		// No file.
+		// A closed file is OK, since we already loaded the header.
+		return -EBADF;
+	} else if (!d->isValid) {
+		// Unknown save banner file type.
+		return -EIO;
+	}
+
+	// Create the metadata object.
+	d->metaData = new RomMetaData();
+	d->metaData->reserve(1);	// Maximum of 1 metadata property.
+
+	// Wii WIBN header
+	const Wii_WIBN_Header_t *const wibnHeader = &d->wibnHeader;
+
+	// Title [TODO: Also subtitle?]
+	d->metaData->addMetaData_string(Property::Title,
+		utf16be_to_utf8(wibnHeader->gameTitle, ARRAY_SIZE_I(wibnHeader->gameTitle)));
+
+	// Finished reading the metadata.
+	return static_cast<int>(d->metaData->count());
 }
 
 /**
@@ -568,16 +605,6 @@ IconAnimDataConstPtr WiiWIBN::iconAnimData(void) const
 
 	// Return the icon animation data.
 	return d->iconAnimData;
-}
-
-/**
- * Is the NoCopy flag set?
- * @return True if set; false if not.
- */
-bool WiiWIBN::isNoCopyFlagSet(void) const
-{
-	RP_D(const WiiWIBN);
-	return !!(d->wibnHeader.flags & cpu_to_be32(BANNER_WIBN_FLAGS_NOCOPY));
 }
 
 }

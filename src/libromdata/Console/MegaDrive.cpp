@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * MegaDrive.cpp: Sega Mega Drive ROM reader.                              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,30 +17,20 @@
 
 // Other rom-properties libraries
 #include "librpbase/Achievements.hpp"
+#include "librpbase/crypto/Hash.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
 
 // Other RomData subclasses
-#include "Other/ISO.hpp"
+#include "Media/ISO.hpp"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
-// zlib for crc32()
-#include <zlib.h>
-#ifdef _MSC_VER
-// MSVC: Exception handling for /DELAYLOAD.
-#  include "libwin32common/DelayLoadHelper.h"
-#endif /* _MSC_VER */
-
 namespace LibRomData {
-
-#ifdef _MSC_VER
-// DelayLoad test implementation.
-DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
-#endif /* _MSC_VER */
 
 class MegaDrivePrivate final : public RomDataPrivate
 {
@@ -205,12 +195,6 @@ public:
 	 * @return Publisher, or "Unknown" if unknown.
 	 */
 	static string getPublisher(const MD_RomHeader *pRomHeader);
-
-	/**
-	 * Initialize zlib.
-	 * @return 0 on success; non-zero on error.
-	 */
-	static int zlibInit(void);
 };
 
 ROMDATA_IMPL(MegaDrive)
@@ -282,7 +266,7 @@ uint32_t MegaDrivePrivate::parseIOSupport(const char *io_support, int size)
 	// NOTE: Only 48 entries; starts at 0x30, ends at 0x5F.
 	// Index: Character
 	// Value: Bitfield value, or -1 if not applicable.
-	static const std::array<int8_t, 0x30> md_io_chr_map = {
+	static constexpr array<int8_t, 0x30> md_io_chr_map = {{
 		// 0x30 ['0'-'9']
 		MD_IOSH_JOYPAD_SMS, -1, -1, -1, MD_IOSH_TEAM_PLAYER, -1, MD_IOSH_JOYPAD_6, -1,
 		-1, -1, -1, -1, -1, -1, -1 ,-1,
@@ -294,7 +278,7 @@ uint32_t MegaDrivePrivate::parseIOSupport(const char *io_support, int size)
 		// 0x50 ['P'-'Z']
 		MD_IOSH_PRINTER, -1, MD_IOSH_SERIAL, -1, MD_IOSH_TABLET, -1, MD_IOSH_PADDLE, -1,
 		-1, -1, -1, -1, -1, -1, -1, -1,
-	};
+	}};
 
 	uint32_t ret = 0;
 	for (int i = size-1; i >= 0; i--) {
@@ -458,7 +442,7 @@ void MegaDrivePrivate::addFields_romHeader(const MD_RomHeader *pRomHeader, bool 
 			if (!s_io_devices.empty()) {
 				s_io_devices += ", ";
 			}
-			s_io_devices += dpgettext_expr(RP_I18N_DOMAIN, "MegaDrive|I/O", name);
+			s_io_devices += pgettext_expr("MegaDrive|I/O", name);
 		}
 
 		// Next bit.
@@ -572,7 +556,7 @@ void MegaDrivePrivate::addFields_vectorTable(const M68K_VectorTable *pVectors)
 	// - Increase the height.
 	// - Show on a separate line?
 
-	static const char vectors_strtbl[] = {
+	static constexpr char vectors_strtbl[] = {
 		// $00
 		"Initial SP\0"
 		"Entry Point\0"
@@ -600,7 +584,7 @@ void MegaDrivePrivate::addFields_vectorTable(const M68K_VectorTable *pVectors)
 		"IRQ7 (NMI)\0"
 	};
 	// Just under 255 (uint8_t max). Nice.
-	static const std::array<uint8_t, 20> vectors_offtbl = {{
+	static constexpr array<uint8_t, 20> vectors_offtbl = {{
 		0, 11, 23, 33, 47, 67, 84, 98,	// $00-$1C
 		114, 134, 150, 166,			// $20-$2C
 		182, 201, 206, 216, 221, 235, 240, 254,	// $60-$7C
@@ -608,7 +592,7 @@ void MegaDrivePrivate::addFields_vectorTable(const M68K_VectorTable *pVectors)
 
 	// Map of displayed vectors to actual vectors.
 	// This uses vector indees, *not* byte addresses.
-	static const std::array<int8_t, 20> vectors_map = {{
+	static constexpr array<uint8_t, 20> vectors_map = {{
 		 0,  1,  2,  3,  4,  5,  6,  7,	// $00-$1C
 		 8,  9, 10, 11,			// $20-$2C
 		24, 25, 26, 27, 28, 29, 30, 31,	// $60-$7C
@@ -709,30 +693,6 @@ string MegaDrivePrivate::getPublisher(const MD_RomHeader *pRomHeader)
 	return s_publisher;
 }
 
-/**
- * Initialize zlib.
- * @return 0 on success; non-zero on error.
- */
-int MegaDrivePrivate::zlibInit(void)
-{
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
-		// Can't calculate the CRC32.
-		return -ENOENT;
-	}
-#else /* !defined(_MSC_VER) || !defined(ZLIB_IS_DLL) */
-	// zlib isn't in a DLL, but we need to ensure that the
-	// CRC table is initialized anyway.
-	get_crc_table();
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
-	// zlib initialized.
-	return 0;
-}
-
 /** MegaDrive **/
 
 /**
@@ -778,7 +738,6 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 	d->romType = isRomSupported_static(&info);
 
 	// Mega CD security program CRC32
-	// TODO: zlib delay-load on Windows.
 	uint32_t mcd_sp_crc = 0;
 
 	if (d->romType >= 0) {
@@ -836,8 +795,12 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 				// able to distinguish between them.
 				// NOTE: Only the first 0x4C0 bytes seem to be identical
 				// between USA and EUR, and 0x150 in JPN...
-				if (size >= (0x200 + 0x150) && !d->zlibInit()) {
-					mcd_sp_crc = crc32(0, &header[0x200], 0x150);
+				if (size >= (0x200 + 0x150)) {
+					Hash crc32Hash(Hash::Algorithm::CRC32);
+					if (crc32Hash.isUsable()) {
+						crc32Hash.process(&header[0x200], 0x150);
+						mcd_sp_crc = crc32Hash.getHash32();
+					}
 				}
 				break;
 
@@ -863,8 +826,12 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 				// able to distinguish between them.
 				// NOTE: Only the first 0x4C0 bytes seem to be identical
 				// between USA and EUR, and 0x150 in JPN...
-				if (size >= (0x210 + 0x150) && !d->zlibInit()) {
-					mcd_sp_crc = crc32(0, &header[0x210], 0x150);
+				if (size >= (0x210 + 0x150)) {
+					Hash crc32Hash(Hash::Algorithm::CRC32);
+					if (crc32Hash.isUsable()) {
+						crc32Hash.process(&header[0x210], 0x150);
+						mcd_sp_crc = crc32Hash.getHash32();
+					}
 				}
 				break;
 
@@ -927,7 +894,8 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 	    !memcmp(s_serial_number, "GM 00054503-00", sizeof(d->romHeader.serial_number)) &&
 	    (d->romType & MegaDrivePrivate::ROM_FORMAT_MASK) == MegaDrivePrivate::ROM_FORMAT_CART_BIN)
 	{
-		if (d->zlibInit() != 0) {
+		Hash crc32Hash(Hash::Algorithm::CRC32);
+		if (!crc32Hash.isUsable()) {
 			// Can't initialize zlib to calculate the CRC32.
 			return;
 		}
@@ -937,7 +905,8 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 		uint8_t buf[256];
 		size_t size = d->file->seekAndRead(0x20000, buf, sizeof(buf));
 		if (size == sizeof(buf)) {
-			d->gt_crc = crc32(0, buf, sizeof(buf));
+			crc32Hash.process(buf, sizeof(buf));
+			d->gt_crc = crc32Hash.getHash32();
 		}
 	}
 	// If this is S&K, try reading the locked-on ROM header.
@@ -972,7 +941,7 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 
 		if (d->pRomHeaderLockOn) {
 			// Verify the "SEGA" magic.
-			static const char sega_magic[4] = {'S','E','G','A'};
+			static constexpr char sega_magic[4] = {'S','E','G','A'};
 			if (!memcmp(&d->pRomHeaderLockOn->system[0], sega_magic, sizeof(sega_magic)) ||
 			    !memcmp(&d->pRomHeaderLockOn->system[1], sega_magic, sizeof(sega_magic)))
 			{
@@ -1014,20 +983,21 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	const uint8_t *const pHeader = info->header.pData;
 
 	// Magic strings. (NOTE: **NOT** NULL-terminated!)
-	static const char sega_magic[4] = {'S','E','G','A'};
-	static const char segacd_magic[16] =  {'S','E','G','A','D','I','S','C','S','Y','S','T','E','M',' ',' '};
+	static constexpr char sega_magic[4] = {'S','E','G','A'};
+	static constexpr char segacd_magic[16] =  {'S','E','G','A','D','I','S','C','S','Y','S','T','E','M',' ',' '};
 	// NOTE: Only used for Sega CD 32X.
-	static const char sega32x_magic[16] = {'S','E','G','A',' ','3','2','X',' ',' ',' ',' ',' ',' ',' ',' '};
+	static constexpr char sega32x_magic[16] = {'S','E','G','A',' ','3','2','X',' ',' ',' ',' ',' ',' ',' ',' '};
 
 	// Extra system types from:
 	// - https://www.plutiedev.com/rom-header#system
 	// NOTE: Doom 32X incorrectly has the region code at the end of the
 	// system name field, so ignore the last two bytes for 32X.
-	static const struct {
+	struct cart_magic_sega_t {
 		char sys_name[12+1];
 		uint8_t sys_name_len;	// Length to check at $100; for $101, subtract 1.
 		uint32_t system_id;
-	} cart_magic_sega[] = {
+	};
+	static const cart_magic_sega_t cart_magic_sega[] = {
 		{" 32X      ",   10, MegaDrivePrivate::ROM_SYSTEM_32X},
 		{" SSF        ", 12, MegaDrivePrivate::ROM_SYSTEM_MD |
 		                     MegaDrivePrivate::ROM_EXT_SSF2},
@@ -1046,10 +1016,11 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	};
 
 	// Ohter non-Sega system IDs. (Sega Pico, Sega Picture Magic)
-	static const struct {
+	struct cart_magic_other_t {
 		char sys_name[17];
 		uint8_t system_id;
-	} cart_magic_other[] = {
+	};
+	static const cart_magic_other_t cart_magic_other[] = {
 		{"SAMSUNG PICO    ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// TODO: Indicate Korean.
 		{"IMA IKUNOUJYUKU ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// Some JP ROMs
 		{"IMA IKUNOJYUKU  ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// Some JP ROMs
@@ -1181,8 +1152,8 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	    sysIdOnly == MegaDrivePrivate::ROM_SYSTEM_32X)
 	{
 		// Verify the 32X security program if possible.
-		static const uint32_t secprgaddr = 0x512;
-		static const char secprgdesc[] = "MARS Initial & Security Program";
+		static constexpr uint32_t secprgaddr = 0x512;
+		static constexpr char secprgdesc[] = "MARS Initial & Security Program";
 		if (info->header.size >= secprgaddr + sizeof(secprgdesc) - 1) {
 			// TODO: Check other parts of the security program?
 			if (!memcmp(&pHeader[secprgaddr], secprgdesc, sizeof(secprgdesc)-1)) {
@@ -1524,7 +1495,7 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 	// hard-coded...
 
 	// System IDs.
-	static const char sys_tbl[][8] = {
+	static constexpr char sys_tbl[][8] = {
 		"md", "mcd", "32x", "mcd32x", "pico", "tera"
 	};
 	if ((d->romType & MegaDrivePrivate::ROM_SYSTEM_MASK) >= ARRAY_SIZE(sys_tbl))
@@ -1538,22 +1509,30 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 						: &d->romHeader);
 
 	const bool isEarlyRomHeader = d->checkIfEarlyRomHeader(pRomHeader);
-	const char *const s_serial_number = (isEarlyRomHeader
+	const char *const s_serial_number = (isEarlyRomHeader)
 		? pRomHeader->early.serial_number
-		: pRomHeader->serial_number);
+		: pRomHeader->serial_number;
 
 	// Check for "generic" serial numbers used by some prototypes.
 	// We can't easily look up these ROMs at the moment.
-	if (!memcmp(s_serial_number, "GM 00000000", 11) ||
-	    !memcmp(s_serial_number, "GM XXXXXXXX", 11) ||
-	    !memcmp(s_serial_number, "GM MK-0000 ", 11) ||
-	    !memcmp(s_serial_number, "GM T-000000", 11) ||
-	    !memcmp(s_serial_number, "GM T-00000 ", 11) ||
-	    !memcmp(s_serial_number, "GM T000000" , 10) ||
-	    !memcmp(s_serial_number, "GM T-XXXXX ", 11))
-	{
-		// Generic serial number.
-		return -ENOENT;
+	struct md_serial_number_t {
+		char serial_number[15];
+		uint8_t len;
+	};
+	static const array<md_serial_number_t, 7> generic_serials = {{
+		{"GM 00000000", 11},
+		{"GM XXXXXXXX", 11},
+		{"GM MK-0000 ", 11},
+		{"GM T-000000", 11},
+		{"GM T-00000 ", 11},
+		{"GM T000000",  10},
+		{"GM T-XXXXX ", 11}
+	}};
+	for (const auto &p : generic_serials) {
+		if (!memcmp(s_serial_number, p.serial_number, p.len)) {
+			// This ROM image has a generic serial number.
+			return -ENOENT;
+		}
 	}
 
 	// Make sure the ROM serial number is valid.
@@ -1638,13 +1617,22 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 
 		// If the serial number doesn't match, then use a
 		// generic "NO WAY!" screen.
-		if (!memcmp(&s_serial_number[3], "00001009-00", 11) ||
-		    !memcmp(&s_serial_number[3], "00004049-01", 11) ||
-		    !memcmp(&s_serial_number[3], "00001051-00", 11) ||
-		    !memcmp(&s_serial_number[3], "00001051-01", 11) ||
-		    !memcmp(&s_serial_number[3], "00001051-02", 11) ||
-		    !memcmp(&s_serial_number[3], "MK-1079 -00", 11))
-		{
+		static const array<md_serial_number_t, 6> lockon_valid_serials = {{
+			{"00001009-00", 11},
+			{"00004049-01", 11},
+			{"00001051-00", 11},
+			{"00001051-01", 11},
+			{"00001051-02", 11},
+			{"MK-1079 -00", 11}
+		}};
+		bool is_lockon_valid = false;
+		for (const auto &p : lockon_valid_serials) {
+			if (!memcmp(&s_serial_number[3], p.serial_number, p.len)) {
+				is_lockon_valid = true;
+				break;
+			}
+		}
+		if (is_lockon_valid) {
 			// Unique title screen is available.
 			gameID = latin1_to_utf8(s_serial_number, sizeof(pRomHeader->serial_number));
 		} else {
@@ -1654,7 +1642,7 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 		}
 	} else {
 		// Using the MD hex region code.
-		static const std::array<char, 16> dec_to_hex = {{
+		static constexpr array<char, 16> dec_to_hex = {{
 			'0', '1', '2', '3', '4', '5', '6', '7',
 			'8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
 		}};
@@ -1713,7 +1701,7 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 				uint8_t md_region;
 				char serial[15];
 			};
-			static const std::array<MDRomSerialData_t, 26> md_rom_serial_data = {{
+			static const array<MDRomSerialData_t, 26> md_rom_serial_data = {{
 				{0x0F, "GM 00004039-00"},	// Arrow Flash
 				{0x04, "GM T-24016 -00"},	// Atomic Robo-Kid
 				{0x08, "GM T-120146-50"},	// Brian Lara Cricket 96 / Shane Warne Cricket (EUR)

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * WiiSave.cpp: Nintendo Wii save game file reader.                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -17,9 +17,8 @@ using namespace LibRpFile;
 using namespace LibRpText;
 using namespace LibRpTexture;
 
-// Decryption.
+// Decryption
 #include "librpbase/crypto/KeyManager.hpp"
-#include "disc/WiiPartition.hpp"	// for key information
 #ifdef ENABLE_DECRYPTION
 #  include "librpbase/disc/CBCReader.hpp"
 // For sections delegated to other RomData subclasses.
@@ -27,9 +26,12 @@ using namespace LibRpTexture;
 #  include "WiiWIBN.hpp"
 #endif /* ENABLE_DECRYPTION */
 
+// WiiTicket for EncryptionKeys
+// TODO: Use for title key decryption.
+#include "../Console/WiiTicket.hpp"
+
 // C++ STL classes
 using std::array;
-using std::shared_ptr;
 using std::string;
 using std::vector;
 
@@ -59,7 +61,7 @@ public:
 	bool svLoaded;	// True if svHeader was read.
 
 	// Wii_Bk_Header_t magic
-	static const uint8_t bk_header_magic[8];
+	static const array<uint8_t, 8> bk_header_magic;
 
 	/**
 	 * Round a value to the next highest multiple of 64.
@@ -67,7 +69,7 @@ public:
 	 * @return Next highest multiple of 64.
 	 */
 	template<typename T>
-	static inline T toNext64(T val)
+	static inline constexpr T toNext64(T val)
 	{
 		return (val + (T)63) & ~((T)63);
 	}
@@ -78,7 +80,7 @@ public:
 	WiiWIBN *wibnData;
 
 	// Key indexes (0 == AES, 1 == IV)
-	std::array<WiiPartition::EncryptionKeys, 2> key_idx;
+	std::array<WiiTicket::EncryptionKeys, 2> key_idx;
 	// Key status
 	std::array<KeyManager::VerifyResult, 2> key_status;
 #endif /* ENABLE_DECRYPTION */
@@ -107,10 +109,10 @@ const RomDataInfo WiiSavePrivate::romDataInfo = {
 	"WiiSave", exts, mimeTypes
 };
 
-// Wii_Bk_Header_t magic.
-const uint8_t WiiSavePrivate::bk_header_magic[8] = {
+// Wii_Bk_Header_t magic
+const array<uint8_t, 8> WiiSavePrivate::bk_header_magic = {{
 	0x00, 0x00, 0x00, 0x70, 0x42, 0x6B, 0x00, 0x01
-};
+}};
 
 WiiSavePrivate::WiiSavePrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -124,7 +126,7 @@ WiiSavePrivate::WiiSavePrivate(const IRpFilePtr &file)
 	memset(&bkHeader, 0, sizeof(bkHeader));
 
 #ifdef ENABLE_DECRYPTION
-	key_idx.fill(WiiPartition::Key_Max);
+	key_idx.fill(WiiTicket::EncryptionKeys::Max);
 	key_status.fill(KeyManager::VerifyResult::Unknown);
 #endif /* ENABLE_DECRYPTION */
 }
@@ -167,12 +169,12 @@ WiiSave::WiiSave(const IRpFilePtr &file)
 	// - Reading with save file header, banner, max number of icons, and the Bk header.
 	// - Bk header is the only unencrypted header.
 	// - Need to get encryption keys.
-	static const unsigned int svSizeMin = (unsigned int)(
+	static constexpr unsigned int svSizeMin = (unsigned int)(
 		sizeof(Wii_SaveGame_Header_t) +
 		sizeof(Wii_WIBN_Header_t) +
 		BANNER_WIBN_IMAGE_SIZE + BANNER_WIBN_ICON_SIZE +
 		sizeof(Wii_Bk_Header_t));
-	static const unsigned int svSizeTotal = (unsigned int)(
+	static constexpr unsigned int svSizeTotal = (unsigned int)(
 		svSizeMin + (BANNER_WIBN_ICON_SIZE * (CARD_MAXICONS-1)));
 	auto svData = aligned_uptr<uint8_t>(16, svSizeTotal);
 
@@ -193,7 +195,7 @@ WiiSave::WiiSave(const IRpFilePtr &file)
 	for (; bkHeaderAddr < size; bkHeaderAddr += BANNER_WIBN_ICON_SIZE) {
 		const Wii_Bk_Header_t *bkHeader =
 			reinterpret_cast<const Wii_Bk_Header_t*>(svData.get() + bkHeaderAddr);
-		if (!memcmp(bkHeader->full_magic, d->bk_header_magic, sizeof(d->bk_header_magic))) {
+		if (!memcmp(bkHeader->full_magic, d->bk_header_magic.data(), d->bk_header_magic.size())) {
 			// Found the full magic.
 			memcpy(&d->bkHeader, bkHeader, sizeof(d->bkHeader));
 			break;
@@ -216,20 +218,19 @@ WiiSave::WiiSave(const IRpFilePtr &file)
 	// since we can still show the Bk header fields.
 
 	// TODO: Debug vs. Retail?
-	d->key_idx[0] = WiiPartition::Key_Rvl_SD_AES;
-	d->key_idx[1] = WiiPartition::Key_Rvl_SD_IV;
+	d->key_idx[0] = WiiTicket::EncryptionKeys::Key_RVL_SD_AES;
+	d->key_idx[1] = WiiTicket::EncryptionKeys::Key_RVL_SD_IV;
 
 	// Initialize the CBC reader for the main data area.
 	// TODO: WiiVerifyKeys class.
 	KeyManager *const keyManager = KeyManager::instance();
 	assert(keyManager != nullptr);
 
-	// Key verification data.
-	// TODO: Move out of WiiPartition and into WiiVerifyKeys?
+	// Key verification data
 	KeyManager::KeyData_t keyData[2];
 	for (size_t i = 0; i < d->key_idx.size(); i++) {
-		const char *const keyName = WiiPartition::encryptionKeyName_static(d->key_idx[i]);
-		const uint8_t *const verifyData = WiiPartition::encryptionVerifyData_static(d->key_idx[i]);
+		const char *const keyName = WiiTicket::encryptionKeyName_static(static_cast<int>(d->key_idx[i]));
+		const uint8_t *const verifyData = WiiTicket::encryptionVerifyData_static(static_cast<int>(d->key_idx[i]));
 		assert(keyName != nullptr);
 		assert(keyName[0] != '\0');
 		assert(verifyData != nullptr);
@@ -268,7 +269,7 @@ WiiSave::WiiSave(const IRpFilePtr &file)
 		// Create the PartitionFile.
 		// TODO: Only if the save game header is valid?
 		// TODO: Get the size from the save game header?
-		PartitionFilePtr ptFile = std::make_shared<PartitionFile>(d->cbcReader.get(),
+		PartitionFilePtr ptFile = std::make_shared<PartitionFile>(d->cbcReader,
 			sizeof(Wii_SaveGame_Header_t),
 			bkHeaderAddr - sizeof(Wii_SaveGame_Header_t));
 		if (ptFile->isOpen()) {
@@ -449,7 +450,7 @@ int WiiSave::loadFieldData(void)
 	// Check if the headers are valid.
 	// TODO: Do this in the constructor instead?
 	const bool isSvValid = (svHeader->savegame_id.id != 0);
-	const bool isBkValid = (!memcmp(bkHeader->full_magic, d->bk_header_magic, sizeof(d->bk_header_magic)));
+	const bool isBkValid = (!memcmp(bkHeader->full_magic, d->bk_header_magic.data(), d->bk_header_magic.size()));
 
 	// Savegame header.
 	if (isSvValid) {
@@ -500,17 +501,13 @@ int WiiSave::loadFieldData(void)
 	}
 
 #ifdef ENABLE_DECRYPTION
-	// NoCopy? (separate from permissions)
 	if (d->wibnData) {
-		// Flags bitfield.
-		static const char *const flags_names[] = {
-			NOP_C_("WiiSave|Flags", "No Copy from NAND"),
-		};
-		vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n(
-			"WiiSave|Flags", flags_names, ARRAY_SIZE(flags_names));
-		const uint32_t flags = (d->wibnData->isNoCopyFlagSet() ? 1 : 0);
-		d->fields.addField_bitfield(C_("WiiSave", "Flags"),
-			v_flags_names, 3, flags);
+		// Add the WIBN data.
+		const RomFields *const wibnFields = d->wibnData->fields();
+		assert(wibnFields != nullptr);
+		if (wibnFields) {
+			d->fields.addFields_romFields(wibnFields, 0);
+		}
 	}
 #endif /* ENABLE_DECRYPTION */
 

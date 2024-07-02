@@ -1,20 +1,16 @@
 # KDE (Qt) UI frontends
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-kde LANGUAGES CXX)
+SET(CMAKE_AUTOMOC ON)
 
 # Common files for all KDE versions.
 
 # Sources and headers.
 SET(${PROJECT_NAME}_SRCS
-	RomPropertiesDialogPlugin.cpp
+	plugins/RomPropertiesDialogPlugin.cpp
+	plugins/RomThumbCreator_p.cpp
+	rp_create_thumbnail.cpp
 	RomDataView.cpp
 	RomDataView_ops.cpp
-	RomThumbCreator.cpp
 	RpQt.cpp
 	RpQUrl.cpp
 	RpQImageBackend.cpp
@@ -46,11 +42,12 @@ SET(${PROJECT_NAME}_SRCS
 	config/UpdateChecker.cpp
 	)
 SET(${PROJECT_NAME}_H
-	RomPropertiesDialogPlugin.hpp
+	plugins/RomPropertiesDialogPlugin.hpp
+	plugins/RomThumbCreator_p.hpp
 	RomDataView.hpp
 	RomDataView_p.hpp
-	RomThumbCreator.hpp
 	RpQt.hpp
+	RpQtNS.hpp
 	RpQUrl.hpp
 	RpQImageBackend.hpp
 	QImageData_qt4.hpp
@@ -94,6 +91,14 @@ SET(${PROJECT_NAME}_UIS
 SET(${PROJECT_NAME}_RCC_SRCS
 	../res/flags/flags.qrc
 	../res/ach/ach.qrc
+	)
+
+# Sources and headers for RomThumbCreator (KDE4, KF5 <5.100)
+SET(${PROJECT_NAME}_RomThumbCreator_SRCS
+	plugins/RomThumbCreator.cpp
+	)
+SET(${PROJECT_NAME}_RomThumbCreator_H
+	plugins/RomThumbCreator.hpp
 	)
 
 # XAttrView plugin
@@ -157,9 +162,6 @@ ENDIF(ENABLE_ACHIEVEMENTS)
 #SET(rom-properties-kio_SRCS RpFile_kio.cpp)
 #SET(rom-properties-kio_H RpFile_kio.hpp)
 
-# NOTE: RpExtractorPlugin cannot use common source because
-# Qt's moc doesn't support preprocessor directores like #ifdef.
-
 # Qt options:
 # - Fast QString concatenation. (Qt 4.6+, plus 4.8-specific version)
 # - Disable implicit QString ASCII casts.
@@ -197,6 +199,18 @@ ENDIF(BUILD_KF5)
 IF(BUILD_KF6)
 	ADD_SUBDIRECTORY(kf6)
 ENDIF(BUILD_KF6)
+
+IF(BUILD_KF5 OR BUILD_KF6)
+	# Service menus
+	# KF5 and KF6 use the same servicemenus directory.
+	# NOTE: KF5 <5.85 uses ${SERVICES_INSTALL_DIR} instead.
+	# That will be handled by the KF5 subdirectory.
+	# TODO: How does KF5 handle it if the .desktop file is in both locations?
+	INSTALL(FILES servicemenus/rp-convert-to-png.desktop
+		DESTINATION "${CMAKE_INSTALL_PREFIX}/share/kio/servicemenus"
+		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+		COMPONENT "plugin")
+ENDIF(BUILD_KF5 OR BUILD_KF6)
 
 IF(BUILD_TESTING)
 	ADD_SUBDIRECTORY(tests)

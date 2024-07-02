@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpfile)                        *
  * RpFile_Kreon.cpp: Standard file object. (Kreon-specific functions)      *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -12,9 +12,12 @@
 #include "../RpFile.hpp"
 #include "../RpFile_p.hpp"
 
+// librpbyteswap
+#include "librpbyteswap/byteswap_rp.h"
+
 #include "scsi_protocol.h"
 
-// C++ STL classes.
+// C++ STL classes
 using std::array;
 using std::vector;
 
@@ -87,7 +90,7 @@ bool RpFile::isKreonDriveModel(void)
 		char vendor_id[8];
 		const char *const *product_id_tbl;
 	};
-	static const std::array<vendor_tbl_t, 3> vendor_tbl = {{
+	static const array<vendor_tbl_t, 3> vendor_tbl = {{
 		{{'T','S','S','T','c','o','r','p'}, TSSTcorp_product_tbl},
 		{{'P','B','D','S',' ',' ',' ',' '}, PBDS_product_tbl},
 		{{'H','L','-','D','T','-','S','T'}, HLDTST_product_tbl},
@@ -138,9 +141,9 @@ vector<RpFile::KreonFeature> RpFile::getKreonFeatureList(void)
 #ifdef RP_OS_SCSI_SUPPORTED
 	// Kreon "Get Feature List" command
 	// Reference: https://github.com/saramibreak/DiscImageCreator/blob/cb9267da4877d32ab68263c25187cbaab3435ad5/DiscImageCreator/execScsiCmdforDVD.cpp#L1223
-	static const uint8_t cdb[6] = {0xFF, 0x08, 0x01, 0x10, 0x00, 0x00};
+	static constexpr array<uint8_t, 6> cdb = {{0xFF, 0x08, 0x01, 0x10, 0x00, 0x00}};
 	array<uint16_t, 13> feature_buf;
-	int ret = d->scsi_send_cdb(cdb, sizeof(cdb), feature_buf.data(), sizeof(feature_buf), RpFilePrivate::ScsiDirection::In);
+	int ret = d->scsi_send_cdb(cdb.data(), cdb.size(), feature_buf.data(), feature_buf.size(), RpFilePrivate::ScsiDirection::In);
 	if (ret != 0) {
 		// SCSI command failed.
 		return vec;

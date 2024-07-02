@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * VirtualBoy.cpp: Nintendo Virtual Boy ROM reader.                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2016-2018 by Egor.                                        *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -41,23 +41,42 @@ public:
 	/**
 	 * Is character a valid JIS X 0201 codepoint?
 	 * @param c The character
-	 * @return Wether or not character is valid
+	 * @return Whether or not character is valid
 	 */
-	static bool inline isJISX0201(unsigned char c);
-		
+	static inline constexpr bool isJISX0201(unsigned char c)
+	{
+		return (c >= ' ' && c <= '~') || (c > 0xA0 && c < 0xE0);
+	}
+
 	/**
 	 * Is character a valid Publisher ID character?
 	 * @param c The character
 	 * @return Wether or not character is valid
 	 */
-	static bool inline isPublisherID(char c);
+	static inline bool isPublisherID(char c)
+	{
+		// Valid characters:
+		// - Uppercase letters
+		// - Digits
+		// FIXME: This is not constexpr on MSVC 2022.
+		return (ISUPPER(c) || ISDIGIT(c));
+	}
 
 	/**
 	 * Is character a valid Game ID character?
 	 * @param c The character
 	 * @return Wether or not character is valid
 	 */
-	static bool inline isGameID(char c);
+	static inline bool isGameID(char c)
+	{
+		// Valid characters:
+		// - Uppercase letters
+		// - Digits
+		// - Space (' ')
+		// - Hyphen ('-')
+		// FIXME: This is not constexpr on MSVC 2022.
+		return (ISUPPER(c) || ISDIGIT(c) || c == ' ' || c == '-');
+	}
 	
 public:
 	// ROM footer
@@ -92,41 +111,6 @@ VirtualBoyPrivate::VirtualBoyPrivate(const IRpFilePtr &file)
 {
 	// Clear the ROM footer struct.
 	memset(&romFooter, 0, sizeof(romFooter));
-}
-
-/**
- * Is character a valid JIS X 0201 codepoint?
- * @param c The character
- * @return Wether or not character is valid
- */
-bool inline VirtualBoyPrivate::isJISX0201(unsigned char c){
-	return (c >= ' ' && c <= '~') || (c > 0xA0 && c < 0xE0);
-}
-
-/**
- * Is character a valid Game ID character?
- * @param c The character
- * @return Wether or not character is valid
- */
-bool inline VirtualBoyPrivate::isPublisherID(char c){
-	// Valid characters:
-	// - Uppercase letters
-	// - Digits
-	return (ISUPPER(c) || ISDIGIT(c));
-}
-
-/**
- * Is character a valid Game ID character?
- * @param c The character
- * @return Wether or not character is valid
- */
-bool inline VirtualBoyPrivate::isGameID(char c){
-	// Valid characters:
-	// - Uppercase letters
-	// - Digits
-	// - Space (' ')
-	// - Hyphen ('-')
-	return (ISUPPER(c) || ISDIGIT(c) || c == ' ' || c == '-');
 }
 
 /** VirtualBoy **/
@@ -312,8 +296,9 @@ int VirtualBoy::loadFieldData(void)
 	if (!d->fields.empty()) {
 		// Field data *has* been loaded...
 		return 0;
-	} else if (!d->file || !d->file->isOpen()) {
-		// File isn't open.
+	} else if (!d->file) {
+		// No file.
+		// A closed file is OK, since we already loaded the footer.
 		return -EBADF;
 	} else if (!d->isValid) {
 		// ROM image isn't valid.
@@ -328,17 +313,18 @@ int VirtualBoy::loadFieldData(void)
 	d->fields.addField_string(C_("RomData", "Title"),
 		cp1252_sjis_to_utf8(romFooter->title, sizeof(romFooter->title)));
 
-	// Game ID and publisher.
+	// Game ID
 	string id6(romFooter->gameid, sizeof(romFooter->gameid));
 	id6.append(romFooter->publisher, sizeof(romFooter->publisher));
 	d->fields.addField_string(C_("RomData", "Game ID"), latin1_to_utf8(id6));
 
 	// Look up the publisher.
+	const char *const s_publisher_title = C_("RomData", "Publisher");
 	const char *const publisher = NintendoPublishers::lookup(romFooter->publisher);
-	string s_publisher;
 	if (publisher) {
-		s_publisher = publisher;
+		d->fields.addField_string(s_publisher_title, publisher);
 	} else {
+		string s_publisher;
 		if (ISALNUM(romFooter->publisher[0]) &&
 		    ISALNUM(romFooter->publisher[1]))
 		{
@@ -349,8 +335,8 @@ int VirtualBoy::loadFieldData(void)
 				static_cast<uint8_t>(romFooter->publisher[0]),
 				static_cast<uint8_t>(romFooter->publisher[1]));
 		}
+		d->fields.addField_string(s_publisher_title, s_publisher);
 	}
-	d->fields.addField_string(C_("RomData", "Publisher"), s_publisher);
 
 	// Revision
 	d->fields.addField_string_numeric(C_("RomData", "Revision"),
@@ -378,6 +364,61 @@ int VirtualBoy::loadFieldData(void)
 	}
 
 	return static_cast<int>(d->fields.count());
+}
+
+/**
+ * Load metadata properties.
+ * Called by RomData::metaData() if the metadata hasn't been loaded yet.
+ * @return Number of metadata properties read on success; negative POSIX error code on error.
+ */
+int VirtualBoy::loadMetaData(void)
+{
+	RP_D(VirtualBoy);
+	if (d->metaData != nullptr) {
+		// Metadata *has* been loaded...
+		return 0;
+	} else if (!d->file) {
+		// No file.
+		// A closed file is OK, since we already loaded the footer.
+		return -EBADF;
+	} else if (!d->isValid) {
+		// ROM image isn't valid.
+		return -EIO;
+	}
+
+	// Create the metadata object.
+	d->metaData = new RomMetaData();
+	d->metaData->reserve(2);	// Maximum of 2 metadata properties.
+
+	// Virtual Boy ROM footer, excluding the vector table.
+	const VB_RomFooter *const romFooter = &d->romFooter;
+
+	// Title
+	d->metaData->addMetaData_string(Property::Title,
+		cp1252_sjis_to_utf8(romFooter->title, sizeof(romFooter->title)));
+
+	// Publisher (aka manufacturer)
+	// Look up the publisher.
+	const char *const publisher = NintendoPublishers::lookup(romFooter->publisher);
+	if (publisher) {
+		d->metaData->addMetaData_string(Property::Publisher, publisher);
+	} else {
+		string s_publisher;
+		if (ISALNUM(romFooter->publisher[0]) &&
+		    ISALNUM(romFooter->publisher[1]))
+		{
+			s_publisher = rp_sprintf(C_("RomData", "Unknown (%.2s)"),
+				romFooter->publisher);
+		} else {
+			s_publisher = rp_sprintf(C_("RomData", "Unknown (%02X %02X)"),
+				static_cast<uint8_t>(romFooter->publisher[0]),
+				static_cast<uint8_t>(romFooter->publisher[1]));
+		}
+		d->metaData->addMetaData_string(Property::Publisher, s_publisher);
+	}
+
+	// Finished reading the metadata.
+	return static_cast<int>(d->metaData->count());
 }
 
 }

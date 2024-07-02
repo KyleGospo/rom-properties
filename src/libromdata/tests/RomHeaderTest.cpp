@@ -5,7 +5,7 @@
  * Parses various sample ROM headers and compares them to reference        *
  * text and JSON files.                                                    *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -25,17 +25,18 @@
 #include "librpfile/MemFile.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
-using LibRomData::RomDataFactory;
 
 // C includes (C++ namespace)
 #include "ctypex.h"
 
 // C++ includes
+#include <array>
 #include <forward_list>
 #include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
+using std::array;
 using std::forward_list;
 using std::ostringstream;
 using std::shared_ptr;
@@ -76,9 +77,9 @@ inline ::std::ostream& operator<<(::std::ostream& os, const RomHeaderTest_mode& 
 };
 
 // Maximum file size for files within the .tar archives.
-static const uint64_t MAX_BIN_FILESIZE = 4*1024*1024;	// 4 MB (for MD lock-on)
-static const uint64_t MAX_TXT_FILESIZE = 32*1024;	// 32 KB
-static const uint64_t MAX_JSON_FILESIZE = 32*1024;	// 32 KB
+static constexpr uint64_t MAX_BIN_FILESIZE  =  4U*1024U*1024U;	// 4 MB (for MD lock-on)
+static constexpr uint64_t MAX_TXT_FILESIZE  = 32U*1024U;	// 32 KB
+static constexpr uint64_t MAX_JSON_FILESIZE = 32U*1024U;	// 32 KB
 
 class RomHeaderTest : public ::testing::TestWithParam<RomHeaderTest_mode>
 {
@@ -236,7 +237,7 @@ int RomHeaderTest::read_next_files(const RomHeaderTest_mode &mode)
 	if (mode.bin_filename.size() > 4 &&
 	    mode.bin_filename.compare(mode.bin_filename.size() - 4, string::npos, ".sfc") == 0)
 	{
-		static const size_t MIN_BIN_DATA_SIZE = 64U * 1024U;
+		static constexpr size_t MIN_BIN_DATA_SIZE = 64U * 1024U;
 		if (last_bin_data.size() < MIN_BIN_DATA_SIZE) {
 			const size_t cur_size = last_bin_data.size();
 			last_bin_data.resize(MIN_BIN_DATA_SIZE);
@@ -289,7 +290,7 @@ TEST_P(RomHeaderTest, Text)
 	}
 
 	// Make sure the binary file isn't empty.
-	ASSERT_GT(last_bin_data.size(), 0) << "Binary file is empty.";
+	ASSERT_GT(last_bin_data.size(), 0U) << "Binary file is empty.";
 
 	// Get the text output for this binary file, e.g. as if we're running `rpcli`.
 	const shared_ptr<MemFile> memFile = std::make_shared<MemFile>(last_bin_data.data(), last_bin_data.size());
@@ -299,7 +300,7 @@ TEST_P(RomHeaderTest, Text)
 
 	if (romData) {
 		// RomData object was created.
-		ASSERT_GT(last_txt_data.size(), 0) << "Binary file is valid RomData, but text file is empty.";
+		ASSERT_GT(last_txt_data.size(), 0U) << "Binary file is valid RomData, but text file is empty.";
 
 		ostringstream oss;
 		oss << ROMOutput(romData.get(), 0, 0);
@@ -319,7 +320,7 @@ TEST_P(RomHeaderTest, Text)
 		ASSERT_EQ(reinterpret_cast<const char*>(last_txt_data.data()), str) << "Text output does not match the expected value.";
 	} else {
 		// No RomData object. Verify that the text file is empty.
-		ASSERT_EQ(last_txt_data.size(), 0) << "Binary file is not valid RomData, but text file is not empty.";
+		ASSERT_EQ(last_txt_data.size(), 0U) << "Binary file is not valid RomData, but text file is not empty.";
 	}
 }
 
@@ -335,7 +336,7 @@ TEST_P(RomHeaderTest, JSON)
 	}
 
 	// Make sure the binary file isn't empty.
-	ASSERT_GT(last_bin_data.size(), 0) << "Binary file is empty.";
+	ASSERT_GT(last_bin_data.size(), 0U) << "Binary file is empty.";
 
 	// Get the JSON output for this binary file, e.g. as if we're running `rpcli -j`.
 	const shared_ptr<MemFile> memFile = std::make_shared<MemFile>(last_bin_data.data(), last_bin_data.size());
@@ -345,7 +346,7 @@ TEST_P(RomHeaderTest, JSON)
 
 	if (romData) {
 		// RomData object was created.
-		ASSERT_GT(last_json_data.size(), 0) << "Binary file is valid RomData, but JSON file is empty.";
+		ASSERT_GT(last_json_data.size(), 0U) << "Binary file is valid RomData, but JSON file is empty.";
 
 		ostringstream oss;
 		oss << JSONROMOutput(romData.get(), 0, LibRpBase::OF_JSON_NoPrettyPrint);
@@ -359,7 +360,7 @@ TEST_P(RomHeaderTest, JSON)
 		ASSERT_EQ(expected_json, actual_json);
 	} else {
 		// No RomData object. Verify that the JSON file is correct.
-		ASSERT_EQ(last_json_data.size(), 33) << "Binary file is not valid RomData, but JSON file does not have an error message.";
+		ASSERT_EQ(last_json_data.size(), 33U) << "Binary file is not valid RomData, but JSON file does not have an error message.";
 		ASSERT_STREQ(reinterpret_cast<const char*>(last_json_data.data()), "{\"error\":\"rom is not supported\"}\n")
 			<< "Binary file is not valid RomData, but JSON file does not have an error message.";
 	}
@@ -679,7 +680,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 
 	// Check for the RomHeaders directory and chdir() into it.
 #ifdef _WIN32
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR*, 11> subdirs = {{
 		_T("RomHeaders"),
 		_T("bin\\RomHeaders"),
 		_T("src\\libromdata\\tests\\RomHeaders"),
@@ -691,9 +692,9 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("..\\..\\..\\bin\\RomHeaders"),
 		_T("..\\..\\..\\bin\\Debug\\RomHeaders"),
 		_T("..\\..\\..\\bin\\Release\\RomHeaders"),
-	};
+	}};
 #else /* !_WIN32 */
-	static const TCHAR *const subdirs[] = {
+	static constexpr array<const TCHAR* ,9> subdirs = {{
 		_T("RomHeaders"),
 		_T("bin/RomHeaders"),
 		_T("src/libromdata/tests/RomHeaders"),
@@ -703,7 +704,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("../../../../src/libromdata/tests/RomHeaders"),
 		_T("../../../../../src/libromdata/tests/RomHeaders"),
 		_T("../../../bin/RomHeaders"),
-	};
+	}};
 #endif /* _WIN32 */
 
 	bool is_found = false;

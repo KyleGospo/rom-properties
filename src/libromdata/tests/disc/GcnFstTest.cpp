@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata/tests)                 *
  * GcnFstTest.cpp: GameCube/Wii FST test.                                  *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -27,7 +27,6 @@ using namespace LibRpText;
 // libromdata
 #include "disc/GcnFst.hpp"
 using LibRpBase::IFst;
-using LibRomData::GcnFst;
 
 // libwin32common
 #ifdef _WIN32
@@ -42,10 +41,12 @@ using LibRomData::GcnFst;
 
 // C++ includes
 #include <algorithm>
+#include <array>
 #include <sstream>
 #include <string>
 #include <unordered_set>
 #include <vector>
+using std::array;
 using std::istringstream;
 using std::ostream;
 using std::string;
@@ -86,8 +87,8 @@ inline ::std::ostream& operator<<(::std::ostream& os, const GcnFstTest_mode& mod
 };
 
 // Maximum file size for FST files.
-static const uint64_t MAX_GCN_FST_BIN_FILESIZE = 1024UL*1024UL;	// 1.0 MB
-static const uint64_t MAX_GCN_FST_TXT_FILESIZE = 1536UL*1024UL;	// 1.5 MB
+static constexpr uint64_t MAX_GCN_FST_BIN_FILESIZE = 1024UL*1024UL;	// 1.0 MB
+static constexpr uint64_t MAX_GCN_FST_TXT_FILESIZE = 1536UL*1024UL;	// 1.5 MB
 
 class GcnFstTest : public ::testing::TestWithParam<GcnFstTest_mode>
 {
@@ -180,9 +181,9 @@ void GcnFstTest::SetUp(void)
 	// These FSTs have an extra header at the top, indicating what
 	// disc the FST belongs to.
 	unsigned int fst_start_offset = 0;
-	static const uint8_t root_dir_data[] = {1,0,0,0,0,0,0,0,0,0};
+	static constexpr array<uint8_t, 10> root_dir_data = {{1,0,0,0,0,0,0,0,0,0}};
 	if (m_fst_buf.size() >= 0x60) {
-		if (!memcmp(&m_fst_buf[0x50], root_dir_data, sizeof(root_dir_data))) {
+		if (!memcmp(&m_fst_buf[0x50], root_dir_data.data(), root_dir_data.size())) {
 			// Found an NKit FST.
 			fst_start_offset = 0x50;
 		}
@@ -593,7 +594,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 
 #ifdef _WIN32
 	// Check for the fst_data directory and chdir() into it.
-	static const TCHAR *const subdirs[] = {
+	static constexpr const TCHAR *const subdirs[] = {
 		_T("fst_data"),
 		_T("bin\\fst_data"),
 		_T("src\\libromdata\\tests\\disc\\fst_data"),
@@ -607,7 +608,7 @@ extern "C" int gtest_main(int argc, TCHAR *argv[])
 		_T("..\\..\\..\\bin\\Release\\fst_data"),
 	};
 #else /* !_WIN32 */
-	static const TCHAR *const subdirs[] = {
+	static constexpr const TCHAR *const subdirs[] = {
 		_T("fst_data"),
 		_T("bin/fst_data"),
 		_T("src/libromdata/tests/disc/fst_data"),

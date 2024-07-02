@@ -1,10 +1,4 @@
 # GTK4 UI frontend
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-gtk4 LANGUAGES C CXX)
 
 # GTK4 requires glib-2.66.0.
@@ -55,10 +49,11 @@ ENDIF()
 # NOTE: GTK 4.0.0 requires GLib 2.66, so we'll use that as a minimum here.
 ADD_DEFINITIONS(-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_66 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_66)
 
-# Sources and headers. (GTK+ common)
+# Sources and headers (GTK+ common)
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_SRCS "${rom-properties-gtk_SRCS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_H    "${rom-properties-gtk_H}")
 
+# Sources and headers (GTK4 minimum)
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK4MIN_SRCS "${rom-properties-gtk_GTK4MIN_SRCS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_GTK4MIN_H    "${rom-properties-gtk_GTK4MIN_H}")
 
@@ -72,29 +67,36 @@ IF(ENABLE_ACHIEVEMENTS)
 	SET(${PROJECT_NAME}-notify_SRCS ${${PROJECT_NAME}-notify_SRCS})
 ENDIF(ENABLE_ACHIEVEMENTS)
 
-# Sources and headers. (GTK4-specific)
+# Sources and headers (GTK4-specific)
 SET(${PROJECT_NAME}_SRCS
-	${${PROJECT_NAME}_SRCS} ${${PROJECT_NAME}_H}
-	${${PROJECT_NAME}_GTK4MIN_SRCS} ${${PROJECT_NAME}_GTK4MIN_H}
-	${${PROJECT_NAME}-notify_SRCS} ${${PROJECT_NAME}-notify_H}
+	${${PROJECT_NAME}_SRCS}
+	${${PROJECT_NAME}_GTK4MIN_SRCS}
+	${${PROJECT_NAME}-notify_SRCS}
 	${${PROJECT_NAME}_IFUNC_SRCS}
 	${${PROJECT_NAME}_SSSE3_SRCS}
 	NautilusPlugin.cpp
 	NautilusPropertiesModelProvider.cpp
 	NautilusPropertiesModel.cpp
-	../gtk3/NautilusMenuProvider.cpp
+	../gtk3/NautilusMenuProvider.c
 	../gtk3/MenuProviderCommon.c
+
+	../RomDataView_gtk4.cpp
+	sort_funcs.c
+	../xattr/XAttrView_gtk4.cpp
 	)
 SET(${PROJECT_NAME}_H
-	${${PROJECT_NAME}_H} ${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_H}
 	${${PROJECT_NAME}_GTK4MIN_H}
+	${${PROJECT_NAME}-notify_H}
 	../plugin-helper.h
 	NautilusPlugin.hpp
 	NautilusPropertiesModelProvider.hpp
 	NautilusPropertiesModel.hpp
-	../gtk3/NautilusMenuProvider.hpp
+	../gtk3/NautilusMenuProvider.h
 	nautilus-extension-mini.h
 	../gtk3/MenuProviderCommon.h
+
+	sort_funcs.h
 	)
 IF(ENABLE_DECRYPTION)
 	# FIXME: Editing keys in the GTK4 version causes crashes.

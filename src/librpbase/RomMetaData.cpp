@@ -17,6 +17,7 @@
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -24,36 +25,36 @@ namespace LibRpBase {
 
 class RomMetaDataPrivate
 {
-	public:
-		RomMetaDataPrivate();
+public:
+	RomMetaDataPrivate();
 
-	private:
-		RP_DISABLE_COPY(RomMetaDataPrivate)
+private:
+	RP_DISABLE_COPY(RomMetaDataPrivate)
 
-	public:
-		// ROM field structs.
-		vector<RomMetaData::MetaData> metaData;
+public:
+	// ROM field structs.
+	vector<RomMetaData::MetaData> metaData;
 
-		// Mapping of Property to metaData indexes.
-		// Index == Property
-		// Value == metaData index (-1 for none)
-		std::array<Property, (int)Property::PropertyCount> map_metaData;
+	// Mapping of Property to metaData indexes.
+	// Index == Property
+	// Value == metaData index (-1 for none)
+	array<Property, (int)Property::PropertyCount> map_metaData;
 
-		// Property type mapping
-		static const std::array<PropertyType, (int)Property::PropertyCount> PropertyTypeMap;
+	// Property type mapping
+	static const array<PropertyType, (int)Property::PropertyCount> PropertyTypeMap;
 
-		/**
-		 * Add or overwrite a Property.
-		 * @param name Property name
-		 * @return Metadata property
-		 */
-		RomMetaData::MetaData *addProperty(Property name);
+	/**
+	 * Add or overwrite a Property.
+	 * @param name Property name
+	 * @return Metadata property
+	 */
+	RomMetaData::MetaData *addProperty(Property name);
 };
 
 /** RomMetaDataPrivate **/
 
 // Property type mapping
-const std::array<PropertyType, (int)Property::PropertyCount> RomMetaDataPrivate::PropertyTypeMap = {
+const array<PropertyType, (int)Property::PropertyCount> RomMetaDataPrivate::PropertyTypeMap = {
 	PropertyType::FirstPropertyType,	// first type is invalid
 
 	// Audio

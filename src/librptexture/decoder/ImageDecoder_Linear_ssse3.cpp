@@ -3,7 +3,7 @@
  * ImageDecoder_Linear.cpp: Image decoding functions: Linear               *
  * SSSE3-optimized version.                                                *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -38,7 +38,7 @@ rp_image_ptr fromLinear24_ssse3(PixelFormat px_format,
 	const uint8_t *RESTRICT img_buf, size_t img_siz, int stride)
 {
 	ASSERT_ALIGNMENT(16, img_buf);
-	static const int bytespp = 3;
+	static constexpr int bytespp = 3;
 
 	// Verify parameters.
 	assert(img_buf != nullptr);
@@ -187,7 +187,7 @@ rp_image_ptr fromLinear32_ssse3(PixelFormat px_format,
 	const uint32_t *RESTRICT img_buf, size_t img_siz, int stride)
 {
 	ASSERT_ALIGNMENT(16, img_buf);
-	static const int bytespp = 4;
+	static constexpr int bytespp = 4;
 
 	// FIXME: Add support for these formats.
 	// For now, redirect back to the C++ version.

@@ -40,9 +40,10 @@ using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
 using namespace LibRpTexture;
-using LibRomData::RomDataFactory;
+using namespace LibRomData;
 
 // C++ STL classes
+using std::array;
 using std::set;
 using std::string;
 using std::unique_ptr;
@@ -351,12 +352,38 @@ int RP_ShellPropSheetExt_Private::initString(_In_ HWND hWndTab,
 	int lf_count = 0;
 	tstring str_nl;
 	if (!str) {
-		if (field.type != RomFields::RFT_STRING)
-			return 0;
+		switch (field.type) {
+			default:
+				// Not supported.
+				assert(!"Unsupported field type!");
+				return 0;
 
-		// NULL string == empty string
-		if (field.data.str) {
-			str_nl = LibWin32UI::unix2dos(U82T_s(field.data.str), &lf_count);
+			case RomFields::RFT_STRING:
+				// NULL string == empty string
+				if (field.data.str) {
+					str_nl = LibWin32UI::unix2dos(U82T_s(field.data.str), &lf_count);
+				}
+				break;
+
+			case RomFields::RFT_STRING_MULTI:
+				// Need to count newlines for *all* strings in this field.
+				const auto *const pStr_multi = field.data.str_multi;
+				for (const auto &p : *pStr_multi) {
+					// Count the number of newlines.
+					int tmp_lf_count = std::accumulate(p.second.cbegin(), p.second.cend(), 0,
+						[](int sum, char chr) -> int {
+							if (chr == '\n')
+								sum++;
+							return sum;
+						});
+					if (tmp_lf_count > lf_count) {
+						lf_count = tmp_lf_count;
+					}
+				}
+
+				// NOTE: Not setting str_nl here, since the user will be
+				// able to change the displayed language.
+				break;
 		}
 	} else {
 		// Use the specified string.
@@ -771,8 +798,7 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 	}
 
 	assert(list_data != nullptr);
-	assert(!list_data->empty());
-	if (!list_data || list_data->empty()) {
+	if (!list_data) {
 		// No list data...
 		return 0;
 	}
@@ -841,7 +867,7 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 	// LVS_OWNERDATA.
 	vector<vector<tstring> > lvStringData;
 	lvStringData.reserve(list_data->size());
-	LvData lvData;
+	LvData lvData(hListView);
 	lvData.vvStr.reserve(list_data->size());
 	lvData.hasCheckboxes = hasCheckboxes;
 	lvData.col_widths.resize(colCount);
@@ -858,7 +884,7 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 
 	// Format table.
 	// All values are known to fit in uint8_t.
-	static const std::array<uint8_t, 4> align_tbl = {{
+	static constexpr array<uint8_t, 4> align_tbl = {{
 		// Order: TXA_D, TXA_L, TXA_C, TXA_R
 		LVCFMT_LEFT, LVCFMT_LEFT, LVCFMT_CENTER, LVCFMT_RIGHT
 	}};
@@ -1027,18 +1053,19 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 		const int px = rp_AdjustSizeForDpi(32, rp_GetDpiForWindow(hDlgSheet));
 		lvData.col0sizeadj = px;
 
-		SIZE sizeListIcon = {px, px};
-		bool resizeNeeded = false;
+		const SIZE sizeListIconOrig = {px, px};
+		SIZE sizeListIconPhys = {px, px};
 		float factor = 1.0f;
+		bool resizeNeeded = false;
 		if (nl_max >= 2) {
 			// Two or more newlines.
 			// Add half of the icon size per newline over 1.
-			sizeListIcon.cy += ((px/2) * (nl_max - 1));
+			sizeListIconPhys.cy += ((px/2) * (nl_max - 1));
+			factor = (float)sizeListIconPhys.cy / (float)px;
 			resizeNeeded = true;
-			factor = (float)sizeListIcon.cy / (float)px;
 		}
 
-		HIMAGELIST himl = ImageList_Create(sizeListIcon.cx, sizeListIcon.cy,
+		HIMAGELIST himl = ImageList_Create(sizeListIconPhys.cx, sizeListIconPhys.cy,
 			ILC_COLOR32, static_cast<int>(list_data->size()), 0);
 		assert(himl != nullptr);
 		if (himl) {
@@ -1072,31 +1099,32 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 					const rp_image_const_ptr flipimg = icon->flip(rp_image::FLIP_H);
 					assert((bool)flipimg);
 					if (flipimg) {
-						icon = flipimg;
+						icon = std::move(flipimg);
+					}
+				}
+
+				// Convert the icon to ARGB32 if it's isn't already.
+				// If the original icon is CI8, it needs to be
+				// converted to ARGB32 first. Otherwise, when
+				// resizing, the "empty" background area will be black.
+				if (icon->format() != rp_image::Format::ARGB32) {
+					const rp_image_const_ptr icon32 = icon->dup_ARGB32();
+					assert((bool)icon32);
+					if (icon32) {
+						icon = std::move(icon32);
 					}
 				}
 
 				// Resize the icon, if necessary.
 				if (resizeNeeded) {
-					SIZE szResize = {icon->width(), icon->height()};
-					szResize.cy = static_cast<LONG>(szResize.cy * factor);
+					SIZE szResize = {icon->width(), (LONG)(icon->height() * factor)};
 
-					// If the original icon is CI8, it needs to be
-					// converted to ARGB32 first. Otherwise, the
-					// "empty" background area will be black.
 					// NOTE: We still need to specify a background color,
 					// since the ListView highlight won't show up on
 					// alpha-transparent pixels.
 					// TODO: Handle this in rp_image::resized()?
 					// TODO: Handle theme changes?
 					// TODO: Error handling.
-					if (icon->format() != rp_image::Format::ARGB32) {
-						const rp_image_const_ptr icon32 = icon->dup_ARGB32();
-						assert((bool)icon32);
-						if (icon32) {
-							icon = icon32;
-						}
-					}
 
 					// Resize the icon.
 					const rp_image_const_ptr icon_resized = icon->resized(
@@ -1104,12 +1132,21 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 						rp_image::AlignVCenter, lvBgColor[rowColorIdx]);
 					assert((bool)icon_resized);
 					if (icon_resized) {
-						icon = icon_resized;
+						icon = std::move(icon_resized);
 					}
 				}
 
 				int iImage = -1;
-				HBITMAP hbmIcon = RpImageWin32::toHBITMAP_alpha(icon);
+				HBITMAP hbmIcon;
+				// FIXME: If not rescaled, C64 monochrome icons show up as completely white.
+				if (icon->width() == sizeListIconPhys.cx || icon->height() == sizeListIconPhys.cy) {
+					// No rescaling is necessary.
+					hbmIcon = RpImageWin32::toHBITMAP_alpha(icon);
+				} else {
+					// Icon needs to be rescaled.
+					// TODO: Use nearest-neighbor scaling if it's an integer multiple?
+					hbmIcon = RpImageWin32::toHBITMAP_alpha(icon, sizeListIconPhys, false);
+				}
 				assert(hbmIcon != nullptr);
 				if (hbmIcon) {
 					const int idx = ImageList_Add(himl, hbmIcon, nullptr);
@@ -1128,7 +1165,6 @@ int RP_ShellPropSheetExt_Private::initListData(_In_ HWND hWndTab,
 	}
 
 	if (isMulti) {
-		lvData.hListView = hListView;
 		lvData.pField = &field;
 	}
 
@@ -1297,21 +1333,8 @@ int RP_ShellPropSheetExt_Private::initDimensions(_In_ HWND hWndTab,
 {
 	// TODO: 'x' or '×'? Using 'x' for now.
 	const int *const dimensions = field.data.dimensions;
-	TCHAR tbuf[64];
-	if (dimensions[1] > 0) {
-		if (dimensions[2] > 0) {
-			_sntprintf(tbuf, _countof(tbuf), _T("%dx%dx%d"),
-				dimensions[0], dimensions[1], dimensions[2]);
-		} else {
-			_sntprintf(tbuf, _countof(tbuf), _T("%dx%d"),
-				dimensions[0], dimensions[1]);
-		}
-	} else {
-		_sntprintf(tbuf, _countof(tbuf), _T("%d"), dimensions[0]);
-	}
-
-	// Initialize the string field.
-	return initString(hWndTab, pt_start, size, field, fieldIdx, tbuf);
+	const tstring tstr = formatDimensions(dimensions);
+	return initString(hWndTab, pt_start, size, field, fieldIdx, tstr.c_str());
 }
 
 /**
@@ -1331,11 +1354,9 @@ int RP_ShellPropSheetExt_Private::initStringMulti(_In_ HWND hWndTab,
 	// NOTE: The string contents won't be initialized here.
 	// They will be initialized separately, since the user will
 	// be able to change the displayed language.
-	// NOTE 2: The string must be _T(""), not nullptr. Otherwise, it will
-	// attempt to use the field's string data, which is invalid.
 	HWND lblStringMulti = nullptr;
 	const int field_cy = initString(hWndTab, pt_start, size, field, fieldIdx,
-		_T(""), &lblStringMulti);
+		nullptr, &lblStringMulti);
 	if (lblStringMulti) {
 		vecStringMulti.emplace_back(lblStringMulti, &field);
 	}
@@ -1374,7 +1395,7 @@ void RP_ShellPropSheetExt_Private::updateMulti(uint32_t user_lc)
 		const string *const pStr = RomFields::getFromStringMulti(pStr_multi, def_lc, user_lc);
 		assert(pStr != nullptr);
 		if (pStr != nullptr) {
-			SetWindowText(lblString, U82T_s(*pStr));
+			SetWindowText(lblString, LibWin32UI::unix2dos(U82T_s(*pStr)).c_str());
 		} else {
 			SetWindowText(lblString, _T(""));
 		}
@@ -1385,7 +1406,7 @@ void RP_ShellPropSheetExt_Private::updateMulti(uint32_t user_lc)
 	// RFT_LISTDATA_MULTI
 	for (auto &&mlvd : map_lvData) {
 		LvData &lvData = mlvd.second;
-		if (!lvData.hListView) {
+		if (!lvData.pField) {
 			// Not an RFT_LISTDATA_MULTI.
 			continue;
 		}
@@ -2206,7 +2227,7 @@ IFACEMETHODIMP RP_ShellPropSheetExt::Initialize(
 
 	// Check for "bad" file systems.
 	config = Config::instance();
-	if (FileSystem::isOnBadFS(tfilename, config->enableThumbnailOnNetworkFS())) {
+	if (FileSystem::isOnBadFS(tfilename, config->getBoolConfigOption(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS))) {
 		// This file is on a "bad" file system.
 		goto cleanup;
 	}
@@ -2340,12 +2361,11 @@ inline BOOL RP_ShellPropSheetExtPrivate::ListView_GetDispInfo(NMLVDISPINFO *plvd
 
 	// Get the real item number using the sort map.
 	int iItem = plvItem->iItem;
-	if (iItem >= 0 && iItem < static_cast<int>(lvData.vSortMap.size())) {
-		iItem = lvData.vSortMap[iItem];
-	} else {
+	if (iItem < 0 || iItem >= static_cast<int>(lvData.vSortMap.size())) {
 		// Out of range...
 		return FALSE;
 	}
+	iItem = lvData.vSortMap[iItem];
 
 	BOOL bRet = FALSE;
 
@@ -2451,7 +2471,7 @@ inline BOOL RP_ShellPropSheetExt_Private::Header_DividerDblClick(const NMHEADER 
 		// ListView data not found...
 		return FALSE;
 	}
-	LvData &lvData = iter_lvData->second;
+	const LvData &lvData = iter_lvData->second;
 
 	// Adjust the specified column.
 	assert(phd->iItem < static_cast<int>(lvData.col_widths.size()));
@@ -2685,16 +2705,15 @@ INT_PTR RP_ShellPropSheetExt_Private::DlgProc_WM_PAINT(HWND hDlg)
 	PAINTSTRUCT ps;
 	HDC hdc = BeginPaint(hDlg, &ps);
 
-	// TODO: Check paint rectangles?
 	// TODO: Share the memory DC between lblBanner and lblIcon?
 
 	// Draw the banner.
-	if (lblBanner) {
+	if (lblBanner && lblBanner->intersects(&ps.rcPaint)) {
 		lblBanner->draw(hdc);
 	}
 
 	// Draw the icon.
-	if (lblIcon) {
+	if (lblIcon && lblIcon->intersects(&ps.rcPaint)) {
 		lblIcon->draw(hdc);
 	}
 
@@ -3011,7 +3030,7 @@ INT_PTR CALLBACK RP_ShellPropSheetExt_Private::SubtabDlgProc(HWND hDlg, UINT uMs
 	switch (uMsg) {
 		case WM_DESTROY: {
 			// Remove the TAB_PTR_PROP property from the page.
-			// The TAB_PTR_PROP property stored the pointer to the 
+			// The TAB_PTR_PROP property stored the pointer to the
 			// RP_ShellPropSheetExt_Private::tab object.
 			RemoveProp(hDlg, RP_ShellPropSheetExtPrivate::TAB_PTR_PROP);
 			break;
@@ -3179,6 +3198,6 @@ INT_PTR CALLBACK RP_ShellPropSheetExt_Private::SubtabDlgProc(HWND hDlg, UINT uMs
 		}
 	}
 
-	// Dummy callback procedure that does nothing.
-	return DefSubclassProc(hDlg, uMsg, wParam, lParam);
+	// Nothing to do here...
+	return FALSE;
 }

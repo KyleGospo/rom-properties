@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KF6)                              *
  * PluginFactoryKF6.cpp: Plugin factory class.                             *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -25,8 +25,7 @@ using LibRpTexture::rp_image;
 #include "AchQtDBus.hpp"
 
 // Plugins
-#include "RomPropertiesDialogPlugin.hpp"
-#include "RomThumbCreator.hpp"
+#include "../plugins/RomPropertiesDialogPlugin.hpp"
 
 // KDE Frameworks
 #include <kcoreaddons_version.h>
@@ -44,9 +43,6 @@ static void register_backends(void)
 K_PLUGIN_FACTORY_WITH_JSON(RomPropertiesDialogFactory, "rom-properties-kf6.json",
 	register_backends();
 	registerPlugin<RomPropertiesDialogPlugin>();
-#ifdef HAVE_KIOGUI_KIO_THUMBNAILCREATOR_H
-	registerPlugin<RomThumbnailCreator>();
-#endif /* HAVE_KIOGUI_KIO_THUMBNAILCREATOR_H */
 )
 
 // automoc4 works correctly without any special handling.

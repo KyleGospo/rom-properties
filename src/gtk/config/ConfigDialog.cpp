@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * ConfigDialog.hpp: Configuration dialog.                                 *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -11,7 +11,8 @@
 #include "config.gtk.h"
 
 #include "ConfigDialog.hpp"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
+#include "RpGtkCpp.hpp"
 #include "gtk-i18n.h"
 
 #include <gdk/gdkkeysyms.h>
@@ -34,6 +35,9 @@ using namespace LibRpFile;
 #  include "librpbase/crypto/KeyManager.hpp"
 using LibRpBase::KeyManager;
 #endif
+
+// C++ STL classes
+using std::array;
 
 // Using GtkDialog on GTK2/GTK3.
 // For GTK4, using GtkWindow.
@@ -93,7 +97,6 @@ struct _RpConfigDialogClass {
 	superclass __parent__;
 };
 
-// ConfigDialog instance
 struct _RpConfigDialog {
 	super __parent__;
 
@@ -164,7 +167,7 @@ rp_config_dialog_init(RpConfigDialog *dialog)
 
 	// Set the window icon.
 	// TODO: Redo icon if the icon theme changes?
-	const uint8_t icon_sizes[] = {16, 32, 48, 64, 128};
+	static const array<uint8_t, 5> icon_sizes = {{16, 32, 48, 64, 128}};
 	GList *icon_list = nullptr;
 	for (const int icon_size : icon_sizes) {
 		GdkPixbuf *const icon = gtk_icon_theme_load_icon(
@@ -250,7 +253,7 @@ rp_config_dialog_init(RpConfigDialog *dialog)
 	// Create the tabs.
 	for (const auto &tabInfo : tabInfo_tbl) {
 		GtkWidget *const tab_label = rp_gtk_label_new_with_mnemonic(
-			dpgettext_expr(RP_I18N_DOMAIN, "ConfigDialog", tabInfo.title));
+			pgettext_expr("ConfigDialog", tabInfo.title));
 		gtk_widget_set_name(tab_label, tabInfo.lbl_name);
 		GTK_WIDGET_SHOW_GTK3(tab_label);
 
@@ -274,6 +277,12 @@ rp_config_dialog_init(RpConfigDialog *dialog)
 
 		gtk_notebook_append_page(GTK_NOTEBOOK(dialog->tabWidget), alignment, tab_label);
 #endif /* RP_USE_GTK_ALIGNMENT */
+
+#if GTK_CHECK_VERSION(4,0,0)
+		// GtkNotebook took a reference to the tab label,
+		// so we don't need to keep our reference.
+		g_object_unref(tab_label);
+#endif /* GTK_CHECK_VERSION(4,0,0) */
 	}
 
 	// Show the GtkNotebook.

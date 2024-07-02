@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE)                              *
  * KeyManagerTab.cpp: Key Manager tab for rp-config.                       *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -229,7 +229,7 @@ void KeyManagerTabPrivate::showKeyImportReturnStatus(
 	}
 
 	// U+2022 (BULLET) == \xE2\x80\xA2
-	static const char nl_bullet[] = "\n\xE2\x80\xA2 ";
+	static constexpr char nl_bullet[] = "\n\xE2\x80\xA2 ";
 
 	if (showKeyStats) {
 		if (iret.keysExist > 0) {
@@ -301,7 +301,7 @@ void KeyManagerTabPrivate::showKeyImportReturnStatus(
 /** KeyManagerTab **/
 
 KeyManagerTab::KeyManagerTab(QWidget *parent)
-	: super(parent)
+	: super(parent, false)
 	, d_ptr(new KeyManagerTabPrivate(this))
 {
 	Q_D(KeyManagerTab);

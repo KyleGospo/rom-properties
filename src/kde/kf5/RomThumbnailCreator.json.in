@@ -1,0 +1,18 @@
+{
+    "CacheThumbnail": true,
+    "KPlugin": {
+        "Name": "ROM Properties Page",
+        "Description": "ROM Properties Page for KDE Frameworks 5",
+        "ServiceTypes": [
+            "ThumbnailCreator"
+        ],
+        "MimeTypes": [
+@MIMETYPES_ALL_JSON_ARRAY@
+        ]
+    },
+    "MimeType": "@MIMETYPES_ALL@",
+    "X-KDE-Protocols": [
+        "file",
+        "desktop"
+    ]
+}

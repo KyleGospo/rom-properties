@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE4)                             *
  * PluginFactoryKDE4.cpp: Plugin factory class.                            *
  *                                                                         *
- * Copyright (c) 2016-2022 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -25,8 +25,8 @@ using LibRpTexture::rp_image;
 #include "AchQtDBus.hpp"
 
 // Plugins
-#include "RomPropertiesDialogPlugin.hpp"
-#include "RomThumbCreator.hpp"
+#include "../plugins/RomPropertiesDialogPlugin.hpp"
+#include "../plugins/RomThumbCreator.hpp"
 
 // KDE
 #include <kpluginfactory.h>
@@ -40,21 +40,11 @@ static void register_backends(void)
 #endif /* ENABLE_ACHIEVEMENTS && HAVE_QtDBus_NOTIFY */
 }
 
-static QObject *createRomPropertiesPage(QWidget *w, QObject *parent, const QVariantList &args)
-{
-	// NOTE: RomPropertiesDialogPlugin will verify that parent is an
-	// instance of KPropertiesDialog*, so we don't have to do that here.
-	Q_UNUSED(w)
-	return new RomPropertiesDialogPlugin(parent, args);
-}
-
 K_PLUGIN_FACTORY(RomPropertiesDialogFactory,
 	register_backends();
-	registerPlugin<RomPropertiesDialogPlugin>(QString(), createRomPropertiesPage);
+	registerPlugin<RomPropertiesDialogPlugin>();
 )
-#if QT_VERSION < 0x050000
-K_EXPORT_PLUGIN(RomPropertiesDialogFactory("rom-properties-kde"))
-#endif
+K_EXPORT_PLUGIN(RomPropertiesDialogFactory("rom-properties-kde4"))
 
 // automoc4 works correctly without any special handling.
 // automoc5 doesn't notice that K_PLUGIN_FACTORY() has a

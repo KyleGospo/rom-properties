@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * ValveVTF.cpp: Valve VTF image reader.                                   *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -31,6 +31,7 @@ using LibRpText::rp_sprintf;
 using LibRpTexture::ImageSizeCalc::OpCode;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -79,10 +80,10 @@ class ValveVTFPrivate final : public FileFormatPrivate
 
 	public:
 		// Image format table
-		static const std::array<const char*, VTF_IMAGE_FORMAT_MAX> img_format_tbl;
+		static const array<const char*, VTF_IMAGE_FORMAT_MAX> img_format_tbl;
 
 		// ImageSizeCalc opcode table
-		static const std::array<ImageSizeCalc::OpCode, VTF_IMAGE_FORMAT_MAX> op_tbl;
+		static const array<ImageSizeCalc::OpCode, VTF_IMAGE_FORMAT_MAX> op_tbl;
 
 	public:
 		/**
@@ -133,7 +134,7 @@ const TextureInfo ValveVTFPrivate::textureInfo = {
 };
 
 // Image format table
-const std::array<const char*, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::img_format_tbl = {
+const array<const char*, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::img_format_tbl = {{
 	"RGBA8888",
 	"ABGR8888",
 	"RGB888",
@@ -161,10 +162,10 @@ const std::array<const char*, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::img_format_
 	"RGBA16161616F",
 	"RGBA16161616",
 	"UVLX8888",
-};
+}};
 
 // ImageSizeCalc opcode table
-const std::array<ImageSizeCalc::OpCode, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::op_tbl = {
+const array<ImageSizeCalc::OpCode, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::op_tbl = {{
 	OpCode::Multiply4,	// VTF_IMAGE_FORMAT_RGBA8888
 	OpCode::Multiply4,	// VTF_IMAGE_FORMAT_ABGR8888
 	OpCode::Multiply3,	// VTF_IMAGE_FORMAT_RGB888
@@ -192,7 +193,7 @@ const std::array<ImageSizeCalc::OpCode, VTF_IMAGE_FORMAT_MAX> ValveVTFPrivate::o
 	OpCode::Multiply8,	// VTF_IMAGE_FORMAT_RGBA16161616F
 	OpCode::Multiply8,	// VTF_IMAGE_FORMAT_RGBA16161616
 	OpCode::Multiply4,	// VTF_IMAGE_FORMAT_UVLX8888
-};
+}};
 
 ValveVTFPrivate::ValveVTFPrivate(ValveVTF *q, const IRpFilePtr &file)
 	: super(q, file, &textureInfo)
@@ -210,7 +211,7 @@ ValveVTFPrivate::ValveVTFPrivate(ValveVTF *q, const IRpFilePtr &file)
 */
 unsigned int ValveVTFPrivate::getMinBlockSize(VTF_IMAGE_FORMAT format)
 {
-	static const std::array<uint8_t, VTF_IMAGE_FORMAT_MAX> block_size_tbl = {
+	static constexpr array<uint8_t, VTF_IMAGE_FORMAT_MAX> block_size_tbl = {{
 		4,	// VTF_IMAGE_FORMAT_RGBA8888
 		4,	// VTF_IMAGE_FORMAT_ABGR8888
 		3,	// VTF_IMAGE_FORMAT_RGB888
@@ -238,7 +239,7 @@ unsigned int ValveVTFPrivate::getMinBlockSize(VTF_IMAGE_FORMAT format)
 		8,	// VTF_IMAGE_FORMAT_RGBA16161616F
 		8,	// VTF_IMAGE_FORMAT_RGBA16161616
 		4,	// VTF_IMAGE_FORMAT_UVLX8888
-	};
+	}};
 
 	assert(format >= 0 && format < static_cast<int>(block_size_tbl.size()));
 	if (format < 0 || format >= static_cast<int>(block_size_tbl.size())) {
@@ -373,7 +374,7 @@ rp_image_const_ptr ValveVTFPrivate::loadImage(int mip)
 	if (!mipmaps.empty() && mipmaps[mip] != nullptr) {
 		// Image has already been loaded.
 		return mipmaps[mip];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the image.
 		return nullptr;
 	}
@@ -767,10 +768,10 @@ int ValveVTF::getFields(RomFields *fields) const
 	// TODO: Move to RomFields?
 #ifdef _WIN32
 	// Windows: 6 visible rows per RFT_LISTDATA.
-	static const int rows_visible = 6;
+	static constexpr int rows_visible = 6;
 #else
 	// Linux: 4 visible rows per RFT_LISTDATA.
-	static const int rows_visible = 4;
+	static constexpr int rows_visible = 4;
 #endif
 
 	const int initial_count = fields->count();
@@ -837,7 +838,7 @@ int ValveVTF::getFields(RomFields *fields) const
 		vv_flags->resize(j);
 		auto &data_row = vv_flags->at(j-1);
 		// TODO: Localization.
-		//data_row.emplace_back(dpgettext_expr(RP_I18N_DOMAIN, "ValveVTF|Flags", pFlagName));
+		//data_row.emplace_back(pgettext_expr("ValveVTF|Flags", pFlagName));
 		data_row.emplace_back(pFlagName);
 	}
 
@@ -882,7 +883,7 @@ int ValveVTF::getFields(RomFields *fields) const
 	if (img_format) {
 		// TODO: Localization.
 		fields->addField_string(low_res_image_format_title, img_format);
-			//dpgettext_expr(RP_I18N_DOMAIN, "ValveVTF|ImageFormat", img_format));
+			//pgettext_expr("ValveVTF|ImageFormat", img_format));
 		// Low-res image size.
 		fields->addField_dimensions(C_("ValveVTF", "Low-Res Size"),
 			vtfHeader->lowResImageWidth,

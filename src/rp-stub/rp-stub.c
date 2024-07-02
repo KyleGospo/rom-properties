@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (rp-stub)                          *
  * rp-stub.c: Stub program to invoke the rom-properties library.           *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -16,6 +16,7 @@
 #include "git.h"
 
 #include "libi18n/i18n.h"
+#include "librptext/libc.h"	// for strlcat()
 #include "libunixcommon/dll-search.h"
 #include "stdboolx.h"
 
@@ -35,6 +36,19 @@
 #include <unistd.h>
 
 #include "tcharx.h"	// for DIR_SEP_CHR
+
+/**
+ * Program mode
+ */
+typedef enum {
+	MODE_THUMBNAIL		= 0,
+	MODE_CONFIG		= 1,
+	MODE_ROMDATAVIEW	= 2,
+} RpStubProgramMode;
+static RpStubProgramMode mode = MODE_THUMBNAIL;
+
+// Is debug logging enabled?
+static bool is_debug = false;
 
 /**
  * rp_create_thumbnail2() flags
@@ -61,16 +75,20 @@ typedef int (RP_C_API *PFN_RP_CREATE_THUMBNAIL2)(const char *source_file, const 
  */
 typedef int (RP_C_API *PFN_RP_SHOW_CONFIG_DIALOG)(int argc, char *argv[]);
 
-// Are we running as rp-config?
-static bool is_rp_config = false;
-// Is debug logging enabled?
-static bool is_debug = false;
+/**
+ * rp_show_RomDataView_dialog() function pointer. (Unix/Linux version)
+ * TODO: Change it to just a single parameter with a filename?
+ * @param argc
+ * @param argv
+ * @return 0 on success; non-zero on error.
+ */
+typedef int (RP_C_API *PFN_RP_SHOW_ROMDATAVIEW_DIALOG)(int argc, char *argv[]);
 
 static void show_version(void)
 {
 	puts(RP_DESCRIPTION);
 	puts(C_("rp_stub", "Shared library stub program."));
-	puts(C_("rp-stub", "Copyright (c) 2016-2023 by David Korth."));
+	puts(C_("rp-stub", "Copyright (c) 2016-2024 by David Korth."));
 	putchar('\n');
 	printf(C_("rp-stub", "rom-properties version: %s"), RP_VERSION_STRING);
 	putchar('\n');
@@ -88,9 +106,10 @@ static void show_version(void)
 
 static void show_help(const char *argv0)
 {
+	// TODO: Print to stderr, similar to rpcli?
 	show_version();
 	putchar('\n');
-	if (!is_rp_config) {
+	if (mode != MODE_CONFIG) {
 		printf(C_("rp-stub|Help", "Usage: %s [-s size] source_file output_file"), argv0);
 		putchar('\n');
 		putchar('\n');
@@ -98,25 +117,46 @@ static void show_help(const char *argv0)
 			"If source_file is a supported ROM image, a thumbnail is\n"
 			"extracted and saved as output_file."));
 		putchar('\n');
+
+		struct opt_t {
+			const char *opt;
+			const char *desc;
+		};
+		static const struct opt_t thumb_opts[] = {
+			{"  -s, --size",	NOP_C_("rp-stub|Help", "Maximum thumbnail size. (default is 256px) [0 for full image]")},
+			{"  -a, --autoext",	NOP_C_("rp-stub|Help", "Generate the output filename based on the source filename.")},
+			{"               ",	NOP_C_("rp-stub|Help", "(WARNING: May overwrite an existing file without prompting.)")},
+			{"  -n, --noxdg",	NOP_C_("rp-stub|Help", "Don't include XDG thumbnail metadata.")},
+		};
+		static const struct opt_t *const thumb_opts_end = &thumb_opts[ARRAY_SIZE(thumb_opts)];
+
 		puts(C_("rp-stub|Help", "Thumbnailing options:"));
-		fputs("  -s, --size\t\t", stdout);
-		puts(C_("rp-stub|Help", "Maximum thumbnail size. (default is 256px) [0 for full image]"));
-		fputs("  -a, --autoext\t\t", stdout);
-		puts(C_("rp-stub|Help", "Generate the output filename based on the source filename."));
-		fputs("               \t\t", stdout);
-		puts(C_("rp-stub|Help", "(WARNING: May overwrite an existing file without prompting.)"));
-		fputs("  -n, --noxdg\t\t", stdout);
-		puts(C_("rp-stub|Help", "Don't include XDG thumbnail metadata."));
+		for (const struct opt_t *p = thumb_opts; p != thumb_opts_end; p++) {
+			fputs(p->opt, stdout);
+			fputs("\t\t", stdout);
+			puts(pgettext_expr("rp-stub|Help", p->desc));
+		}
 		putchar('\n');
+
+		static const struct opt_t other_opts[] = {
+			{"  -c, --config",	NOP_C_("rp-stub|Help", "Show the configuration dialog instead of thumbnailing.")},
+			{"  -d, --debug",	NOP_C_("rp-stub|Help", "Show debug output when searching for rom-properties.")},
+			{"  -R, --RomDataView",	NOP_C_("rp-stub|Help", "Show the RomDataView test dialog. (for debugging!)")},
+			{"  -h, --help",	NOP_C_("rp-stub|Help", "Display this help and exit.")},
+			{"  -V, --version",	NOP_C_("rp-stub|Help", "Output version information and exit.")},
+		};
+		static const struct opt_t *const other_opts_end = &other_opts[ARRAY_SIZE(other_opts)];
+
 		puts(C_("rp-stub|Help", "Other options:"));
-		fputs("  -c, --config\t\t", stdout);
-		puts(C_("rp-stub|Help", "Show the configuration dialog instead of thumbnailing."));
-		fputs("  -d, --debug\t\t", stdout);
-		puts(C_("rp-stub|Help", "Show debug output when searching for rom-properties."));
-		fputs("  -h, --help\t\t", stdout);
-		puts(C_("rp-stub|Help", "Display this help and exit."));
-		fputs("  -V, --version\t\t", stdout);
-		puts(C_("rp-stub|Help", "Output version information and exit."));
+		for (const struct opt_t *p = other_opts; p != other_opts_end; p++) {
+			fputs(p->opt, stdout);
+			if (likely(p->opt[3] != 'R')) {
+				fputs("\t\t", stdout);
+			} else {
+				fputs("\t", stdout);
+			}
+			puts(pgettext_expr("rp-stub|Help", p->desc));
+		}
 	} else {
 		printf(C_("rp-stub|Help", "Usage: %s"), argv0);
 		putchar('\n');
@@ -215,7 +255,7 @@ int main(int argc, char *argv[])
 	}
 	if (!strcmp(argv0, "rp-config")) {
 		// Invoked as rp-config.
-		is_rp_config = true;
+		mode = MODE_CONFIG;
 	}
 
 	static const struct option long_options[] = {
@@ -223,6 +263,7 @@ int main(int argc, char *argv[])
 		{"autoext",	no_argument,		NULL, 'a'},
 		{"noxdg",	no_argument,		NULL, 'n'},
 		{"config",	no_argument,		NULL, 'c'},
+		{"RomDataView",	no_argument,		NULL, 'R'},
 		{"debug",	no_argument,		NULL, 'd'},
 		{"help",	no_argument,		NULL, 'h'},
 		{"version",	no_argument,		NULL, 'V'},
@@ -232,12 +273,11 @@ int main(int argc, char *argv[])
 	};
 
 	// Default to 256x256.
-	uint8_t config = is_rp_config;
 	int maximum_size = 256;
 	unsigned int flags = 0;
 	bool autoext = false;
 	int c, option_index;
-	while ((c = getopt_long(argc, argv, "s:acdnhV", long_options, &option_index)) != -1) {
+	while ((c = getopt_long(argc, argv, "s:acdnhRV", long_options, &option_index)) != -1) {
 		switch (c) {
 			case 's': {
 				char *endptr = NULL;
@@ -261,7 +301,7 @@ int main(int argc, char *argv[])
 
 			case 'c':
 				// Show the configuration dialog.
-				config = true;
+				mode = MODE_CONFIG;
 				break;
 
 			case 'd':
@@ -278,6 +318,11 @@ int main(int argc, char *argv[])
 				flags |= RPCT_FLAG_NO_XDG_THUMBNAIL_METADATA;
 				break;
 
+			case 'R':
+				// Show the RomDataView test dialog.
+				mode = MODE_ROMDATAVIEW;
+				break;
+
 			case 'V':
 				show_version();
 				return EXIT_SUCCESS;
@@ -291,11 +336,11 @@ int main(int argc, char *argv[])
 	}
 
 	// Enable security options.
-	// TODO: Check for '-c' first, then enable options
-	// and reparse?
-	rp_stub_do_security_options(config);
+	// TODO: Check for '-c' first, then enable options and reparse?
+	// TODO: Options for RomDataView mode?
+	rp_stub_do_security_options(mode == MODE_CONFIG);
 
-	if (!config) {
+	if (mode == MODE_THUMBNAIL) {
 		// Thumbnailing mode.
 		// We must have 2 filenames specified.
 		if (optind == argc) {
@@ -315,74 +360,104 @@ int main(int argc, char *argv[])
 
 	// Search for a usable rom-properties library.
 	// TODO: Desktop override option?
-	const char *const symname = (config ? "rp_show_config_dialog" : "rp_create_thumbnail2");
+	const char *symname;
+	switch (mode) {
+		default:
+		case MODE_THUMBNAIL:
+			symname = "rp_create_thumbnail2";
+			break;
+		case MODE_CONFIG:
+			symname = "rp_show_config_dialog";
+			break;
+		case MODE_ROMDATAVIEW:
+			symname = "rp_show_RomDataView_dialog";
+			break;
+	}
+
 	void *pDll = NULL, *pfn = NULL;
 	int ret = rp_dll_search(symname, &pDll, &pfn, fnDebug);
 	if (ret != 0) {
 		return ret;
 	}
 
-	if (!config) {
+	switch (mode) {
+		default:
+		case MODE_THUMBNAIL:
 #ifdef __GLIBC__
-		// Reduce /etc/localtime stat() calls.
-		// NOTE: Only for thumbnailing mode, since the process doesn't persist.
-		// References:
-		// - https://lwn.net/Articles/944499/
-		// - https://gitlab.com/procps-ng/procps/-/merge_requests/119
-		setenv("TZ", ":/etc/localtime", 0);
+			// Reduce /etc/localtime stat() calls.
+			// NOTE: Only for thumbnailing mode, since the process doesn't persist.
+			// References:
+			// - https://lwn.net/Articles/944499/
+			// - https://gitlab.com/procps-ng/procps/-/merge_requests/119
+			setenv("TZ", ":/etc/localtime", 0);
 #endif /* __GLIBC__ */
 
-		// Create the thumbnail.
-		const char *const source_file = argv[optind];
-		char *output_file;
-		if (autoext) {
-			// Create the output filename based on the input filename.
-			size_t output_len = strlen(source_file);
-			output_file = malloc(output_len + 16);
-			strcpy(output_file, source_file);
+			// Create the thumbnail.
+			const char *const source_file = argv[optind];
+			char *output_file;
+			if (autoext) {
+				// Create the output filename based on the input filename.
+				size_t output_len = strlen(source_file);
+				output_file = malloc(output_len + 16);
+				strcpy(output_file, source_file);
 
-			// Find the current extension and replace it.
-			char *const dotpos = strrchr(output_file, '.');
-			if (!dotpos) {
-				// No file extension. Add it.
-				strcat(output_file, ".png");
-			} else {
-				// If the dot is after the last slash, we already have a file extension.
-				// Otherwise, we don't have one, and need to add it.
-				char *const slashpos = strrchr(output_file, DIR_SEP_CHR);
-				if (slashpos < dotpos) {
-					// We already have a file extension.
-					strcpy(dotpos, ".png");
+				// Find the current extension and replace it.
+				char *const dotpos = strrchr(output_file, '.');
+				if (!dotpos) {
+					// No file extension. Add it.
+					strlcat(output_file, ".png", output_len + 16);
 				} else {
-					// No file extension.
-					strcat(output_file, ".png");
+					// If the dot is after the last slash, we already have a file extension.
+					// Otherwise, we don't have one, and need to add it.
+					char *const slashpos = strrchr(output_file, DIR_SEP_CHR);
+					if (slashpos < dotpos) {
+						// We already have a file extension.
+						strcpy(dotpos, ".png");
+					} else {
+						// No file extension.
+						strlcat(output_file, ".png", output_len + 16);
+					}
 				}
+			} else {
+				// Use the specified output filename.
+				output_file = argv[optind+1];
 			}
-		} else {
-			// Use the specified output filename.
-			output_file = argv[optind+1];
-		}
 
-		if (is_debug) {
-			// tr: NOTE: Not positional. Don't change argument positions!
-			// tr: Only localize "Calling function:".
-			fprintf(stderr, C_("rp-stub", "Calling function: %s(\"%s\", \"%s\", %d, %u);"),
-				symname, source_file, output_file, maximum_size, flags);
-			putc('\n', stderr);
-		}
-		ret = ((PFN_RP_CREATE_THUMBNAIL2)pfn)(source_file, output_file, maximum_size, flags);
+			if (is_debug) {
+				// tr: NOTE: Not positional. Don't change argument positions!
+				// tr: Only localize "Calling function:".
+				fprintf(stderr, C_("rp-stub", "Calling function: %s(\"%s\", \"%s\", %d, %u);"),
+					symname, source_file, output_file, maximum_size, flags);
+				putc('\n', stderr);
+			}
+			ret = ((PFN_RP_CREATE_THUMBNAIL2)pfn)(source_file, output_file, maximum_size, flags);
 
-		if (autoext) {
-			free(output_file);
-		}
-	} else {
-		// Show the configuration dialog.
-		if (is_debug) {
-			fprintf(stderr, C_("rp-stub", "Calling function: %s();"), symname);
-			putc('\n', stderr);
-		}
-		// NOTE: argc/argv may be manipulated by getopt().
-		ret = ((PFN_RP_SHOW_CONFIG_DIALOG)pfn)(argc, argv);
+			if (autoext) {
+				free(output_file);
+			}
+			break;
+
+		case MODE_CONFIG:
+			// Show the configuration dialog.
+			if (is_debug) {
+				fprintf(stderr, C_("rp-stub", "Calling function: %s();"), symname);
+				putc('\n', stderr);
+			}
+			// NOTE: argc/argv may be manipulated by getopt().
+			// TODO: New argv[] with [0] == argv[0], [1] == optind
+			ret = ((PFN_RP_SHOW_CONFIG_DIALOG)pfn)(argc, argv);
+			break;
+
+		case MODE_ROMDATAVIEW:
+			// Show the configuration dialog.
+			if (is_debug) {
+				fprintf(stderr, C_("rp-stub", "Calling function: %s();"), symname);
+				putc('\n', stderr);
+			}
+			// NOTE: argc/argv may be manipulated by getopt().
+			// TODO: New argv[] with [0] == argv[0], [1] == optind
+			ret = ((PFN_RP_SHOW_ROMDATAVIEW_DIALOG)pfn)(argc, argv);
+			break;
 	}
 
 	dlclose(pDll);

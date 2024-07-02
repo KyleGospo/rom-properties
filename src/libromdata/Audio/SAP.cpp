@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * SAP.cpp: Atari 8-bit SAP audio reader.                                  *
  *                                                                         *
- * Copyright (c) 2018-2023 by David Korth.                                 *
+ * Copyright (c) 2018-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -18,6 +18,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::pair;
 using std::string;
 using std::unique_ptr;
@@ -311,7 +312,7 @@ SAPPrivate::sap_tags_t SAPPrivate::parseTags(void)
 			void *ptr;		// Data pointer.
 		};
 
-		const std::array<KeywordDef, 14> kwds = {{
+		const array<KeywordDef, 14> kwds = {{
 			{"AUTHOR",	KeywordType::String,		&tags.author},
 			{"NAME",	KeywordType::String,		&tags.name},
 			{"DATE",	KeywordType::String,		&tags.date},
@@ -605,12 +606,12 @@ int SAP::loadFieldData(void)
 	uint32_t flags = 0;
 	if (tags.ntsc)   flags |= (1U << 0);
 	if (tags.stereo) flags |= (1U << 1);
-	d->fields.addField_bitfield(C_("SAP", "Flags"),
+	d->fields.addField_bitfield(C_("RomData", "Flags"),
 		v_flags_names, 0, flags);
 
 	// Type
 	// TODO: Verify that the type is valid?
-	const char *const type_title = C_("SAP", "Type");
+	const char *const type_title = C_("RomData", "Type");
 	if (ISALPHA(tags.type)) {
 		const char s_tag_type[2] = {tags.type, '\0'};
 		d->fields.addField_string(type_title, s_tag_type);

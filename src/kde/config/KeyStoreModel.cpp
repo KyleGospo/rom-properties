@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE)                              *
  * KeyStoreModel.cpp: QAbstractListModel for KeyStore.                     *
  *                                                                         *
- * Copyright (c) 2012-2023 by David Korth.                                 *
+ * Copyright (c) 2012-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -49,7 +49,7 @@ public:
 
 		// Pixmaps for Column::IsValid.
 		// TODO: Hi-DPI support.
-		static const int pxmIsValid_size = 16;
+		static constexpr int pxmIsValid_size = 16;
 		QPixmap pxmIsValid_unknown;
 		QPixmap pxmIsValid_invalid;
 		QPixmap pxmIsValid_good;
@@ -73,13 +73,13 @@ public:
 // - LOWORD: Section.
 // - HIWORD: Key index. (0xFFFF for section header)
 #ifndef _WIN32
-static inline uint16_t LOWORD(uint32_t dwValue) {
+static inline constexpr uint16_t LOWORD(uint32_t dwValue) {
 	return (dwValue & 0xFFFF);
 }
-static inline uint16_t HIWORD(uint32_t dwValue) {
+static inline constexpr uint16_t HIWORD(uint32_t dwValue) {
 	return (dwValue >> 16);
 }
-static inline uint32_t MAKELONG(uint16_t wLow, uint16_t wHigh) {
+static inline constexpr uint32_t MAKELONG(uint16_t wLow, uint16_t wHigh) {
 	return (wLow | (wHigh << 16));
 }
 #endif /* _WIN32 */

@@ -1,10 +1,4 @@
 # Stub executable for Unix and Unix-like thumbnailers
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rp-stub LANGUAGES C)
 
 # rp-stub
@@ -24,7 +18,8 @@ IF(TARGET git_version)
 ENDIF(TARGET git_version)
 
 # dll-search.c is in libunixcommon.
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE unixcommon rpsecure)
+# strlcat() is in librptext.
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE unixcommon rptext rpsecure)
 
 IF(ENABLE_NLS)
 	TARGET_LINK_LIBRARIES(${PROJECT_NAME} PRIVATE i18n)

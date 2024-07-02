@@ -1,10 +1,4 @@
 # Unix and Unix-like systems common code
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 # FIXME: CMake-3.15.5 on travis-ci can't find Objective-C...
 PROJECT(unixcommon LANGUAGES C CXX)
 
@@ -34,7 +28,7 @@ IF(BUILD_GTK3 OR BUILD_GTK4)
 	# Nautilus (GNOME)
 	FIND_PACKAGE(LibNautilusExtension)	# v3
 	FIND_PACKAGE(LibNautilusExtension4)	# v4
-	IF(LibNautilusExtension_FOUND AND LibNautilusExtnsion4_FOUND)
+	IF(LibNautilusExtension_FOUND AND LibNautilusExtension4_FOUND)
 		# Found both versions. (...not normally possible?)
 	ELSEIF(LibNautilusExtension_FOUND)
 		# Found v3 but not v4. Use defaults for v4.
@@ -54,9 +48,7 @@ ENDIF(BUILD_GTK3 OR BUILD_GTK4)
 # Check for C library functions.
 INCLUDE(CheckSymbolExists)
 CHECK_SYMBOL_EXISTS(getpwuid_r "pwd.h" HAVE_GETPWUID_R)
-IF(NOT HAVE_GETPWUID_R)
-	CHECK_SYMBOL_EXISTS(getpwuid "pwd.h" HAVE_GETPWUID)
-ENDIF(NOT HAVE_GETPWUID_R)
+CHECK_SYMBOL_EXISTS(getpwuid "pwd.h" HAVE_GETPWUID)
 IF(NOT HAVE_GETPWUID_R AND NOT HAVE_GETPWUID)
 	MESSAGE(FATAL_ERROR "Neither getpwuid_r() nor getpwuid() were found.")
 ENDIF(NOT HAVE_GETPWUID_R AND NOT HAVE_GETPWUID)

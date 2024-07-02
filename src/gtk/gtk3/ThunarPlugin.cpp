@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ 3.x)                         *
  * ThunarPlugin.cpp: ThunarX Plugin Definition                             *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -12,7 +12,7 @@
 
 #include "AchGDBus.hpp"
 #include "plugin-helper.h"
-#include "ThunarMenuProvider.hpp"
+#include "ThunarMenuProvider.h"
 #include "ThunarPropertyPageProvider.hpp"
 
 // Thunar version is based on GTK+ version.
@@ -30,8 +30,8 @@
 
 static GType type_list[2];
 
-// C includes.
-#include <assert.h>
+// C includes (C++ namespace)
+#include <cassert>
 
 // Function pointers.
 static void *libextension_so;

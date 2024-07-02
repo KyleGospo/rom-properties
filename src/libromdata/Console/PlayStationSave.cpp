@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * PlayStationSave.hpp: Sony PlayStation save file reader.                 *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * Copyright (c) 2017-2018 by Egor.                                        *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
@@ -16,6 +16,7 @@
 #include "ps1_structs.h"
 
 // Other rom-properties libraries
+#include "librptexture/decoder/ImageDecoder_Linear.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
@@ -313,7 +314,7 @@ int PlayStationSave::isRomSupported_static(const DetectInfo *info)
 			const uint8_t *const header = info->header.pData;
 
 			// Check the block magic.
-			static const uint8_t block_magic[4] = {
+			static constexpr uint8_t block_magic[4] = {
 				PS1_ENTRY_ALLOC_FIRST, 0x00, 0x00, 0x00,
 			};
 			if (memcmp(header, block_magic, sizeof(block_magic)) != 0) {
@@ -490,12 +491,12 @@ int PlayStationSave::loadFieldData(void)
 	}
 
 	if (filename) {
-		d->fields.addField_string(C_("PlayStationSave", "Filename"),
+		d->fields.addField_string(C_("RomData", "Filename"),
 			cp1252_sjis_to_utf8(filename, 20));
 	}
 
 	// Description.
-	d->fields.addField_string(C_("PlayStationSave", "Description"),
+	d->fields.addField_string(C_("RomData", "Description"),
 		cp1252_sjis_to_utf8(scHeader->title, sizeof(scHeader->title)));
 
 	// TODO: Moar fields.

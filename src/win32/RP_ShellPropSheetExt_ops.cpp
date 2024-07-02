@@ -3,7 +3,7 @@
  * RP_ShellPropSheetExt_ops.cpp: IShellPropSheetExt implementation.        *
  * (ROM operations)                                                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -27,6 +27,7 @@ using namespace LibRpText;
 // C++ STL classes
 #include <fstream>
 #include <sstream>
+using std::array;
 using std::ofstream;
 using std::ostringstream;
 using std::string;
@@ -316,7 +317,7 @@ void RP_ShellPropSheetExt_Private::btnOptions_action_triggered(int menuId)
 			TCHAR default_ext[7];
 			bool toClipboard;
 		};
-		static const std::array<StdActsInfo_t, 4> stdActsInfo = {{
+		static const array<StdActsInfo_t, 4> stdActsInfo = {{
 			// OPTION_EXPORT_TEXT
 			{NOP_C_("RomDataView", "Export to Text File"),
 			 // tr: "Text Files" filter (RP format)
@@ -381,8 +382,8 @@ void RP_ShellPropSheetExt_Private::btnOptions_action_triggered(int menuId)
 			}
 
 			const tstring tfilename = LibWin32UI::getSaveFileName(hDlgSheet,
-				U82T_c(dpgettext_expr(RP_I18N_DOMAIN, "RomDataView", info.title)),
-				U82T_c(dpgettext_expr(RP_I18N_DOMAIN, "RomDataView", info.filter)),
+				U82T_c(pgettext_expr("RomDataView", info.title)),
+				U82T_c(pgettext_expr("RomDataView", info.filter)),
 				defaultFileName.c_str());
 			if (tfilename.empty())
 				return;

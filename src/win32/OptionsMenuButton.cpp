@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (Win32)                            *
  * OptionsMenuButton.cpp: Options menu button WC_BUTTON superclass.        *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -20,6 +20,7 @@ using LibRpBase::RomData;
 #include "libwin32ui/WinUI.hpp"
 
 // C++ STL classes
+using std::array;
 using std::vector;
 
 static ATOM atom_optionsMenuButton;
@@ -30,7 +31,7 @@ struct option_menu_action_t {
 	const char *desc;
 	int id;
 };
-static const std::array<option_menu_action_t, 4> stdacts = {{
+static const array<option_menu_action_t, 4> stdacts = {{
 	{NOP_C_("OptionsMenuButton|StdActs", "Export to Text..."),	OPTION_EXPORT_TEXT},
 	{NOP_C_("OptionsMenuButton|StdActs", "Export to JSON..."),	OPTION_EXPORT_JSON},
 	{NOP_C_("OptionsMenuButton|StdActs", "Copy as Text"),		OPTION_COPY_TEXT},
@@ -133,7 +134,7 @@ void OptionsMenuButtonPrivate::reinitMenu(const RomData *romData)
 	// Add the standard actions.
 	for (const option_menu_action_t &p : stdacts) {
 		AppendMenu(hMenuOptions, MF_STRING, IDM_OPTIONS_MENU_BASE + p.id,
-			U82T_c(dpgettext_expr(RP_I18N_DOMAIN, "RomDataView|Options", p.desc)));
+			U82T_c(pgettext_expr("RomDataView|Options", p.desc)));
 	}
 
 	/** ROM operations. **/

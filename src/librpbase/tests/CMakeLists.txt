@@ -1,10 +1,4 @@
 # librpbase test suite
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(librpbase-tests LANGUAGES CXX)
 
 # Top-level src directory.
@@ -56,7 +50,7 @@ ENDIF(NOT WIN32 AND NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY STREQUAL "")
 
 IF(ENABLE_DECRYPTION)
 	# Crypto tests
-	ADD_EXECUTABLE(CryptoTests AesCipherTest.cpp MD5HashTest.cpp)
+	ADD_EXECUTABLE(CryptoTests AesCipherTest.cpp HashTest.cpp)
 	TARGET_LINK_LIBRARIES(CryptoTests PRIVATE rptest romdata)
 	TARGET_COMPILE_DEFINITIONS(CryptoTests PRIVATE RP_BUILDING_FOR_DLL=1)
 	IF(WIN32)

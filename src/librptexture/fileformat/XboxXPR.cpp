@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * XboxXPR.cpp: Microsoft Xbox XPR0 texture reader.                        *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -22,6 +22,9 @@ using LibRpText::rp_sprintf;
 #include "img/rp_image.hpp"
 #include "decoder/ImageDecoder_Linear.hpp"
 #include "decoder/ImageDecoder_S3TC.hpp"
+
+// C++ STL classes
+using std::array;
 
 namespace LibRpTexture {
 
@@ -175,7 +178,6 @@ const TextureInfo XboxXPRPrivate::textureInfo = {
 XboxXPRPrivate::XboxXPRPrivate(XboxXPR *q, const IRpFilePtr &file)
 	: super(q, file, &textureInfo)
 	, xprType(XPRType::Unknown)
-	, img(nullptr)
 {
 	// Clear the structs and arrays.
 	memset(&xpr0Header, 0, sizeof(xpr0Header));
@@ -362,7 +364,7 @@ rp_image_const_ptr XboxXPRPrivate::loadXboxXPR0Image(void)
 				// DXTn is automatically unswizzled by the DXTn
 				// functions, so those should be false.
 	};
-	static const std::array<xpr_mode_t, 0x42> xpr_mode_tbl = {{
+	static const array<xpr_mode_t, 0x42> xpr_mode_tbl = {{
 		{ 8, ImageDecoder::PixelFormat::L8,		0, true},	// 0x00: L8
 		{ 0, ImageDecoder::PixelFormat::Unknown,	0, true},	// 0x01: AL8 (TODO)
 		{16, ImageDecoder::PixelFormat::ARGB1555, 	0, true},	// 0x02: ARGB1555
@@ -640,7 +642,7 @@ const char *XboxXPR::pixelFormat(void) const
 		return nullptr;
 	}
 
-	static const std::array<const char*, 0x65> pxfmt_tbl = {
+	static const array<const char*, 0x65> pxfmt_tbl = {{
 		// 0x00
 		"L8", "AL8", "ARGB1555", "RGB555",
 		"ARGB4444", "RGB565", "ARGB8888", "xRGB8888",
@@ -694,7 +696,7 @@ const char *XboxXPR::pixelFormat(void) const
 		// 0x60
 		nullptr, nullptr, nullptr, "Vertex Data",
 		"Index16",
-	};
+	}};
 
 	if (d->xpr0Header.pixel_format < pxfmt_tbl.size()) {
 		return pxfmt_tbl[d->xpr0Header.pixel_format];
@@ -733,15 +735,16 @@ int XboxXPR::getFields(RomFields *fields) const
 	fields->reserve(initial_count + 1);	// Maximum of 1 field. (TODO)
 
 	// Type
-	static const char type_tbl[][8] = {
+	const char *const s_type_title = C_("RomData", "Type");
+	static constexpr char type_tbl[][8] = {
 		"XPR0", "XPR1", "XPR2"
 	};
 	if (d->xprType > XboxXPRPrivate::XPRType::Unknown &&
 	    (int)d->xprType < ARRAY_SIZE_I(type_tbl))
 	{
-		fields->addField_string(C_("XboxXPR", "Type"), type_tbl[(int)d->xprType]);
+		fields->addField_string(s_type_title, type_tbl[(int)d->xprType]);
 	} else {
-		fields->addField_string(C_("XboxXPR", "Type"),
+		fields->addField_string(s_type_title,
 			rp_sprintf(C_("RomData", "Unknown (%d)"), (int)d->xprType));
 	}
 

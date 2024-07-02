@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * Xbox360_XEX.cpp: Microsoft Xbox 360 executable reader.                  *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -237,10 +237,10 @@ public:
 #ifdef ENABLE_DECRYPTION
 public:
 	// Verification key names.
-	static const std::array<const char*, Xbox360_XEX::Key_Max> EncryptionKeyNames;
+	static const array<const char*, (int)Xbox360_XEX::EncryptionKeys::Key_Max> EncryptionKeyNames;
 
 	// Verification key data.
-	static const uint8_t EncryptionKeyVerifyData[Xbox360_XEX::Key_Max][16];
+	static const uint8_t EncryptionKeyVerifyData[(int)Xbox360_XEX::EncryptionKeys::Key_Max][16];
 #endif
 };
 
@@ -269,7 +269,7 @@ const RomDataInfo Xbox360_XEX_Private::romDataInfo = {
 
 #ifdef ENABLE_DECRYPTION
 // Verification key names.
-const std::array<const char*, Xbox360_XEX::Key_Max> Xbox360_XEX_Private::EncryptionKeyNames = {{
+const std::array<const char*, (int)Xbox360_XEX::EncryptionKeys::Key_Max> Xbox360_XEX_Private::EncryptionKeyNames = {{
 	// XEX1
 	"xbox360-xex1",
 
@@ -277,7 +277,7 @@ const std::array<const char*, Xbox360_XEX::Key_Max> Xbox360_XEX_Private::Encrypt
 	"xbox360-xex2",
 }};
 
-const uint8_t Xbox360_XEX_Private::EncryptionKeyVerifyData[Xbox360_XEX::Key_Max][16] = {
+const uint8_t Xbox360_XEX_Private::EncryptionKeyVerifyData[(int)Xbox360_XEX::EncryptionKeys::Key_Max][16] = {
 	// xbox360-xex1
 	{0xB9,0x41,0x44,0x80,0xA4,0xE1,0x94,0x82,
 	 0xA2,0x9B,0xCD,0x7E,0xC4,0x68,0xB8,0xF0},
@@ -998,7 +998,7 @@ int Xbox360_XEX_Private::initPeReader(void)
  */
 string Xbox360_XEX_Private::formatMediaID(const uint8_t *pId)
 {
-	static const std::array<char, 16> hex_lookup = {{
+	static constexpr array<char, 16> hex_lookup = {{
 		'0','1','2','3','4','5','6','7',
 		'8','9','A','B','C','D','E','F',
 	}};
@@ -1037,7 +1037,7 @@ void Xbox360_XEX_Private::convertGameRatings(
 	// Region conversion table:
 	// - Index: Xbox 360 region (-1 if not supported)
 	// - Value: RomFields::age_ratings_t region
-	static const RomFields::AgeRatingsCountry region_conv[14] = {
+	static constexpr array<RomFields::AgeRatingsCountry, 14> region_conv = {{
 		RomFields::AgeRatingsCountry::USA,
 		RomFields::AgeRatingsCountry::Europe,
 		RomFields::AgeRatingsCountry::Finland,
@@ -1052,7 +1052,7 @@ void Xbox360_XEX_Private::convertGameRatings(
 		RomFields::AgeRatingsCountry::Invalid,		// TODO: FPB?
 		RomFields::AgeRatingsCountry::Taiwan,
 		RomFields::AgeRatingsCountry::Invalid,		// TODO: Singapore
-	};
+	}};
 
 	// Rating conversion table:
 	// - Primary index: Xbox 360 region
@@ -1065,7 +1065,7 @@ void Xbox360_XEX_Private::convertGameRatings(
 	// - If rating A is 0, and rating B is 2:
 	//   - The value for "A" gets slot 0.
 	//   - The value for "B" gets slots 1 and 2.
-	static const int8_t region_values[14][16] = {
+	static constexpr int8_t region_values[14][16] = {
 		// USA (ESRB)
 		{3, 6, 6, 10, 10, 13, 13, 17, 17, 18, 18, 18, 18, 18, 18, -1},
 		// Europe (PEGI)
@@ -1266,7 +1266,7 @@ const Xbox360_XDBF *Xbox360_XEX_Private::initXDBF(void)
 				xdbf_physaddr -= (iter->vaddr - iter->physaddr);
 			}
 		}
-		peFile_tmp = std::make_shared<PartitionFile>(peReader.get(), xdbf_physaddr, pResInfo->size);
+		peFile_tmp = std::make_shared<PartitionFile>(peReader, xdbf_physaddr, pResInfo->size);
 	}
 	if (peFile_tmp->isOpen()) {
 		// FIXME: XEX1 XDBF is either encrypted or garbage...
@@ -1707,7 +1707,7 @@ int Xbox360_XEX::loadFieldData(void)
 			C_("Xbox360_XEX", "Xbox Game Disc only"));
 	} else {
 		// Other types.
-		static const std::array<const char*, 29> media_type_tbl = {{
+		static const array<const char*, 29> media_type_tbl = {{
 			// 0
 			NOP_C_("Xbox360_XEX", "Hard Disk"),
 			NOP_C_("Xbox360_XEX", "XGD1"),
@@ -1907,10 +1907,10 @@ int Xbox360_XEX::loadFieldData(void)
 				break;
 		}
 	}
-	d->fields.addField_string(C_("Xbox360_XEX", "Encryption Key"), s_encryption_key);
+	d->fields.addField_string(C_("RomData", "Encryption Key"), s_encryption_key);
 
 	// Compression
-	static const std::array<const char*, 4> compression_tbl = {{
+	static const array<const char*, 4> compression_tbl = {{
 		NOP_C_("Xbox360_XEX|Compression", "None"),
 		NOP_C_("Xbox360_XEX|Compression", "Basic (Sparse)"),
 		NOP_C_("Xbox360_XEX|Compression", "Normal (LZX)"),
@@ -1918,7 +1918,7 @@ int Xbox360_XEX::loadFieldData(void)
 	}};
 	if (d->fileFormatInfo.compression_type < compression_tbl.size()) {
 		d->fields.addField_string(C_("Xbox360_XEX", "Compression"),
-			dpgettext_expr(RP_I18N_DOMAIN, "Xbox360_XEX|Compression",
+			pgettext_expr("Xbox360_XEX|Compression",
 				compression_tbl[d->fileFormatInfo.compression_type]));
 	} else {
 		d->fields.addField_string(C_("Xbox360_XEX", "Compression"),
@@ -2078,7 +2078,7 @@ int Xbox360_XEX::checkViewedAchievements(void) const
  */
 int Xbox360_XEX::encryptionKeyCount_static(void)
 {
-	return Key_Max;
+	return (int)EncryptionKeys::Key_Max;
 }
 
 /**
@@ -2089,8 +2089,8 @@ int Xbox360_XEX::encryptionKeyCount_static(void)
 const char *Xbox360_XEX::encryptionKeyName_static(int keyIdx)
 {
 	assert(keyIdx >= 0);
-	assert(keyIdx < Key_Max);
-	if (keyIdx < 0 || keyIdx >= Key_Max)
+	assert(keyIdx < (int)EncryptionKeys::Key_Max);
+	if (keyIdx < 0 || keyIdx >= (int)EncryptionKeys::Key_Max)
 		return nullptr;
 	return Xbox360_XEX_Private::EncryptionKeyNames[keyIdx];
 }
@@ -2103,8 +2103,8 @@ const char *Xbox360_XEX::encryptionKeyName_static(int keyIdx)
 const uint8_t *Xbox360_XEX::encryptionVerifyData_static(int keyIdx)
 {
 	assert(keyIdx >= 0);
-	assert(keyIdx < Key_Max);
-	if (keyIdx < 0 || keyIdx >= Key_Max)
+	assert(keyIdx < (int)EncryptionKeys::Key_Max);
+	if (keyIdx < 0 || keyIdx >= (int)EncryptionKeys::Key_Max)
 		return nullptr;
 	return Xbox360_XEX_Private::EncryptionKeyVerifyData[keyIdx];
 }

@@ -2,19 +2,21 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * OptionsMenuButton.cpp: Options menu GtkMenuButton container.            *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "OptionsMenuButton.hpp"
 #include "PIMGTYPE.hpp"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
+#include "RpGtkCpp.hpp"
 
 // librpbase
 using LibRpBase::RomData;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -138,7 +140,7 @@ struct option_menu_action_t {
 	const char *desc;
 	int id;
 };
-static const std::array<option_menu_action_t, 4> stdacts = {{
+static const array<option_menu_action_t, 4> stdacts = {{
 	{NOP_C_("OptionsMenuButton|StdActs", "Export to Text..."),	OPTION_EXPORT_TEXT},
 	{NOP_C_("OptionsMenuButton|StdActs", "Export to JSON..."),	OPTION_EXPORT_JSON},
 	{NOP_C_("OptionsMenuButton|StdActs", "Copy as Text"),		OPTION_COPY_TEXT},
@@ -164,7 +166,7 @@ rp_options_menu_button_class_init(RpOptionsMenuButtonClass *klass)
 	props[PROP_DIRECTION] = g_param_spec_enum(
 		"direction", "Direction (up or down)", "Direction for the dropdown arrow.",
 		GTK_TYPE_ARROW_TYPE, GTK_ARROW_UP,
-		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+		(GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS | G_PARAM_EXPLICIT_NOTIFY));
 
 	// Install the properties.
 	// NOTE: Not overriding properties anymore because this widget
@@ -179,6 +181,7 @@ rp_options_menu_button_class_init(RpOptionsMenuButtonClass *klass)
 		static_cast<GSignalFlags>(G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION),
 		0, nullptr, nullptr, nullptr,
 		G_TYPE_NONE, 0);
+
 	signals[SIGNAL_ACTIVATE] = g_signal_new("activate",
 		G_OBJECT_CLASS_TYPE(gobject_class),
 		static_cast<GSignalFlags>(G_SIGNAL_RUN_FIRST | G_SIGNAL_ACTION),
@@ -219,8 +222,8 @@ rp_options_menu_button_init(RpOptionsMenuButton *widget)
 	rp_options_menu_button_set_direction(widget, GTK_ARROW_UP);
 
 #if GTK_CHECK_VERSION(4,0,0)
-	gtk_menu_button_set_label(GTK_MENU_BUTTON(widget), s_title.c_str());
-	gtk_menu_button_set_use_underline(GTK_MENU_BUTTON(widget), TRUE);
+	gtk_menu_button_set_label(GTK_MENU_BUTTON(widget->menuButton), s_title.c_str());
+	gtk_menu_button_set_use_underline(GTK_MENU_BUTTON(widget->menuButton), TRUE);
 #else /* !GTK_CHECK_VERSION(4,0,0) */
 	gtk_widget_show(widget->menuButton);	// needed for GTK2/GTK3 but not GTK4
 
@@ -246,7 +249,11 @@ rp_options_menu_button_init(RpOptionsMenuButton *widget)
 #endif /* GTK_CHECK_VERSION(4,0,0) */
 
 	// Connect the wrapper signals.
+	// NOTE: GTK4 GtkMenuButton does not have a "clicked" signal.
+	// TODO: Remove the wrapped "clicked" signal?
+#if !GTK_CHECK_VERSION(4,0,0)
 	g_signal_connect(widget->menuButton, "clicked", G_CALLBACK(menuButton_clicked_signal_handler), widget);
+#endif /* !GTK_CHECK_VERSION(4,0,0) */
 	g_signal_connect(widget->menuButton, "activate", G_CALLBACK(menuButton_activate_signal_handler), widget);
 
 #ifndef USE_GTK_MENU_BUTTON
@@ -310,7 +317,7 @@ rp_options_menu_button_set_property(GObject		*object,
 
 	switch (prop_id) {
 		case PROP_DIRECTION:
-			rp_options_menu_button_set_direction(widget, (GtkArrowType)g_value_get_enum(value));
+			rp_options_menu_button_set_direction(widget, static_cast<GtkArrowType>(g_value_get_enum(value)));
 			break;
 
 		default:
@@ -362,7 +369,7 @@ rp_options_menu_button_set_direction(RpOptionsMenuButton *widget, GtkArrowType a
 #endif /* USE_GTK_MENU_BUTTON */
 
 #if !GTK_CHECK_VERSION(4,0,0)
-	static const char iconName_tbl[][20] = {
+	static constexpr char iconName_tbl[][20] = {
 		"pan-up-symbolic",
 		"pan-down-symbolic",
 		"pan-start-symbolic",
@@ -387,6 +394,8 @@ rp_options_menu_button_set_direction(RpOptionsMenuButton *widget, GtkArrowType a
 #else /* !USE_GTK_MENU_BUTTON */
 	widget->arrowType = arrowType;
 #endif /* USE_GTK_MENU_BUTTON */
+
+	g_object_notify_by_pspec(G_OBJECT(widget), props[PROP_DIRECTION]);
 }
 
 static gboolean
@@ -556,7 +565,7 @@ rp_options_menu_button_reinit_menu(RpOptionsMenuButton *widget,
 
 		// Create the menu item.
 		snprintf(buf, sizeof(buf), "%s.%d", prefix, p.id);
-		g_menu_append(menuStdActs, dpgettext_expr(RP_I18N_DOMAIN, "RomDataView|Options", p.desc), buf);
+		g_menu_append(menuStdActs, pgettext_expr("RomDataView|Options", p.desc), buf);
 	}
 
 	/** ROM operations. **/
@@ -594,7 +603,7 @@ rp_options_menu_button_reinit_menu(RpOptionsMenuButton *widget,
 
 	for (const option_menu_action_t &p : stdacts) {
 		GtkWidget *const menuItem = gtk_menu_item_new_with_label(
-			dpgettext_expr(RP_I18N_DOMAIN, "RomDataView|Options", p.desc));
+			pgettext_expr("RomDataView|Options", p.desc));
 		// NOTE: No name for this GtkWidget.
 		g_object_set_qdata(G_OBJECT(menuItem), menuOptions_id_quark, GINT_TO_POINTER(p.id));
 		g_signal_connect(menuItem, "activate", G_CALLBACK(menuOptions_triggered_signal_handler), widget);

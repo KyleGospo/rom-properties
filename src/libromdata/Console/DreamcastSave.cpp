@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * DreamcastSave.cpp: Sega Dreamcast save file reader.                     *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -11,12 +11,15 @@
 #include "dc_structs.h"
 
 // Other rom-properties libraries
+#include "librptexture/decoder/ImageDecoder_Linear.hpp"
+#include "librptexture/decoder/ImageDecoder_Linear_Gray.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -86,8 +89,8 @@ public:
 	// - VMS: 0
 	// - DCI: 32
 	uint32_t data_area_offset;
-	static const uint32_t DATA_AREA_OFFSET_VMS = 0;
-	static const uint32_t DATA_AREA_OFFSET_DCI = 32;
+	static constexpr uint32_t DATA_AREA_OFFSET_VMS = 0;
+	static constexpr uint32_t DATA_AREA_OFFSET_DCI = 32;
 
 	/** NOTE: Fields have been byteswapped when loaded. **/
 	// VMS header
@@ -126,8 +129,8 @@ public:
 	 */
 	int readVmiHeader(const IRpFilePtr &vmi_file);
 
-	// Graphic eyecatch sizes
-	static const uint32_t eyecatch_sizes[4];
+	// Graphic eyecatch sizes (in bytes)
+	static const array<uint16_t, 4> eyecatch_sizes;
 
 	// VMS icon struct
 	// For processing VMS icons only;
@@ -205,13 +208,13 @@ const RomDataInfo DreamcastSavePrivate::romDataInfo = {
 	"DreamcastSave", exts, mimeTypes
 };
 
-// Graphic eyecatch sizes.
-const uint32_t DreamcastSavePrivate::eyecatch_sizes[4] = {
+// Graphic eyecatch sizes (in bytes)
+const array<uint16_t, 4> DreamcastSavePrivate::eyecatch_sizes = {{
 	0,	// DC_VMS_EYECATCH_NONE
 	DC_VMS_EYECATCH_ARGB4444_DATA_SIZE,
 	DC_VMS_EYECATCH_CI8_PALETTE_SIZE + DC_VMS_EYECATCH_CI8_DATA_SIZE,
 	DC_VMS_EYECATCH_CI4_PALETTE_SIZE + DC_VMS_EYECATCH_CI4_DATA_SIZE
-};
+}};
 
 DreamcastSavePrivate::DreamcastSavePrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
@@ -321,11 +324,11 @@ unsigned int DreamcastSavePrivate::readAndVerifyVmsHeader(uint32_t address)
 			rp_byte_swap_32_array(vms_header.dci_dword, sizeof(vms_header.icondata_vms));
 		}
 
-#if SYS_BYTEORDER == SYS_LIL_ENDIAN
+#if SYS_BYTEORDER == SYS_BIG_ENDIAN
 		// Byteswap the fields.
-		vms_header.icondata_vms.mono_icon_addr = le32_to_cpu(vms_header.icondata_vms.mono_icon_addr);
+		vms_header.icondata_vms.mono_icon_addr  = le32_to_cpu(vms_header.icondata_vms.mono_icon_addr);
 		vms_header.icondata_vms.color_icon_addr = le32_to_cpu(vms_header.icondata_vms.color_icon_addr);
-#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
+#endif /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
 
 		this->vms_header_offset = address;
 		return DC_IS_ICONDATA_VMS;
@@ -340,14 +343,14 @@ unsigned int DreamcastSavePrivate::readAndVerifyVmsHeader(uint32_t address)
 		rp_byte_swap_32_array(vms_header.dci_dword, sizeof(vms_header.dci_dword));
 	}
 
-#if SYS_BYTEORDER == SYS_LIL_ENDIAN
+#if SYS_BYTEORDER == SYS_BIG_ENDIAN
 	// Byteswap the fields.
 	vms_header.icon_count      = le16_to_cpu(vms_header.icon_count);
 	vms_header.icon_anim_speed = le16_to_cpu(vms_header.icon_anim_speed);
 	vms_header.eyecatch_type   = le16_to_cpu(vms_header.eyecatch_type);
 	vms_header.crc             = le16_to_cpu(vms_header.crc);
 	vms_header.data_size       = le32_to_cpu(vms_header.data_size);
-#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
+#endif /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
 
 	// VMS header loaded.
 	this->vms_header_offset = address;
@@ -372,14 +375,14 @@ int DreamcastSavePrivate::readVmiHeader(const IRpFilePtr &vmi_file)
 		return (lastError != 0 ? -lastError : -EIO);
 	}
 
-#if SYS_BYTEORDER == SYS_LIL_ENDIAN
+#if SYS_BYTEORDER == SYS_BIG_ENDIAN
 	// Byteswap the VMI header.
 	vmi_header.ctime.year  = le16_to_cpu(vmi_header.ctime.year);
 	vmi_header.vmi_version = le16_to_cpu(vmi_header.vmi_version);
 	vmi_header.mode        = le16_to_cpu(vmi_header.mode);
 	vmi_header.reserved    = le16_to_cpu(vmi_header.reserved);
 	vmi_header.filesize    = le32_to_cpu(vmi_header.filesize);
-#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
+#endif /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
 
 	// VMI header is loaded.
 	loaded_headers |= DreamcastSavePrivate::DC_HAVE_VMI;
@@ -427,7 +430,7 @@ rp_image_const_ptr DreamcastSavePrivate::loadIcon(void)
 	if (iconAnimData) {
 		// Icon has already been loaded.
 		return iconAnimData->frames[0];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the icon.
 		return nullptr;
 	}
@@ -544,7 +547,7 @@ rp_image_const_ptr DreamcastSavePrivate::loadIcon_ICONDATA_VMS(void)
 	if (iconAnimData) {
 		// Icon has already been loaded.
 		return iconAnimData->frames[0];
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the icon.
 		return nullptr;
 	}
@@ -660,7 +663,7 @@ rp_image_const_ptr DreamcastSavePrivate::loadBanner(void)
 	if (img_banner) {
 		// Banner is already loaded.
 		return img_banner;
-	} else if (!this->file || !this->isValid) {
+	} else if (!this->isValid || !this->file) {
 		// Can't load the banner.
 		return nullptr;
 	}
@@ -815,12 +818,12 @@ DreamcastSave::DreamcastSave(const IRpFilePtr &file)
 			return;
 		}
 
-#if SYS_BYTEORDER == SYS_LIL_ENDIAN
+#if SYS_BYTEORDER == SYS_BIG_ENDIAN
 		// Byteswap the directory entry.
 		d->vms_dirent.address     = le16_to_cpu(d->vms_dirent.address);
 		d->vms_dirent.size        = le16_to_cpu(d->vms_dirent.size);
 		d->vms_dirent.header_addr = le16_to_cpu(d->vms_dirent.header_addr);
-#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
+#endif /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
 
 		d->isGameFile = !!(d->vms_dirent.filetype == DC_VMS_DIRENT_FTYPE_GAME);
 		d->loaded_headers |= DreamcastSavePrivate::DC_HAVE_DIR_ENTRY;
@@ -1382,7 +1385,7 @@ int DreamcastSave::loadFieldData(void)
 
 		// Filename
 		// TODO: Latin1 or Shift-JIS?
-		d->fields.addField_string(C_("DreamcastSave", "Filename"),
+		d->fields.addField_string(C_("RomData", "Filename"),
 			latin1_to_utf8(d->vms_dirent.filename, sizeof(d->vms_dirent.filename)));
 
 		// Creation time

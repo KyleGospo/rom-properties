@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * EXE_manifest.cpp: DOS/Windows executable reader. (PE manifest reader)   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,7 +13,7 @@
 #error Cannot compile EXE_manifest.cpp without XML support.
 #endif
 
-// Other orm-properties libraries
+// Other rom-properties libraries
 using namespace LibRpBase;
 using namespace LibRpFile;
 
@@ -22,6 +22,7 @@ using namespace LibRpFile;
 using namespace tinyxml2;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -92,7 +93,7 @@ int EXEPrivate::loadWin32ManifestResource(XMLDocument &doc, const char **ppResNa
 		uint16_t id;
 		const char *name;
 	};
-	static const std::array<resource_id_t, 4> resource_id_tbl = {{
+	static const array<resource_id_t, 4> resource_id_tbl = {{
 		{CREATEPROCESS_MANIFEST_RESOURCE_ID, "CreateProcess"},
 		{ISOLATIONAWARE_MANIFEST_RESOURCE_ID, "Isolation-Aware"},
 		{ISOLATIONAWARE_NOSTATICIMPORT_MANIFEST_RESOURCE_ID, "Isolation-Aware, No Static Import"},

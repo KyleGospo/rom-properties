@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * PIMGTYPE.hpp: PIMGTYPE typedef and wrapper functions.                   *
  *                                                                         *
- * Copyright (c) 2017-2021 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,7 +13,7 @@
 #include "librpbase/img/RpPng.hpp"
 #include "librpfile/MemFile.hpp"
 using namespace LibRpBase;
-using LibRpFile::IRpFile;
+using LibRpFile::IRpFilePtr;
 using LibRpFile::MemFile;
 using LibRpTexture::rp_image_ptr;
 
@@ -102,9 +102,10 @@ PIMGTYPE PIMGTYPE_scale(PIMGTYPE pImgType, int width, int height, bool bilinear)
 	}
 
 	// Create a GdkMemoryTexture using the cairo_surface_t image data directly.
-	// NOTE: The data here technically isn't static, but we don't want to do *two* copies.
+	// NOTE: GdkMemoryTexture only does a g_bytes_ref() if the stride matches
+	// what it expects, so we need to do a deep copy here.
 	const int dest_stride = cairo_image_surface_get_stride(dest_surface);
-	GBytes *const pBytes = g_bytes_new_static(cairo_image_surface_get_data(dest_surface), height * dest_stride);
+	GBytes *const pBytes = g_bytes_new(cairo_image_surface_get_data(dest_surface), height * dest_stride);
 	// FIXME: GDK_MEMORY_DEFAULT (GDK_MEMORY_B8G8R8A8_PREMULTIPLIED) causes a heap overflow here...
 	GdkTexture *const texture = gdk_memory_texture_new(width, height, GDK_MEMORY_B8G8R8A8, pBytes, dest_stride);
 	g_bytes_unref(pBytes);
@@ -158,7 +159,7 @@ static cairo_status_t PIMGTYPE_CairoReadFunc(void *closure, unsigned char *data,
 }
 #else /* GdkPixbuf */
 // Mapping of data pointers to GBytes* objects for unreference.
-static std::unordered_map<const void*, GBytes*> map_gbytes_unref;
+static std::map<const void*, GBytes*> map_gbytes_unref;
 
 /**
  * GDestroyNotify for g_memory_input_stream_new_from_data().
@@ -241,7 +242,7 @@ rp_image_ptr rp_image_load_png_from_gresource(const char *filename)
 
 	gsize size = 0;
 	gconstpointer data = g_bytes_get_data(pBytes, &size);
-	shared_ptr<IRpFile> memFile = std::make_shared<MemFile>(data, size);
+	IRpFilePtr memFile = std::make_shared<MemFile>(data, size);
 
 	return RpPng::load(memFile);
 }

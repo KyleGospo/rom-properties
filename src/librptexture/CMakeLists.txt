@@ -1,10 +1,4 @@
 # rom-properties texture decoding library
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rptexture LANGUAGES CXX)
 
 # OpenMP (TODO: AUTO/ON/OFF?)
@@ -35,6 +29,7 @@ SET(${PROJECT_NAME}_SRCS
 	img/un-premultiply.cpp
 
 	decoder/ImageDecoder_Linear.cpp
+	decoder/ImageDecoder_Linear_Gray.cpp
 	decoder/ImageDecoder_GCN.cpp
 	decoder/ImageDecoder_NDS.cpp
 	decoder/ImageDecoder_N3DS.cpp
@@ -42,8 +37,7 @@ SET(${PROJECT_NAME}_SRCS
 	decoder/ImageDecoder_DC.cpp
 	decoder/ImageDecoder_ETC1.cpp
 	decoder/ImageDecoder_BC7.cpp
-
-	decoder/PixelConversion.cpp
+	decoder/ImageDecoder_C64.cpp
 
 	fileformat/FileFormat.cpp
 	fileformat/ASTC.cpp
@@ -52,6 +46,7 @@ SET(${PROJECT_NAME}_SRCS
 	fileformat/GodotSTEX.cpp
 	fileformat/KhronosKTX.cpp
 	fileformat/KhronosKTX2.cpp
+	fileformat/PalmOS_Tbmp.cpp
 	fileformat/PowerVR3.cpp
 	fileformat/SegaPVR.cpp
 	fileformat/TGA.cpp
@@ -76,6 +71,7 @@ SET(${PROJECT_NAME}_H
 	decoder/ImageDecoder_common.hpp
 	decoder/ImageDecoder_p.hpp
 	decoder/ImageDecoder_Linear.hpp
+	decoder/ImageDecoder_Linear_Gray.hpp
 	decoder/ImageDecoder_GCN.hpp
 	decoder/ImageDecoder_NDS.hpp
 	decoder/ImageDecoder_N3DS.hpp
@@ -83,6 +79,7 @@ SET(${PROJECT_NAME}_H
 	decoder/ImageDecoder_DC.hpp
 	decoder/ImageDecoder_ETC1.hpp
 	decoder/ImageDecoder_BC7.hpp
+	decoder/ImageDecoder_C64.hpp
 	decoder/PixelConversion.hpp
 
 	fileformat/FileFormat.hpp
@@ -94,6 +91,7 @@ SET(${PROJECT_NAME}_H
 	fileformat/GodotSTEX.hpp
 	fileformat/KhronosKTX.hpp
 	fileformat/KhronosKTX2.hpp
+	fileformat/PalmOS_Tbmp.hpp
 	fileformat/PowerVR3.hpp
 	fileformat/SegaPVR.hpp
 	fileformat/TGA.hpp
@@ -107,6 +105,8 @@ SET(${PROJECT_NAME}_H
 	fileformat/godot_stex_structs.h
 	fileformat/ktx_structs.h
 	fileformat/ktx_structs.h
+	fileformat/palmos_tbmp_structs.h
+	fileformat/palmos_system_palette.h
 	fileformat/pvr_structs.h
 	fileformat/pvr3_structs.h
 	fileformat/vtf_structs.h
@@ -249,8 +249,9 @@ FOREACH(_target ${TARGETS})
 	ENDIF()
 
 	# TODO: More public/private library stuff.
-	TARGET_LINK_LIBRARIES(${_target} PUBLIC rpcpu${_target_suffix} rpfile${_target_suffix} rptext${_target_suffix})
+	TARGET_LINK_LIBRARIES(${_target} PUBLIC rpbyteswap${_target_suffix} rpfile${_target_suffix} rptext${_target_suffix})
 	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpthreads${_target_suffix})
+	TARGET_LINK_LIBRARIES(${_target} PRIVATE rpcpuid)	# for CPU dispatch
 
 	# Include paths:
 	# - Public: Current source and binary directories.

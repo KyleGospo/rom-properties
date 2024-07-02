@@ -17,6 +17,7 @@
 #include <cassert>
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 namespace LibRpText {
@@ -25,12 +26,12 @@ namespace LibRpText {
  * Convert 8-bit text to UTF-8 using a lookup table.
  * Used by cpN_to_utf8 for RP-custom code pages.
  *
- * @param tbl	[in] 256-element decoding table. (Only supports Unicode BMP.)
- * @param str	[in] 8-bit text.
- * @param len	[in] Length of str, in bytes. (-1 for NULL-terminated string)
+ * @param tbl	[in] 256-element decoding table (Only supports Unicode BMP)
+ * @param str	[in] 8-bit text
+ * @param len	[in] Length of str, in bytes (-1 for NULL-terminated string)
  * @return UTF-8 string.
  */
-static string str8_to_utf8(const char16_t tbl[256], const char *str, int len)
+static string str8_to_utf8(const array<char16_t, 256>& tbl, const char *str, int len)
 {
 	string s_utf8;
 
@@ -48,7 +49,7 @@ static string str8_to_utf8(const char16_t tbl[256], const char *str, int len)
 		// This allows us to trim strings while preserving any
 		// embedded NULLs that might be graphics characters.
 		const char *end = str + len - 1;
-		for (; end > str; end--) {
+		for (; end >= str; end--) {
 			if (*end != 0x00)
 				break;
 		}
@@ -57,7 +58,7 @@ static string str8_to_utf8(const char16_t tbl[256], const char *str, int len)
 
 	if (len <= 0) {
 		// Nothing to do...
-		return {};
+		return s_utf8;
 	}
 
 	s_utf8.reserve(len + 8);
@@ -98,11 +99,11 @@ std::string cpRP_to_utf8(unsigned int cp, const char *str, int len)
 		return {};
 
 	cp &= ~CP_RP_BASE;
-	assert(cp < ARRAY_SIZE(CodePageTables::lkup_tbls));
-	if (cp >= ARRAY_SIZE(CodePageTables::lkup_tbls))
+	assert(cp < CodePageTables::lkup_tbls.size());
+	if (cp >= CodePageTables::lkup_tbls.size())
 		return {};
 
-	return str8_to_utf8(CodePageTables::lkup_tbls[cp], str, len);
+	return str8_to_utf8(*(CodePageTables::lkup_tbls[cp]), str, len);
 }
 
 }

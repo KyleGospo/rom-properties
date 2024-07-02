@@ -2,13 +2,16 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * ELFData.cpp: Executable and Linkable Format data.                       *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
 #include "stdafx.h"
 #include "ELFData.hpp"
 #include "Other/elf_structs.h"
+
+// C++ STL classes
+using std::array;
 
 namespace LibRomData { namespace ELFData {
 
@@ -22,7 +25,7 @@ struct ELFMachineType {
 
 // ELF machine types. (other IDs)
 // Reference: https://github.com/file/file/blob/master/magic/Magdir/elf
-static const std::array<ELFMachineType, 30> ELFMachineTypes_other = {{
+static const array<ELFMachineType, 30> ELFMachineTypes_other = {{
 	// The following are unofficial and/or obsolete types.
 	// TODO: Indicate unofficial/obsolete using a separate flag?
 	{0x1057,	"AVR (unofficial)"},

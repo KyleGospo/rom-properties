@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librpbase)                        *
  * Achievements.cpp: Achievements class.                                   *
  *                                                                         *
- * Copyright (c) 2020-2023 by David Korth.                                 *
+ * Copyright (c) 2020-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -10,25 +10,21 @@
 #include "Achievements.hpp"
 #include "libi18n/i18n.h"
 
-// librpfile, librptexture
+// librpbase, librpfile
+#include "librpbase/crypto/Hash.hpp"
 #include "librpfile/FileSystem.hpp"
 #include "librpfile/RpFile.hpp"
+using namespace LibRpBase;
 using namespace LibRpFile;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::unordered_map;
 
 // Uninitialized vector class
 #include "uvector.h"
-
-// zlib for CRC32.
-#include <zlib.h>
-#ifdef _MSC_VER
-// MSVC: Exception handling for /DELAYLOAD.
-#  include "libwin32common/DelayLoadHelper.h"
-#endif /* _MSC_VER */
 
 #ifdef _WIN32
 // Win32 is needed for GetCurrentProcessId().
@@ -45,172 +41,167 @@ using std::unordered_map;
 
 namespace LibRpBase {
 
-#ifdef _MSC_VER
-// DelayLoad test implementation.
-DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
-#endif /* _MSC_VER */
-
 class AchievementsPrivate
 {
-	public:
-		AchievementsPrivate();
+public:
+	AchievementsPrivate();
 
-	private:
-		RP_DISABLE_COPY(AchievementsPrivate)
+private:
+	RP_DISABLE_COPY(AchievementsPrivate)
 
-	public:
-		// Static Achievements instance.
-		// TODO: Q_GLOBAL_STATIC() equivalent, though we
-		// may need special initialization if the compiler
-		// doesn't support thread-safe statics.
-		static Achievements instance;
+public:
+	// Static Achievements instance.
+	// TODO: Q_GLOBAL_STATIC() equivalent, though we
+	// may need special initialization if the compiler
+	// doesn't support thread-safe statics.
+	static Achievements instance;
 
-	public:
-		// Notification function.
-		Achievements::NotifyFunc notifyFunc;
-		intptr_t user_data;
+public:
+	// Notification function.
+	Achievements::NotifyFunc notifyFunc;
+	intptr_t user_data;
 
-	public:
-		// Achievement types
-		enum AchType : uint8_t {
-			AT_COUNT = 0,	// Count (requires the same action X number of times)
-					// For BOOLEAN achievements, set count to 1.
-			AT_BITFIELD,	// Bitfield (multiple actions)
+public:
+	// Achievement types
+	enum AchType : uint8_t {
+		AT_COUNT = 0,	// Count (requires the same action X number of times)
+				// For BOOLEAN achievements, set count to 1.
+		AT_BITFIELD,	// Bitfield (multiple actions)
 
-			AT_MAX
+		AT_MAX
+	};
+
+	// Achievement information.
+	// Array index is the ID.
+	struct AchInfo_t {
+		const char *name;	// Name (NOP_C_, translatable)
+		const char *desc_unlk;	// Unlocked description (NOP_C_, translatable)
+		AchType type;		// Achievement type
+		uint8_t count;		// AT_COUNT: Number of times needed to unlock.
+					// AT_BITFIELD: Number of bits. (up to 64)
+					//              All bits must be 1 to unlock.
+	};
+	static const array<AchInfo_t, 5> achInfo;
+
+	// C++14 adds support for enum classes as unordered_map keys.
+	// C++11 needs an explicit hash functor.
+	struct EnumClassHash {
+		inline std::size_t operator()(Achievements::ID t) const
+		{
+			return std::hash<int>()(static_cast<int>(t));
+		}
+	};
+
+	// Active achievement data.
+	struct AchData_t {
+		union {
+			uint8_t count;		// AT_COUNT
+			uint64_t bitfield;	// AT_BITFIELD
 		};
+		time_t timestamp;		// Time this achievement was last updated.
+	};
 
-		// Achievement information.
-		// Array index is the ID.
-		struct AchInfo_t {
-			const char *name;	// Name (NOP_C_, translatable)
-			const char *desc_unlk;	// Unlocked description (NOP_C_, translatable)
-			AchType type;		// Achievement type
-			uint8_t count;		// AT_COUNT: Number of times needed to unlock.
-						// AT_BITFIELD: Number of bits. (up to 64)
-						//              All bits must be 1 to unlock.
-		};
-		static const std::array<AchInfo_t, 5> achInfo;
+	// Achievement map.
+	// TODO: Map vs. unordered_map for performance?
+	unordered_map<Achievements::ID, AchData_t, EnumClassHash> mapAchData;
+	bool loaded;	// Have achievements been loaded from disk?
 
-		// C++14 adds support for enum classes as unordered_map keys.
-		// C++11 needs an explicit hash functor.
-		struct EnumClassHash {
-			inline std::size_t operator()(Achievements::ID t) const
-			{
-				return std::hash<int>()(static_cast<int>(t));
-			}
-		};
-
-		// Active achievement data.
-		struct AchData_t {
-			union {
-				uint8_t count;		// AT_COUNT
-				uint64_t bitfield;	// AT_BITFIELD
-			};
-			time_t timestamp;		// Time this achievement was last updated.
-		};
-
-		// Achievement map.
-		// TODO: Map vs. unordered_map for performance?
-		unordered_map<Achievements::ID, AchData_t, EnumClassHash> mapAchData;
-		bool loaded;	// Have achievements been loaded from disk?
-
-		// Achievements filename and magic number.
+	// Achievements filename and magic number.
 #if defined(NDEBUG) || defined(FORCE_OBFUSCATE)
-		// Release version is obfuscated.
-		#define ACH_BIN_MAGIC    "RPACH10R"
-		#define ACH_BIN_FILENAME "ach.bin"
+	// Release version is obfuscated.
+	#define ACH_BIN_MAGIC    "RPACH10R"
+	#define ACH_BIN_FILENAME "ach.bin"
 #else /* !NDEBUG && !FORCE_OBFUSCATE */
-		// Debug version is not obfuscated.
-		#define ACH_BIN_MAGIC    "RPACH10D"
-		#define ACH_BIN_FILENAME "achd.bin"
+	// Debug version is not obfuscated.
+	#define ACH_BIN_MAGIC    "RPACH10D"
+	#define ACH_BIN_FILENAME "achd.bin"
 #endif /* NDEBUG || FORCE_OBFUSCATE*/
 
-		// Serialized achievement header.
-		// All fields are in little-endian.
-		struct AchBinHeader {
-			char magic[8];		// [0x000] "RPACH10R" or "RPACH10D"
-			uint32_t length;	// [0x008] Length of remainder of file, in bytes. [excludes CRC32; includes count]
-			uint32_t crc32;		// [0x00C] CRC32 of remainder of file. [includes count]
-			uint32_t count;		// [0x010] Number of achievements.
-		};
+	// Serialized achievement header.
+	// All fields are in little-endian.
+	struct AchBinHeader {
+		char magic[8];		// [0x000] "RPACH10R" or "RPACH10D"
+		uint32_t length;	// [0x008] Length of remainder of file, in bytes. [excludes CRC32; includes count]
+		uint32_t crc32;		// [0x00C] CRC32 of remainder of file. [includes count]
+		uint32_t count;		// [0x010] Number of achievements.
+	};
 
-		// The header is followed by achievement data: (1-byte alignment, little-endian)
-		// - uint16_t: Achievement ID
-		// - uint8_t: Achievement type
-		// - varlenint: Timestamp the achievement was last updated
-		// - Data (uint8_t for AT_COUNT, varlenint for AT_BITFIELD)
+	// The header is followed by achievement data: (1-byte alignment, little-endian)
+	// - uint16_t: Achievement ID
+	// - uint8_t: Achievement type
+	// - varlenint: Timestamp the achievement was last updated
+	// - Data (uint8_t for AT_COUNT, varlenint for AT_BITFIELD)
 
-		// varlenint is a variable-length value using an encoding
-		// similar to MIDI variable-length values:
-		// - 7 bits per byte, starting with the least-significant bits.
-		// - Last byte has bit 7 clear.
-		// - All other bytes have bit 7 set.
-		// Examples:
-		// -       0x10 -> 10
-		// -       0x80 -> 80 01
-		// -      0x100 -> 80 02
-		// - 0x0FFFFFFF -> FF FF FF 7F
+	// varlenint is a variable-length value using an encoding
+	// similar to MIDI variable-length values:
+	// - 7 bits per byte, starting with the least-significant bits.
+	// - Last byte has bit 7 clear.
+	// - All other bytes have bit 7 set.
+	// Examples:
+	// -       0x10 -> 10
+	// -       0x80 -> 80 01
+	// -      0x100 -> 80 02
+	// - 0x0FFFFFFF -> FF FF FF 7F
 
-		/**
-		 * Append a uint64_t to an rp::uvector<> using varlenint format.
-		 * @param vec rp::uvector<>
-		 * @param val Value
-		 */
-		static void appendVarlenInt(rp::uvector<uint8_t> &vec, uint64_t val);
+	/**
+	 * Append a uint64_t to an rp::uvector<> using varlenint format.
+	 * @param vec rp::uvector<>
+	 * @param val Value
+	 */
+	static void appendVarlenInt(rp::uvector<uint8_t> &vec, uint64_t val);
 
-		/**
-		 * Parse a varlenint value.
-		 * @param val	[out] Output value.
-		 * @param p	[in] Data pointer.
-		 * @param p_end	[in] End of data.
-		 * @return Number of bytes processed, or 0 on error.
-		 */
-		template<typename T>
-		static int parseVarlenInt(T &val, const uint8_t *p, const uint8_t *const p_end);
+	/**
+	 * Parse a varlenint value.
+	 * @param val	[out] Output value.
+	 * @param p	[in] Data pointer.
+	 * @param p_end	[in] End of data.
+	 * @return Number of bytes processed, or 0 on error.
+	 */
+	template<typename T>
+	static int parseVarlenInt(T &val, const uint8_t *p, const uint8_t *const p_end);
 
-		/**
-		 * Symmetric obfuscation function.
-		 * @param iv Initialization vector.
-		 * @param buf Data buffer.
-		 * @param size Size. (must be a multiple of 2)
-		 */
-		static void doObfuscate(uint16_t iv, uint8_t *buf, size_t size);
+	/**
+	 * Symmetric obfuscation function.
+	 * @param iv Initialization vector.
+	 * @param buf Data buffer.
+	 * @param size Size. (must be a multiple of 2)
+	 */
+	static void doObfuscate(uint16_t iv, uint8_t *buf, size_t size);
 
-		/**
-		 * Get the achievements filename.
-		 * @return Achievements filename.
-		 */
-		string getFilename(void) const
-		{
-			string filename = FileSystem::getConfigDirectory();
-			if (filename.empty())
-				return filename;
-
-			if (filename.at(filename.size()-1) != DIR_SEP_CHR) {
-				filename += DIR_SEP_CHR;
-			}
-			filename += ACH_BIN_FILENAME;
+	/**
+	 * Get the achievements filename.
+	 * @return Achievements filename.
+	 */
+	string getFilename(void) const
+	{
+		string filename = FileSystem::getConfigDirectory();
+		if (filename.empty())
 			return filename;
+
+		if (filename.at(filename.size()-1) != DIR_SEP_CHR) {
+			filename += DIR_SEP_CHR;
 		}
+		filename += ACH_BIN_FILENAME;
+		return filename;
+	}
 
-		/**
-		 * Save the achievements data.
-		 * @return 0 on success; negative POSIX error code on error.
-		 */
-		int save(void) const;
+	/**
+	 * Save the achievements data.
+	 * @return 0 on success; negative POSIX error code on error.
+	 */
+	int save(void) const;
 
-		/**
-		 * Load the achievements data.
-		 * @return 0 on success; negative POSIX error code on error.
-		 */
-		int load(void);
+	/**
+	 * Load the achievements data.
+	 * @return 0 on success; negative POSIX error code on error.
+	 */
+	int load(void);
 };
 
 /** AchievementsPrivate **/
 
 // Achievement information.
-const std::array<AchievementsPrivate::AchInfo_t, 5> AchievementsPrivate::achInfo = {{
+const array<AchievementsPrivate::AchInfo_t, 5> AchievementsPrivate::achInfo = {{
 	{
 		NOP_C_("Achievements", "You are now a developer!"),
 		NOP_C_("Achievements", "Viewed a debug-encrypted file."),
@@ -349,19 +340,12 @@ void AchievementsPrivate::doObfuscate(uint16_t iv, uint8_t *buf, size_t size)
  */
 int AchievementsPrivate::save(void) const
 {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
+	Hash crc32Hash(Hash::Algorithm::CRC32);
+	if (!crc32Hash.isUsable()) {
+		// zlib could not be initialized.
 		// Can't calculate the CRC32.
 		return -ENOTSUP;
 	}
-#else /* !defined(_MSC_VER) || !defined(ZLIB_IS_DLL) */
-	// zlib isn't in a DLL, but we need to ensure that the
-	// CRC table is initialized anyway.
-	get_crc_table();
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
 
 	// Create the achievements file in memory.
 	rp::uvector<uint8_t> buf;
@@ -426,7 +410,7 @@ int AchievementsPrivate::save(void) const
 	// get the header pointer again.
 	header = reinterpret_cast<AchBinHeader*>(buf.data());
 
-	static const size_t HeaderSizeMinusCount = sizeof(AchBinHeader) - sizeof(header->count);
+	static constexpr size_t HeaderSizeMinusCount = sizeof(AchBinHeader) - sizeof(header->count);
 
 	// Length of achievement data.
 	// Includes count, but not crc32.
@@ -435,9 +419,8 @@ int AchievementsPrivate::save(void) const
 	// CRC32 of achievement data.
 	// Includes count.
 	if (buf.size() > HeaderSizeMinusCount) {
-		header->crc32 = cpu_to_le32(
-			crc32(0, &buf.data()[HeaderSizeMinusCount],
-			      static_cast<uInt>(buf.size() - HeaderSizeMinusCount)));
+		crc32Hash.process(&buf.data()[HeaderSizeMinusCount], buf.size() - HeaderSizeMinusCount);
+		header->crc32 = cpu_to_le32(crc32Hash.getHash32());
 	}
 
 #if defined(NDEBUG) || defined(FORCE_OBFUSCATE)
@@ -499,15 +482,12 @@ int AchievementsPrivate::save(void) const
  */
 int AchievementsPrivate::load(void)
 {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
+	Hash crc32Hash(Hash::Algorithm::CRC32);
+	if (!crc32Hash.isUsable()) {
+		// zlib could not be initialized.
 		// Can't calculate the CRC32.
 		return -ENOTSUP;
 	}
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
 
 	// Clear loaded achievements.
 	loaded = false;
@@ -584,7 +564,7 @@ int AchievementsPrivate::load(void)
 	}
 
 	// Length should be >= HeaderSizeMinusCount, and less than 1 MB.
-	static const size_t HeaderSizeMinusCount = sizeof(AchBinHeader) - sizeof(header->count);
+	static constexpr size_t HeaderSizeMinusCount = sizeof(AchBinHeader) - sizeof(header->count);
 	const uint32_t data_len = le32_to_cpu(header->length);
 	if (data_len < sizeof(header->count) ||
 	    data_len >= ((1*1024*1024)-HeaderSizeMinusCount) ||
@@ -602,7 +582,8 @@ int AchievementsPrivate::load(void)
 	header = reinterpret_cast<const AchBinHeader*>(buf.data());
 
 	// Verify the CRC32.
-	const uint32_t crc = crc32(0, &buf.data()[HeaderSizeMinusCount], data_len);
+	crc32Hash.process(&buf.data()[HeaderSizeMinusCount], data_len);
+	const uint32_t crc = crc32Hash.getHash32();
 	if (crc != le32_to_cpu(header->crc32)) {
 		// Incorrect CRC32.
 		return -EBADF;
@@ -791,17 +772,6 @@ void Achievements::clearNotifyFunction(NotifyFunc func, intptr_t user_data)
  */
 int Achievements::unlock(ID id, int bit)
 {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
-		// We won't be able to calculate CRC32s, so don't
-		// enable achievements at all.
-		return -ENOTSUP;
-	}
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
 	// If this achievement is bool/count, increment the value.
 	// If the value has hit the maximum, achievement is unlocked.
 	assert((int)id >= 0);
@@ -902,17 +872,6 @@ int Achievements::unlock(ID id, int bit)
  */
 time_t Achievements::isUnlocked(ID id) const
 {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
-		// We won't be able to calculate CRC32s, so don't
-		// enable achievements at all.
-		return -1;
-	}
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
 	// If this achievement is bool/count, increment the value.
 	// If the value has hit the maximum, achievement is unlocked.
 	assert((int)id >= 0);
@@ -982,7 +941,7 @@ const char *Achievements::getName(ID id) const
 
 	RP_D(const Achievements);
 	const AchievementsPrivate::AchInfo_t *const achInfo = &d->achInfo[(int)id];
-	return dpgettext_expr(RP_I18N_DOMAIN, "Achievements", achInfo->name);
+	return pgettext_expr("Achievements", achInfo->name);
 }
 
 /**
@@ -1001,7 +960,7 @@ const char *Achievements::getDescUnlocked(ID id) const
 
 	RP_D(const Achievements);
 	const AchievementsPrivate::AchInfo_t *const achInfo = &d->achInfo[(int)id];
-	return dpgettext_expr(RP_I18N_DOMAIN, "Achievements", achInfo->desc_unlk);
+	return pgettext_expr("Achievements", achInfo->desc_unlk);
 }
 
 }

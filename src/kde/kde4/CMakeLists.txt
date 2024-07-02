@@ -1,10 +1,4 @@
 # KDE 4.x UI frontend
-CMAKE_POLICY(SET CMP0048 NEW)
-IF(POLICY CMP0063)
-	# CMake 3.3: Enable symbol visibility presets for all
-	# target types, including static libraries and executables.
-	CMAKE_POLICY(SET CMP0063 NEW)
-ENDIF(POLICY CMP0063)
 PROJECT(rom-properties-kde4 LANGUAGES CXX)
 
 # Find Qt4 and KDE4.
@@ -16,6 +10,9 @@ STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_SRCS "${rom-properties-k
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_H "${rom-properties-kde_H}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_UIS "${rom-properties-kde_UIS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_RCC_SRCS "${rom-properties-kde_RCC_SRCS}")
+
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_RomThumbCreator_SRCS "${rom-properties-kde_RomThumbCreator_SRCS}")
+STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_RomThumbCreator_H    "${rom-properties-kde_RomThumbCreator_H}")
 
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_XATTR_SRCS "${rom-properties-kde_XATTR_SRCS}")
 STRING(REGEX REPLACE "([^;]+)" "../\\1" ${PROJECT_NAME}_XATTR_H    "${rom-properties-kde_XATTR_H}")
@@ -50,6 +47,7 @@ ENDIF(HAVE_QtDBus)
 # Main plugin
 SET(${PROJECT_NAME}_SRCS
 	${${PROJECT_NAME}_SRCS}
+	${${PROJECT_NAME}_RomThumbCreator_SRCS}
 	${${PROJECT_NAME}-notify_SRCS}
 	${${PROJECT_NAME}_DBUS_IFACE_SRCS}
 	${${PROJECT_NAME}_DBUS_IFACE_SRCS_2}
@@ -58,6 +56,7 @@ SET(${PROJECT_NAME}_SRCS
 	)
 SET(${PROJECT_NAME}_H
 	${${PROJECT_NAME}_H}
+	${${PROJECT_NAME}_RomThumbCreator_H}
 	${${PROJECT_NAME}-notify_H}
 	)
 
@@ -163,6 +162,7 @@ IF(BUILD_KDE4)
 		)
 	INSTALL(FILES "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.KPropertiesDialog.desktop"
 		      "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.ThumbCreator.desktop"
+		      "${XATTRVIEW_NAME}.desktop"
 		DESTINATION "${SERVICES_INSTALL_DIR}"
 		COMPONENT "plugin"
 		)

@@ -3,7 +3,7 @@
  * Nintendo3DS.hpp: Nintendo 3DS ROM reader.                               *
  * Handles CCI/3DS, CIA, and SMDH files.                                   *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -16,8 +16,10 @@
 
 // Other rom-properties libraries
 #include "librpbase/config/Config.hpp"
+#include "librpbase/crypto/Hash.hpp"
 #include "librpbase/Achievements.hpp"
 #include "librpbase/SystemRegion.hpp"
+#include "librpfile/SubFile.hpp"
 using namespace LibRpBase;
 using namespace LibRpFile;
 using namespace LibRpText;
@@ -32,24 +34,12 @@ using namespace LibRpTexture;
 #include "disc/CIAReader.hpp"
 
 // C++ STL classes
-using std::shared_ptr;
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
 
-// zlib for crc32()
-#include <zlib.h>
-#ifdef _MSC_VER
-// MSVC: Exception handling for /DELAYLOAD.
-#  include "libwin32common/DelayLoadHelper.h"
-#endif /* _MSC_VER */
-
 namespace LibRomData {
-
-#ifdef _MSC_VER
-// DelayLoad test implementation.
-DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
-#endif /* _MSC_VER */
 
 ROMDATA_IMPL(Nintendo3DS)
 ROMDATA_IMPL_IMG_SIZES(Nintendo3DS)
@@ -121,7 +111,7 @@ int Nintendo3DSPrivate::loadSMDH(void)
 		return 0;
 	}
 
-	static const size_t N3DS_SMDH_Section_Size =
+	static constexpr size_t N3DS_SMDH_Section_Size =
 		sizeof(N3DS_SMDH_Header_t) + sizeof(N3DS_SMDH_Icon_t);
 
 	IRpFilePtr smdhFile;
@@ -452,7 +442,7 @@ int Nintendo3DSPrivate::loadTicketAndTMD(void)
 	}
 
 	// Skip over the signature and padding.
-	static const std::array<uint16_t, 8> sig_len_tbl = {{
+	static constexpr array<uint16_t, 8> sig_len_tbl = {{
 		0x200 + 0x3C,	// N3DS_SIGTYPE_RSA_4096_SHA1
 		0x100 + 0x3C,	// N3DS_SIGTYPE_RSA_2048_SHA1,
 		0x3C  + 0x40,	// N3DS_SIGTYPE_EC_SHA1
@@ -696,7 +686,7 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 	}
 
 	// Product code.
-	fields.addField_string(C_("Nintendo3DS", "Product Code"),
+	fields.addField_string(C_("Nintendo", "Product Code"),
 		latin1_to_utf8(ncch_header->product_code, sizeof(ncch_header->product_code)));
 
 	// Content type.
@@ -710,7 +700,7 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 #ifdef ENABLE_DECRYPTION
 		// Only show the encryption type if a TMD isn't available.
 		if (loadTicketAndTMD() != 0) {
-			fields.addField_string(C_("Nintendo3DS", "Issuer"),
+			fields.addField_string(C_("Nintendo", "Issuer"),
 				ncch->isDebug()
 					? C_("Nintendo3DS", "Debug")
 					: C_("Nintendo3DS", "Retail"));
@@ -745,28 +735,14 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 	if (f_logo) {
 		const off64_t szFile = f_logo->size();
 		if (szFile == 8192) {
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-			// Delay load verification.
-			// TODO: Only if linked with /DELAYLOAD?
-			bool has_zlib = true;
-			if (DelayLoad_test_get_crc_table() != 0) {
-				// Delay load failed.
-				// Can't calculate the CRC32.
-				has_zlib = false;
-			}
-#else /* !defined(_MSC_VER) || !defined(ZLIB_IS_DLL) */
-			// zlib isn't in a DLL, but we need to ensure that the
-			// CRC table is initialized anyway.
-			static const bool has_zlib = true;
-			get_crc_table();
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
-			if (has_zlib) {
+			Hash crc32Hash(Hash::Algorithm::CRC32);
+			if (crc32Hash.isUsable()) {
 				// Calculate the CRC32.
 				unique_ptr<uint8_t[]> buf(new uint8_t[static_cast<unsigned int>(szFile)]);
 				size_t size = f_logo->read(buf.get(), static_cast<unsigned int>(szFile));
 				if (size == static_cast<unsigned int>(szFile)) {
-					crc = crc32(0, buf.get(), static_cast<unsigned int>(szFile));
+					crc32Hash.process(buf.get(), szFile);
+					crc = crc32Hash.getHash32();
 				}
 			}
 		} else if (szFile > 0) {
@@ -775,44 +751,82 @@ void Nintendo3DSPrivate::addTitleIdAndProductCodeFields(bool showContentType)
 		}
 	}
 
-	struct logo_crc_tbl_t {
-		uint32_t crc;
-		const char *name;
+	static constexpr char logo_name_strtbl[] = {
+		"Nintendo\0"			// 0
+		"Licensed by Nintendo\0"	// 9
+		"Distributed by Nintendo\0"	// 30
+		"iQue\0"			// 54
+		"iQue (System)\0"		// 59
+
+		// Homebrew logos
+		// TODO: Make them translatable?
+		"Homebrew (static)\0"		// 73
+		"Homebrew (animated)\0"		// 91
 	};
-	static const std::array<logo_crc_tbl_t, 7> logo_crc_tbl = {{
+	static_assert(sizeof(logo_name_strtbl) == 111+1, "logo_crc_strtbl[] needs to be recalculated!");
+
+	// NOTE: Instead of wasting space by using a struct with uint32_t crc and uint8_t offset,
+	// use two separate arrays.
+
+	// Logo CRC32 table
+	static constexpr array<uint32_t, 7> logo_crc_tbl = {{
 		// Official logos
 		// NOTE: Not translatable!
-		{0xCFD0EB8BU,	"Nintendo"},
-		{0x1093522BU,	"Licensed by Nintendo"},
-		{0x4FA8771CU,	"Distributed by Nintendo"},
-		{0x7F68B548U,	"iQue"},
-		{0xD8907ED7U,	"iQue (System)"},
+		0xCFD0EB8BU,	// "Nintendo"
+		0x1093522BU,	// "Licensed by Nintendo"
+		0x4FA8771CU,	// "Distributed by Nintendo"
+		0x7F68B548U,	// "iQue"
+		0xD8907ED7U,	// "iQue (System)"
 
 		// Homebrew logos
 		// TODO: Make them translatable?
 
 		// "Old" static Homebrew logo.
 		// Included with `makerom`.
-		{0x343A79D9U,	"Homebrew (static)"},
+		0x343A79D9U,	// "Homebrew (static)"
 
 		// "New" animated Homebrew logo.
 		// Uses the Homebrew Launcher theme.
 		// Reference: https://gbatemp.net/threads/release-default-homebrew-custom-logo-bin.457611/
-		{0xF257BD67U,	"Homebrew (animated)"},
+		0xF257BD67U,	// "Homebrew (animated)"
 	}};
+
+	// Logo name offset table
+	static constexpr array<uint8_t, 7> logo_name_offset_tbl = {{
+		// Official logos
+		// NOTE: Not translatable!
+		0,	// "Nintendo"
+		9,	// "Licensed by Nintendo"
+		30,	// "Distributed by Nintendo"
+		54,	// "iQue"
+		59,	// "iQue (System)"
+
+		// Homebrew logos
+		// TODO: Make them translatable?
+
+		// "Old" static Homebrew logo.
+		// Included with `makerom`.
+		73,	// "Homebrew (static)"
+
+		// "New" animated Homebrew logo.
+		// Uses the Homebrew Launcher theme.
+		// Reference: https://gbatemp.net/threads/release-default-homebrew-custom-logo-bin.457611/
+		91,	// "Homebrew (animated)"
+	}};
+
+	static_assert(logo_crc_tbl.size() == logo_name_offset_tbl.size(), "Logo tables have differing sizes!");
 
 	// If CRC is zero, we don't have a valid logo section.
 	// Otherwise, search for a matching logo.
 	const char *logo_name = nullptr;
 	if (crc != 0) {
 		// Search for a matching logo.
-		auto iter = std::find_if(logo_crc_tbl.cbegin(), logo_crc_tbl.cend(),
-			[crc](const logo_crc_tbl_t &p) noexcept -> bool {
-				return (p.crc == crc);
-			});
-		if (iter != logo_crc_tbl.cend()) {
-			// Found a matching logo.
-			logo_name = iter->name;
+		for (unsigned int i = 0; i < ARRAY_SIZE(logo_crc_tbl); i++) {
+			if (logo_crc_tbl[i] == crc) {
+				// Found a matching CRC.
+				logo_name = &logo_name_strtbl[logo_name_offset_tbl[i]];
+				break;
+			}
 		}
 
 		if (!logo_name) {
@@ -1035,7 +1049,7 @@ int Nintendo3DSPrivate::loadPermissions(void)
 
 	// TODO: Ignore permissions on system titles.
 	// TODO: Check permissions on retail games and compare to this list.
-	static const uint32_t fsAccess_dangerous =
+	static constexpr uint32_t fsAccess_dangerous =
 		// mset has CategorySystemApplication set.
 		N3DS_NCCH_EXHEADER_ACI_FsAccess_CategorySystemApplication |
 		// TinyFormat has CategoryFilesystemTool set.
@@ -1045,7 +1059,7 @@ int Nintendo3DSPrivate::loadPermissions(void)
 		N3DS_NCCH_EXHEADER_ACI_FsAccess_CtrNandRoWrite |
 		// mset has CategorySystemSettings set.
 		N3DS_NCCH_EXHEADER_ACI_FsAccess_CategorySystemSettings;
-	static const uint32_t ioAccess_dangerous =
+	static constexpr uint32_t ioAccess_dangerous =
 		N3DS_NCCH_EXHEADER_ACI_IoAccess_FsMountNand |
 		N3DS_NCCH_EXHEADER_ACI_IoAccess_FsMountNandRoWrite |
 		N3DS_NCCH_EXHEADER_ACI_IoAccess_FsMountTwln |
@@ -1081,14 +1095,14 @@ int Nintendo3DSPrivate::addFields_permissions(void)
 
 #ifdef _WIN32
 	// Windows: 6 visible rows per RFT_LISTDATA.
-	static const int rows_visible = 6;
-#else
+	static constexpr int rows_visible = 6;
+#else /* !_WIN32 */
 	// Linux: 4 visible rows per RFT_LISTDATA.
-	static const int rows_visible = 4;
-#endif
+	static constexpr int rows_visible = 4;
+#endif /* _WIN32 */
 
 	// FS access.
-	static const std::array<const char*, 22> perm_fs_access = {{
+	static const array<const char*, 22> perm_fs_access = {{
 		"CategorySysApplication",
 		"CategoryHardwareCheck",
 		"CategoryFileSystemTool",
@@ -1127,7 +1141,7 @@ int Nintendo3DSPrivate::addFields_permissions(void)
 	fields.addField_listData(C_("Nintendo3DS", "FS Access"), &params);
 
 	// ARM9 access.
-	static const std::array<const char*, 10> perm_arm9_access = {{
+	static const array<const char*, 10> perm_arm9_access = {{
 		"FsMountNand",
 		"FsMountNandRoWrite",
 		"FsMountTwln",
@@ -1391,15 +1405,15 @@ int Nintendo3DS::isRomSupported_static(const DetectInfo *info)
 		// Check if this is an eMMC dump or a CCI image.
 		// This is done by checking the eMMC-specific crypt type section.
 		// (All zeroes for CCI; minor variance between Old3DS and New3DS.)
-		static const uint8_t crypt_cci[8]      = {0,0,0,0,0,0,0,0};
-		static const uint8_t crypt_emmc_old[8] = {1,2,2,2,2,0,0,0};
-		static const uint8_t crypt_emmc_new[8] = {1,2,2,2,3,0,0,0};
-		if (!memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_cci, sizeof(crypt_cci))) {
-			// CCI image.
+		static constexpr array<uint8_t, 8> crypt_cci      = {{0,0,0,0,0,0,0,0}};
+		static constexpr array<uint8_t, 8> crypt_emmc_old = {{1,2,2,2,2,0,0,0}};
+		static constexpr array<uint8_t, 8> crypt_emmc_new = {{1,2,2,2,3,0,0,0}};
+		if (!memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_cci.data(), crypt_cci.size())) {
+			// CCI image
 			return static_cast<int>(Nintendo3DSPrivate::RomType::CCI);
-		} else if (!memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_emmc_old, sizeof(crypt_emmc_old)) ||
-			   !memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_emmc_new, sizeof(crypt_emmc_new))) {
-			// eMMC dump.
+		} else if (!memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_emmc_old.data(), crypt_emmc_old.size()) ||
+			   !memcmp(ncsd_header->emmc_part_tbl.crypt_type, crypt_emmc_new.data(), crypt_emmc_new.size())) {
+			// eMMC dump
 			// NOTE: Not differentiating between Old3DS and New3DS here.
 			return static_cast<int>(Nintendo3DSPrivate::RomType::eMMC);
 		} else {
@@ -1672,7 +1686,7 @@ int Nintendo3DS::loadFieldData(void)
 				if (!shownWarning) {
 					const char *err = KeyManager::verifyResultToString(res);
 					if (!err) {
-						err = C_("Nintendo3DS", "Unknown error. (THIS IS A BUG!)");
+						err = C_("RomData", "Unknown error. (THIS IS A BUG!)");
 					}
 					d->fields.addField_string(C_("RomData", "Warning"),
 						err, RomFields::STRF_WARNING);
@@ -1768,7 +1782,7 @@ int Nintendo3DS::loadFieldData(void)
 					: KeyManager::VerifyResult::Unknown);
 				const char *err = KeyManager::verifyResultToString(res);
 				if (!err) {
-					err = C_("Nintendo3DS", "Unknown error. (THIS IS A BUG!)");
+					err = C_("RomData", "Unknown error. (THIS IS A BUG!)");
 				}
 				d->fields.addField_string(C_("RomData", "Warning"),
 					err, RomFields::STRF_WARNING);
@@ -1808,7 +1822,7 @@ int Nintendo3DS::loadFieldData(void)
 		};
 
 		// eMMC keyslots.
-		static const uint8_t emmc_keyslots[2][8] = {
+		static constexpr uint8_t emmc_keyslots[2][8] = {
 			// Old3DS keyslots.
 			{0x03, 0x07, 0x06, 0x06, 0x04, 0x00, 0x00, 0x00},
 			// New3DS keyslots.
@@ -1841,7 +1855,7 @@ int Nintendo3DS::loadFieldData(void)
 			// Old3DS uses encryption type 2 for CTR NAND.
 			// New3DS uses encryption type 3 for CTR NAND.
 			const bool new3ds = (ncsd_header->emmc_part_tbl.crypt_type[4] == 3);
-			d->fields.addField_string(C_("Nintendo3DS|eMMC", "Type"),
+			d->fields.addField_string(C_("RomData", "Type"),
 				(new3ds ? "New3DS / New2DS" : "Old3DS / 2DS"));
 
 			// Partition type names.
@@ -1869,12 +1883,12 @@ int Nintendo3DS::loadFieldData(void)
 			// TODO: Check if platform != 1 on New3DS-only cartridges.
 
 			// Card type.
-			static const std::array<const char*, 4> media_type_tbl = {
+			static const array<const char*, 4> media_type_tbl = {{
 				"Inner Device",
 				"Card1",
 				"Card2",
 				"Extended Device",
-			};
+			}};
 			const uint8_t media_type = ncsd_header->cci.partition_flags[N3DS_NCSD_PARTITION_FLAG_MEDIA_TYPE_INDEX];
 			const char *const media_type_title = C_("Nintendo3DS", "Media Type");
 			if (media_type < media_type_tbl.size()) {
@@ -1904,16 +1918,16 @@ int Nintendo3DS::loadFieldData(void)
 				card_dev_id = ncsd_header->cci.partition_flags[N3DS_NCSD_PARTITION_FLAG_MEDIA_CARD_DEVICE_SDK3];
 			}
 
-			static const std::array<const char*, 4> card_dev_tbl = {
+			static const array<const char*, 4> card_dev_tbl = {{
 				nullptr,
 				NOP_C_("Nintendo3DS|CDev", "NOR Flash"),
 				NOP_C_("Nintendo3DS|CDev", "None"),
 				NOP_C_("Nintendo3DS|CDev", "Bluetooth"),
-			};
+			}};
 			const char *const card_device_title = C_("Nintendo3DS", "Card Device");
 			if (card_dev_id >= 1 && card_dev_id < card_dev_tbl.size()) {
 				d->fields.addField_string(card_device_title,
-					dpgettext_expr(RP_I18N_DOMAIN, "Nintendo3DS|CDev", card_dev_tbl[card_dev_id]));
+					pgettext_expr("Nintendo3DS|CDev", card_dev_tbl[card_dev_id]));
 			} else {
 				d->fields.addField_string(card_device_title,
 					rp_sprintf_p(C_("Nintendo3DS|CDev", "Unknown (SDK2=0x%1$02X, SDK3=0x%2$02X)"),
@@ -1932,7 +1946,7 @@ int Nintendo3DS::loadFieldData(void)
 			// Also show encryption type.
 			// TODO: Show a warning if `ncch` is NULL?
 			if (ncch) {
-				d->fields.addField_string(C_("Nintendo3DS", "Issuer"),
+				d->fields.addField_string(C_("Nintendo", "Issuer"),
 					ncch->isDebug()
 						? C_("Nintendo3DS", "Debug")
 						: C_("Nintendo3DS", "Retail"));
@@ -2059,7 +2073,7 @@ int Nintendo3DS::loadFieldData(void)
 		// TODO: Required system version?
 
 		// Version.
-		d->fields.addField_string(C_("Nintendo3DS", "Version"),
+		d->fields.addField_string(C_("RomData", "Version"),
 			d->n3dsVersionToString(be16_to_cpu(tmd_header->title_version)));
 
 		// Issuer.
@@ -2077,7 +2091,7 @@ int Nintendo3DS::loadFieldData(void)
 			issuer = nullptr;
 		}
 
-		const char *const issuer_title = C_("Nintendo3DS", "Issuer");
+		const char *const issuer_title = C_("Nintendo", "Issuer");
 		if (issuer) {
 			// tr: Ticket issuer. (retail or debug)
 			d->fields.addField_string(issuer_title, issuer);
@@ -2097,7 +2111,7 @@ int Nintendo3DS::loadFieldData(void)
 		// Console ID.
 		// NOTE: Technically part of the ticket.
 		// NOTE: Not including the "0x" hex prefix.
-		d->fields.addField_string(C_("Nintendo3DS", "Console ID"),
+		d->fields.addField_string(C_("Nintendo", "Console ID"),
 			rp_sprintf("%08X", be32_to_cpu(d->mxh.ticket.console_id)),
 			RomFields::STRF_MONOSPACE);
 
@@ -2248,7 +2262,7 @@ int Nintendo3DS::loadFieldData(void)
 			latin1_to_utf8(ncch_exheader->sci.title, sizeof(ncch_exheader->sci.title)));
 
 		// Application type. (resource limit category)
-		static const char appl_type_tbl[4][16] = {
+		static constexpr char appl_type_tbl[4][16] = {
 			// tr: N3DS_NCCH_EXHEADER_ACI_ResLimit_Categry_APPLICATION
 			NOP_C_("Nintendo3DS|ApplType", "Application"),
 			// tr: N3DS_NCCH_EXHEADER_ACI_ResLimit_Categry_SYS_APPLET
@@ -2258,11 +2272,11 @@ int Nintendo3DS::loadFieldData(void)
 			// tr: N3DS_NCCH_EXHEADER_ACI_ResLimit_Categry_OTHER
 			NOP_C_("Nintendo3DS|ApplType", "SysModule"),
 		};
-		const char *const type_title = C_("Nintendo3DS", "Type");
+		const char *const type_title = C_("RomData", "Type");
 		const uint8_t appl_type = ncch_exheader->aci.arm11_local.res_limit_category;
 		if (appl_type < ARRAY_SIZE(appl_type_tbl)) {
 			d->fields.addField_string(type_title,
-				dpgettext_expr(RP_I18N_DOMAIN, "Nintendo3DS|ApplType", appl_type_tbl[appl_type]));
+				pgettext_expr("Nintendo3DS|ApplType", appl_type_tbl[appl_type]));
 		} else {
 			d->fields.addField_string(type_title,
 				rp_sprintf(C_("Nintendo3DS", "Invalid (0x%02X)"), appl_type));
@@ -2286,9 +2300,9 @@ int Nintendo3DS::loadFieldData(void)
 		} ModeTbl_t;
 		ASSERT_STRUCT(ModeTbl_t, 8);
 
-		// Old3DS System Mode.
+		// Old3DS System Mode
 		// NOTE: Mode names are NOT translatable!
-		static const std::array<ModeTbl_t, 6> old3ds_sys_mode_tbl = {{
+		static const array<ModeTbl_t, 6> old3ds_sys_mode_tbl = {{
 			{"Prod", 64},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Prod
 			{"", 0},
 			{"Dev1", 96},	// N3DS_NCCH_EXHEADER_ACI_FLAG2_Old3DS_SysMode_Dev1
@@ -2311,9 +2325,9 @@ int Nintendo3DS::loadFieldData(void)
 				rp_sprintf(C_("Nintendo3DS", "Invalid (0x%02X)"), old3ds_sys_mode));
 		}
 
-		// New3DS System Mode.
+		// New3DS System Mode
 		// NOTE: Mode names are NOT translatable!
-		static const std::array<ModeTbl_t, 4> new3ds_sys_mode_tbl = {{
+		static const array<ModeTbl_t, 4> new3ds_sys_mode_tbl = {{
 			{"Legacy", 64},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Legacy
 			{"Prod",  124},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Prod
 			{"Dev1",  178},	// N3DS_NCCH_EXHEADER_ACI_FLAG1_New3DS_SysMode_Dev1
@@ -2332,7 +2346,7 @@ int Nintendo3DS::loadFieldData(void)
 				rp_sprintf(C_("Nintendo3DS", "Invalid (0x%02X)"), new3ds_sys_mode));
 		}
 
-		// New3DS CPU Mode.
+		// New3DS CPU Mode
 		static const char *const new3ds_cpu_mode_names[] = {
 			NOP_C_("Nintendo3DS|N3DSCPUMode", "L2 Cache"),
 			NOP_C_("Nintendo3DS|N3DSCPUMode", "804 MHz"),

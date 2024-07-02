@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * KeyStoreUI.cpp: Key store UI base class.                                *
  *                                                                         *
- * Copyright (c) 2012-2023 by David Korth.                                 *
+ * Copyright (c) 2012-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -13,30 +13,25 @@
 #include "librpbase/crypto/KeyManager.hpp"
 #include "librpbase/crypto/IAesCipher.hpp"
 #include "librpbase/crypto/AesCipherFactory.hpp"
+#include "librpbase/crypto/Hash.hpp"
 #include "librpfile/RpFile.hpp"
 using namespace LibRpBase;
 using namespace LibRpText;
 using namespace LibRpFile;
 
 // libromdata
-#include "../disc/WiiPartition.hpp"
+#include "../Console/WiiTicket.hpp"
 #include "../crypto/CtrKeyScrambler.hpp"
 #include "../crypto/N3DSVerifyKeys.hpp"
 #include "../Console/Xbox360_XEX.hpp"
 using namespace LibRomData;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::u16string;
 using std::unique_ptr;
 using std::vector;
-
-// zlib for crc32()
-#include <zlib.h>
-#ifdef _MSC_VER
-// MSVC: Exception handling for /DELAYLOAD.
-#  include "libwin32common/DelayLoadHelper.h"
-#endif /* _MSC_VER */
 
 // for Qt-style signal emission
 #ifdef emit
@@ -45,11 +40,6 @@ using std::vector;
 #define emit
 
 namespace LibRomData {
-
-#ifdef _MSC_VER
-// DelayLoad test implementation.
-DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
-#endif /* _MSC_VER */
 
 class KeyStoreUIPrivate
 {
@@ -135,7 +125,7 @@ public:
 public:
 	// Section enumeration
 	enum class SectionID {
-		WiiPartition	= 0,
+		WiiTicket	= 0,
 		CtrKeyScrambler	= 1,
 		N3DSVerifyKeys	= 2,
 		Xbox360_XEX	= 3,
@@ -150,12 +140,16 @@ public:
 	 * Import keys from a binary blob.
 	 * @param sectIdx	[in] Section index
 	 * @param kba		[in] KeyBinAddress array
+	 * @param kba_len	[in] Length of kba (in KeyBinAddress units)
 	 * @param buf		[in] Key buffer
-	 * @param len		[in] Length of buf
+	 * @param buf_len	[in] Length of buf (in bytes)
 	 * @return Key import status
 	 */
+	ATTR_ACCESS_SIZE(read_only, 3, 4)
+	ATTR_ACCESS_SIZE(read_only, 5, 6)
 	KeyStoreUI::ImportReturn importKeysFromBlob(SectionID sectIdx,
-		const KeyBinAddress *kba, const uint8_t *buf, unsigned int len);
+		const KeyBinAddress *kba, size_t kba_len,
+		const uint8_t *buf, size_t buf_len);
 
 	/**
 	 * Get the encryption key required for aeskeydb.bin.
@@ -183,11 +177,11 @@ public:
 		klass::encryptionVerifyData_static \
 	}
 
-	static const std::array<EncKeyFns_t, 4> encKeyFns;
+	static const array<KeyStoreUIPrivate::EncKeyFns_t, 4> encKeyFns;
 
 public:
-	// Hexadecimal lookup table.
-	static const std::array<char, 16> hex_lookup;
+	// Hexadecimal lookup table
+	static const array<char, 16> hex_lookup;
 
 	/**
 	 * Convert a binary key to a hexadecimal string.
@@ -231,18 +225,18 @@ public:
 
 /** KeyStoreUIPrivate **/
 
-const std::array<KeyStoreUIPrivate::EncKeyFns_t, 4> KeyStoreUIPrivate::encKeyFns = {{
-	ENCKEYFNS(WiiPartition),
+const array<KeyStoreUIPrivate::EncKeyFns_t, 4> KeyStoreUIPrivate::encKeyFns = {{
+	ENCKEYFNS(WiiTicket),
 	ENCKEYFNS(CtrKeyScrambler),
 	ENCKEYFNS(N3DSVerifyKeys),
 	ENCKEYFNS(Xbox360_XEX),
 }};
 
-// Hexadecimal lookup table.
-const std::array<char, 16> KeyStoreUIPrivate::hex_lookup = {
+// Hexadecimal lookup table
+const array<char, 16> KeyStoreUIPrivate::hex_lookup = {{
 	'0','1','2','3','4','5','6','7',
 	'8','9','A','B','C','D','E','F',
-};
+}};
 
 KeyStoreUIPrivate::KeyStoreUIPrivate(KeyStoreUI *q)
 	: q_ptr(q)
@@ -491,22 +485,27 @@ inline int KeyStoreUIPrivate::idxToSectKey(int idx, int *pSectIdx, int *pKeyIdx)
  * FIXME: More comprehensive error messages for the message bar.
  * @param sectIdx	[in] Section index
  * @param kba		[in] KeyBinAddress array
+ * @param kba_len	[in] Length of kba (in KeyBinAddress units)
  * @param buf		[in] Key buffer
- * @param len		[in] Length of buf
+ * @param buf_len	[in] Length of buf (in bytes)
  * @return Key import status
  */
-KeyStoreUI::ImportReturn KeyStoreUIPrivate::importKeysFromBlob(
-	SectionID sectIdx, const KeyBinAddress *kba, const uint8_t *buf, unsigned int len)
+ATTR_ACCESS_SIZE(read_only, 3, 4)
+ATTR_ACCESS_SIZE(read_only, 5, 6)
+KeyStoreUI::ImportReturn KeyStoreUIPrivate::importKeysFromBlob(SectionID sectIdx,
+	const KeyBinAddress *kba, size_t kba_len,
+	const uint8_t *buf, size_t buf_len)
 {
 	KeyStoreUI::ImportReturn iret = {KeyStoreUI::ImportStatus::InvalidParams, 0, 0, 0, 0, 0, 0, 0};
 
 	assert((int)sectIdx >= 0);
 	assert((int)sectIdx < static_cast<int>(sections.size()));
 	assert(kba != nullptr);
+	assert(kba_len != 0);
 	assert(buf != nullptr);
-	assert(len != 0);
+	assert(buf_len != 0);
 	if ((int)sectIdx < 0 || (int)sectIdx >= static_cast<int>(sections.size()) ||
-	    !kba || !buf || len == 0)
+	    !kba || kba_len == 0 || !buf || buf_len == 0)
 	{
 		iret.status = KeyStoreUI::ImportStatus::InvalidParams;
 		return iret;
@@ -515,15 +514,16 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importKeysFromBlob(
 	RP_Q(KeyStoreUI);
 	bool wereKeysImported = false;
 	const int keyIdxStart = sections[(int)sectIdx].keyIdxStart;
-	for (; kba->keyIdx >= 0; kba++) {
+	const KeyBinAddress *const kba_end = &kba[kba_len];
+	for (; kba < kba_end; kba++) {
 		KeyStoreUI::Key *const pKey = &keys[keyIdxStart + kba->keyIdx];
 		if (pKey->status == KeyStoreUI::Key::Status::OK) {
 			// Key is already OK. Don't bother with it.
 			iret.keysExist++;
 			continue;
 		}
-		assert(kba->address + 16 < len);
-		if (kba->address + 16 > len) {
+		assert(kba->address + 16 < buf_len);
+		if (kba->address + 16 > buf_len) {
 			// Out of range...
 			// FIXME: Report an error?
 			continue;
@@ -600,7 +600,7 @@ int KeyStoreUIPrivate::getAesKeyDB_key(u128_t *pKey) const
 
 	// Get the CTR scrambler constant.
 	const Section &sectScrambler = sections[(int)SectionID::CtrKeyScrambler];
-	const KeyStoreUI::Key &ctr_scrambler = keys[sectScrambler.keyIdxStart + CtrKeyScrambler::Key_Ctr_Scrambler];
+	const KeyStoreUI::Key &ctr_scrambler = keys[sectScrambler.keyIdxStart + (int)CtrKeyScrambler::EncryptionKeys::Key_Ctr_Scrambler];
 	if (ctr_scrambler.status != KeyStoreUI::Key::Status::OK) {
 		// Key is not correct.
 		return -ENOENT;
@@ -608,7 +608,7 @@ int KeyStoreUIPrivate::getAesKeyDB_key(u128_t *pKey) const
 
 	// Get Slot0x2CKeyX.
 	const Section &sectN3DS = sections[(int)SectionID::N3DSVerifyKeys];
-	const KeyStoreUI::Key &key_slot0x2CKeyX = keys[sectN3DS.keyIdxStart + N3DSVerifyKeys::Key_Retail_Slot0x2CKeyX];
+	const KeyStoreUI::Key &key_slot0x2CKeyX = keys[sectN3DS.keyIdxStart + (int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x2CKeyX];
 	if (key_slot0x2CKeyX.status != KeyStoreUI::Key::Status::OK) {
 		// Key is not correct.
 		return -ENOENT;
@@ -875,16 +875,16 @@ const char *KeyStoreUI::sectName(int sectIdx) const
 		return nullptr;
 	}
 
-	static const std::array<const char*, 4> sectNames = {
+	static const array<const char*, 4> sectNames = {{
 		NOP_C_("KeyStoreUI|Section", "Nintendo Wii AES Keys"),
 		NOP_C_("KeyStoreUI|Section", "Nintendo 3DS Key Scrambler Constants"),
 		NOP_C_("KeyStoreUI|Section", "Nintendo 3DS AES Keys"),
 		NOP_C_("KeyStoreUI|Section", "Microsoft Xbox 360 AES Keys"),
-	};
+	}};
 	static_assert(sectNames.size() == d->encKeyFns.size(),
 		"sectNames[] is out of sync with d->encKeyFns[].");
 
-	return dpgettext_expr(RP_I18N_DOMAIN, "KeyStoreUI|Section", sectNames[sectIdx]);
+	return pgettext_expr("KeyStoreUI|Section", sectNames[sectIdx]);
 }
 
 /**
@@ -978,7 +978,7 @@ int KeyStoreUI::setKey(int sectIdx, int keyIdx, const char *value)
 
 	// Expected key length, in hex digits.
 	// TODO: Support more than 128-bit keys.
-	static const size_t expected_key_len = 16*2;
+	static constexpr size_t expected_key_len = 16*2;
 
 	// If allowKanji is true, check if the key is kanji
 	// and convert it to UTF-16LE hexadecimal.
@@ -1124,7 +1124,7 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importWiiKeysBin(IRpFile *file)
 
 	// Verify the BootMii (BackupMii) header.
 	// TODO: Is there a v0? If this shows v0, show a different message.
-	static const char BackupMii_magic[] = "BackupMii v1";
+	static constexpr char BackupMii_magic[] = "BackupMii v1";
 	if (memcmp(buf, BackupMii_magic, sizeof(BackupMii_magic)-1) != 0) {
 		// TODO: Check for v0.
 		iret.status = KeyStoreUI::ImportStatus::InvalidFile;
@@ -1134,17 +1134,15 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importWiiKeysBin(IRpFile *file)
 	// TODO:
 	// - SD keys are not present in keys.bin.
 
-	static const KeyStoreUIPrivate::KeyBinAddress keyBinAddress[] = {
-		{0x114, WiiPartition::Key_Rvl_Common},
-		{0x114, WiiPartition::Key_Rvt_Debug},
-		{0x274, WiiPartition::Key_Rvl_Korean},
-
-		{0, -1}
-	};
+	static const array<KeyStoreUIPrivate::KeyBinAddress, 3> keyBinAddress = {{
+		{0x114, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVL_Common)},
+		{0x114, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVT_Debug)},
+		{0x274, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVL_Korean)},
+	}};
 
 	// Import the keys.
-	return importKeysFromBlob(KeyStoreUIPrivate::SectionID::WiiPartition,
-		keyBinAddress, buf, sizeof(buf));
+	return importKeysFromBlob(KeyStoreUIPrivate::SectionID::WiiTicket,
+		keyBinAddress.data(), keyBinAddress.size(), buf, sizeof(buf));
 }
 
 /**
@@ -1175,20 +1173,20 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importWiiUOtpBin(IRpFile *file)
 	// Verify the vWii Boot1 hash.
 	// TODO: Are there multiple variants of vWii Boot1?
 	bool isDebug;
-	static const uint8_t vWii_Boot1_hash_retail[20] = {
+	static constexpr array<uint8_t, 20> vWii_Boot1_hash_retail = {{
 		0xF8,0xB1,0x8E,0xC3,0xFE,0x26,0xB9,0xB1,
 		0x1A,0xD4,0xA4,0xED,0xD3,0xB7,0xA0,0x31,
 		0x11,0x9A,0x79,0xF8
-	};
-	static const uint8_t vWii_Boot1_hash_debug[20] = {
+	}};
+	static constexpr array<uint8_t, 20> vWii_Boot1_hash_debug = {{
 		0x9C,0x43,0x35,0x08,0x0C,0xC7,0x57,0x4F,
 		0xCD,0xDE,0x85,0xBF,0x21,0xF6,0xC9,0x7C,
 		0x6C,0xAF,0xC1,0xDB
-	};
-	if (!memcmp(&buf[0], vWii_Boot1_hash_retail, sizeof(vWii_Boot1_hash_retail))) {
+	}};
+	if (!memcmp(&buf[0], vWii_Boot1_hash_retail.data(), vWii_Boot1_hash_retail.size())) {
 		// Retail Boot1 hash matches.
 		isDebug = false;
-	} else if (!memcmp(&buf[0], vWii_Boot1_hash_debug, sizeof(vWii_Boot1_hash_debug))) {
+	} else if (!memcmp(&buf[0], vWii_Boot1_hash_debug.data(), vWii_Boot1_hash_debug.size())) {
 		// Debug Boot1 hash matches.
 		isDebug = true;
 	} else {
@@ -1200,40 +1198,38 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importWiiUOtpBin(IRpFile *file)
 	// Key addresses and indexes.
 	// TODO:
 	// - SD keys are not present in otp.bin.
-	static const KeyStoreUIPrivate::KeyBinAddress keyBinAddress_retail[] = {
-		{0x014, WiiPartition::Key_Rvl_Common},
-		{0x348, WiiPartition::Key_Rvl_Korean},
-		{0x0D0, WiiPartition::Key_Wup_Starbuck_vWii_Common},
+	static const array<KeyStoreUIPrivate::KeyBinAddress, 3> keyBinAddress_retail = {{
+		{0x014, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVL_Common)},
+		{0x348, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVL_Korean)},
+		{0x0D0, static_cast<int>(WiiTicket::EncryptionKeys::Key_WUP_Starbuck_vWii_Common)},
 
 		// TODO: Import Wii U keys.
 #if 0
 		{0x090, /* Wii U ancast key */},
 		{0x0E0, /* Wii U common key */},
 #endif
+	}};
 
-		{0, -1}
-	};
-
-	static const KeyStoreUIPrivate::KeyBinAddress keyBinAddress_debug[] = {
-		{0x014, WiiPartition::Key_Rvt_Debug},
-		{0x348, WiiPartition::Key_Rvt_Korean},
-		{0x0D0, WiiPartition::Key_Cat_Starbuck_vWii_Common},
+	static const array<KeyStoreUIPrivate::KeyBinAddress, 3> keyBinAddress_debug = {{
+		{0x014, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVT_Debug)},
+		{0x348, static_cast<int>(WiiTicket::EncryptionKeys::Key_RVT_Korean)},
+		{0x0D0, static_cast<int>(WiiTicket::EncryptionKeys::Key_CAT_Starbuck_vWii_Common)},
 
 		// TODO: Import Wii U keys.
 #if 0
 		{0x090, /* Wii U ancast key */},
 		{0x0E0, /* Wii U common key */},
 #endif
-
-		{0, -1}
-	};
-
-	const KeyStoreUIPrivate::KeyBinAddress *const kba =
-		(likely(!isDebug) ? keyBinAddress_retail : keyBinAddress_debug);
+	}};
 
 	// Import the keys.
-	return importKeysFromBlob(KeyStoreUIPrivate::SectionID::WiiPartition,
-		kba, buf, sizeof(buf));
+	if (likely(!isDebug)) {
+		return importKeysFromBlob(KeyStoreUIPrivate::SectionID::WiiTicket,
+			keyBinAddress_retail.data(), keyBinAddress_retail.size(), buf, sizeof(buf));
+	} else {
+		return importKeysFromBlob(KeyStoreUIPrivate::SectionID::WiiTicket,
+			keyBinAddress_debug.data(), keyBinAddress_debug.size(), buf, sizeof(buf));
+	}
 }
 
 /**
@@ -1279,27 +1275,13 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSboot9bin(IRpFile *file)
 		return iret;
 	}
 
-#if defined(_MSC_VER) && defined(ZLIB_IS_DLL)
-	// Delay load verification.
-	// TODO: Only if linked with /DELAYLOAD?
-	bool has_zlib = true;
-	if (DelayLoad_test_get_crc_table() != 0) {
-		// Delay load failed.
-		// Can't calculate the CRC32.
-		has_zlib = false;
-	}
-#else /* !defined(_MSC_VER) || !defined(ZLIB_IS_DLL) */
-	// zlib isn't in a DLL, but we need to ensure that the
-	// CRC table is initialized anyway.
-	static const bool has_zlib = true;
-	get_crc_table();
-#endif /* defined(_MSC_VER) && defined(ZLIB_IS_DLL) */
-
-	if (has_zlib) {
+	Hash crc32Hash(Hash::Algorithm::CRC32);
+	if (crc32Hash.isUsable()) {
 		// Check the CRC32.
 		// NOTE: CRC32 isn't particularly strong, so we'll still
 		// verify the keys before importing them.
-		const uint32_t crc = crc32(0, buf.get(), 32768);
+		crc32Hash.process(buf.get(), 32768);
+		const uint32_t crc = crc32Hash.getHash32();
 		if (crc != 0x9D50A525) {
 			// Incorrect CRC32.
 			iret.status = KeyStoreUI::ImportStatus::InvalidFile;
@@ -1308,21 +1290,19 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSboot9bin(IRpFile *file)
 	}
 
 	// Key addresses and indexes.
-	static const KeyStoreUIPrivate::KeyBinAddress keyBinAddress[] = {
-		{0x5720, N3DSVerifyKeys::Key_Retail_SpiBoot},
-		{0x59D0, N3DSVerifyKeys::Key_Retail_Slot0x2CKeyX},
-		{0x5A20, N3DSVerifyKeys::Key_Retail_Slot0x3DKeyX},
+	static const array<KeyStoreUIPrivate::KeyBinAddress, 6> keyBinAddress = {{
+		{0x5720, (int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_SpiBoot},
+		{0x59D0, (int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x2CKeyX},
+		{0x5A20, (int)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyX},
 
-		{0x5740, N3DSVerifyKeys::Key_Debug_SpiBoot},
-		{0x5DD0, N3DSVerifyKeys::Key_Debug_Slot0x2CKeyX},
-		{0x5E20, N3DSVerifyKeys::Key_Debug_Slot0x3DKeyX},
-
-		{0, -1}
-	};
+		{0x5740, (int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_SpiBoot},
+		{0x5DD0, (int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x2CKeyX},
+		{0x5E20, (int)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyX},
+	}};
 
 	// Import the keys.
 	return importKeysFromBlob(KeyStoreUIPrivate::SectionID::N3DSVerifyKeys,
-		keyBinAddress, buf.get(), 32768);
+		keyBinAddress.data(), keyBinAddress.size(), buf.get(), 32768);
 }
 
 /**
@@ -1387,19 +1367,19 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 		// Check if this is a supported keyslot.
 		// Key indexes: 0 == retail, 1 == debug
 		// except for Slot0x3DKeyY, which has 6 of each
-		unsigned int keyCount = 0;
+		size_t keyCount = 0;
 		const uint8_t *pKeyIdx = nullptr;
 		switch (aesKey->slot) {
 			case 0x18:
 				// Only KeyX is available for this key.
 				// KeyY is taken from the title's RSA signature.
 				if (aesKey->type == 'X') {
-					static const uint8_t keys_Slot0x18KeyX[] = {
-						N3DSVerifyKeys::Key_Retail_Slot0x18KeyX,
-						N3DSVerifyKeys::Key_Debug_Slot0x18KeyX,
-					};
-					keyCount = ARRAY_SIZE(keys_Slot0x18KeyX);
-					pKeyIdx = keys_Slot0x18KeyX;
+					static constexpr array<uint8_t, 2> keys_Slot0x18KeyX = {{
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x18KeyX,
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x18KeyX,
+					}};
+					keyCount = keys_Slot0x18KeyX.size();
+					pKeyIdx = keys_Slot0x18KeyX.data();
 				}
 				break;
 
@@ -1407,12 +1387,12 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 				// Only KeyX is available for this key.
 				// KeyY is taken from the title's RSA signature.
 				if (aesKey->type == 'X') {
-					static const uint8_t keys_Slot0x1BKeyX[] = {
-						N3DSVerifyKeys::Key_Retail_Slot0x1BKeyX,
-						N3DSVerifyKeys::Key_Debug_Slot0x1BKeyX,
-					};
-					keyCount = ARRAY_SIZE(keys_Slot0x1BKeyX);
-					pKeyIdx = keys_Slot0x1BKeyX;
+					static constexpr array<uint8_t, 2> keys_Slot0x1BKeyX = {{
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x1BKeyX,
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x1BKeyX,
+					}};
+					keyCount = keys_Slot0x1BKeyX.size();
+					pKeyIdx = keys_Slot0x1BKeyX.data();
 				}
 				break;
 
@@ -1420,12 +1400,12 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 				// Only KeyX is available for this key.
 				// KeyY is taken from the title's RSA signature.
 				if (aesKey->type == 'X') {
-					static const uint8_t keys_Slot0x25KeyX[] = {
-						N3DSVerifyKeys::Key_Retail_Slot0x25KeyX,
-						N3DSVerifyKeys::Key_Debug_Slot0x25KeyX,
-					};
-					keyCount = ARRAY_SIZE(keys_Slot0x25KeyX);
-					pKeyIdx = keys_Slot0x25KeyX;
+					static constexpr array<uint8_t, 2> keys_Slot0x25KeyX = {{
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x25KeyX,
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x25KeyX,
+					}};
+					keyCount = keys_Slot0x25KeyX.size();
+					pKeyIdx = keys_Slot0x25KeyX.data();
 				}
 				break;
 
@@ -1433,12 +1413,12 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 				// Only KeyX is available for this key.
 				// KeyY is taken from the title's RSA signature.
 				if (aesKey->type == 'X') {
-					static const uint8_t keys_Slot0x2CKeyX[] = {
-						N3DSVerifyKeys::Key_Retail_Slot0x2CKeyX,
-						N3DSVerifyKeys::Key_Debug_Slot0x2CKeyX,
-					};
-					keyCount = ARRAY_SIZE(keys_Slot0x2CKeyX);
-					pKeyIdx = keys_Slot0x2CKeyX;
+					static constexpr array<uint8_t, 2> keys_Slot0x2CKeyX = {{
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x2CKeyX,
+						(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x2CKeyX,
+					}};
+					keyCount = keys_Slot0x2CKeyX.size();
+					pKeyIdx = keys_Slot0x2CKeyX.data();
 				}
 				break;
 
@@ -1446,50 +1426,50 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 				// KeyX, KeyY, and KeyNormal are available.
 				switch (aesKey->type) {
 					case 'X': {
-						static const uint8_t keys_Slot0x3DKeyX[] = {
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyX,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyX,
-						};
-						keyCount = ARRAY_SIZE(keys_Slot0x3DKeyX);
-						pKeyIdx = keys_Slot0x3DKeyX;
+						static constexpr array<uint8_t, 2> keys_Slot0x3DKeyX = {{
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyX,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyX,
+						}};
+						keyCount = keys_Slot0x3DKeyX.size();
+						pKeyIdx = keys_Slot0x3DKeyX.data();
 						break;
 					}
 					case 'Y': {
-						static const uint8_t keys_Slot0x3DKeyY[] = {
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_0,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_1,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_2,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_3,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_4,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyY_5,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_0,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_1,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_2,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_3,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_4,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyY_5,
-						};
-						keyCount = ARRAY_SIZE(keys_Slot0x3DKeyY);
-						pKeyIdx = keys_Slot0x3DKeyY;
+						static constexpr array<uint8_t, 12> keys_Slot0x3DKeyY = {{
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_0,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_1,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_2,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_3,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_4,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyY_5,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_0,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_1,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_2,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_3,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_4,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyY_5,
+						}};
+						keyCount = keys_Slot0x3DKeyY.size();
+						pKeyIdx = keys_Slot0x3DKeyY.data();
 						break;
 					}
 					case 'N': {
-						static const uint8_t keys_Slot0x3DKeyNormal[] = {
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_0,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_1,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_2,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_3,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_4,
-							N3DSVerifyKeys::Key_Retail_Slot0x3DKeyNormal_5,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_0,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_1,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_2,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_3,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_4,
-							N3DSVerifyKeys::Key_Debug_Slot0x3DKeyNormal_5,
-						};
-						keyCount = ARRAY_SIZE(keys_Slot0x3DKeyNormal);
-						pKeyIdx = keys_Slot0x3DKeyNormal;
+						static constexpr array<uint8_t, 12> keys_Slot0x3DKeyNormal = {{
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_0,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_1,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_2,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_3,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_4,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Retail_Slot0x3DKeyNormal_5,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_0,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_1,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_2,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_3,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_4,
+							(uint8_t)N3DSVerifyKeys::EncryptionKeys::Key_Debug_Slot0x3DKeyNormal_5,
+						}};
+						keyCount = keys_Slot0x3DKeyNormal.size();
+						pKeyIdx = keys_Slot0x3DKeyNormal.data();
 						break;
 					}
 					default:
@@ -1530,7 +1510,7 @@ KeyStoreUI::ImportReturn KeyStoreUIPrivate::importN3DSaeskeydb(IRpFile *file)
 
 		// Check if the key is OK.
 		bool keyChecked = false;
-		for (int i = keyCount; i > 0; i--, pKeyIdx++) {
+		for (size_t i = keyCount; i > 0; i--, pKeyIdx++) {
 			KeyStoreUI::Key *const pKey = &keys[keyIdxStart + *pKeyIdx];
 			if (pKey->status == KeyStoreUI::Key::Status::OK) {
 				// Key is already OK. Don't bother with it.

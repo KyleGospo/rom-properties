@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE)                              *
  * RomDataView.cpp: RomData viewer.                                        *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -66,7 +66,6 @@ void RomDataViewPrivate::createOptionsButton(void)
 	assert(btnOptions == nullptr);
 	if (btnOptions)
 		return;
-
 	Q_Q(RomDataView);
 
 	// Parent should be a KPropertiesDialog.
@@ -84,39 +83,27 @@ void RomDataViewPrivate::createOptionsButton(void)
 	KPageWidget *const pageWidget = findDirectChild<KPageWidget*>(parent);
 
 	// Check for the QDialogButtonBox in the KPageWidget first.
-	QDialogButtonBox *btnBox = findDirectChild<QDialogButtonBox*>(pageWidget);
-	if (!btnBox) {
-		// Check in the KPropertiesDialog.
-		btnBox = findDirectChild<QDialogButtonBox*>(parent);
+	QDialogButtonBox *buttonBox = nullptr;
+	if (pageWidget) {
+		buttonBox = findDirectChild<QDialogButtonBox*>(pageWidget);
 	}
-	assert(btnBox != nullptr);
-	if (!btnBox)
+	if (!buttonBox) {
+		// Check in the KPropertiesDialog.
+		buttonBox = findDirectChild<QDialogButtonBox*>(parent);
+	}
+	assert(buttonBox != nullptr);
+	if (!buttonBox)
 		return;
 
 	// Create the "Options" button.
 	btnOptions = new OptionsMenuButton();
 	btnOptions->setObjectName(QLatin1String("btnOptions"));
-	btnBox->addButton(btnOptions, QDialogButtonBox::ActionRole);
+	// NOTE: Using HelpRole to force the button to the left side of the dialog.
+	// The previous method added a stretch layout item to the QDialogButtonBox's
+	// layout directly, but that doesn't appear to work on Qt6.
+	// FIXME: Generally works on KF5/Qt5, but not on Ubuntu 18.04?
+	buttonBox->addButton(btnOptions, QDialogButtonBox::HelpRole);
 	btnOptions->hide();
-
-	// Add a spacer to the QDialogButtonBox.
-	// This will ensure that the "Options" button is left-aligned.
-	QBoxLayout *const boxLayout = findDirectChild<QBoxLayout*>(btnBox);
-	if (boxLayout) {
-		// Find the index of the "Options" button.
-		const int count = boxLayout->count();
-		int idx = -1;
-		for (int i = 0; i < count; i++) {
-			if (boxLayout->itemAt(i)->widget() == btnOptions) {
-				idx = i;
-				break;
-			}
-		}
-
-		if (idx >= 0) {
-			boxLayout->insertStretch(idx+1, 1);
-		}
-	}
 
 	// Connect the OptionsMenuButton's triggered(int) signal.
 	QObject::connect(btnOptions, SIGNAL(triggered(int)),
@@ -162,38 +149,92 @@ void RomDataViewPrivate::initHeaderRow(void)
 
 	// Supported image types
 	const uint32_t imgbf = romData->supportedImageTypes();
+	// FIXME: Store the standard image height somewhere else.
+	static constexpr int imgStdHeight = 32;
+	bool ok = false;
 
 	// Banner
 	if (imgbf & RomData::IMGBF_INT_BANNER) {
 		// Get the banner.
-		bool ok = ui.lblBanner->setRpImage(romData->image(RomData::IMG_INT_BANNER));
-		ui.lblBanner->setVisible(ok);
-	} else {
-		// No banner.
-		ui.lblBanner->hide();
+		const rp_image_const_ptr img = romData->image(RomData::IMG_INT_BANNER);
+		if (img) {
+			ok = ui.lblBanner->setRpImage(img);
+			if (ok) {
+				// Adjust the banner size.
+				const QSize bannerSize(img->width(), img->height());
+				if (bannerSize.height() != imgStdHeight) {
+					// Need to scale the banner label to match the aspect ratio.
+					const QSize bannerScaledSize(rintf(
+						(float)imgStdHeight * ((float)bannerSize.width() / (float)bannerSize.height())),
+						imgStdHeight);
+					ui.lblBanner->setMinimumSize(bannerScaledSize);
+					ui.lblBanner->setMaximumSize(bannerScaledSize);
+					ui.lblBanner->setScaledContents(true);
+				} else {
+					// Use the original banner size.
+					ui.lblBanner->setMinimumSize(bannerSize);
+					ui.lblBanner->setMaximumSize(bannerSize);
+					ui.lblBanner->setScaledContents(false);
+				}
+			}
+		}
 	}
+	ui.lblBanner->setVisible(ok);
 
 	// Icon
+	ok = false;
 	if (imgbf & RomData::IMGBF_INT_ICON) {
 		// Get the icon.
 		const rp_image_const_ptr icon = romData->image(RomData::IMG_INT_ICON);
 		if (icon && icon->isValid()) {
+			QSize iconSize;
+
 			// Is this an animated icon?
-			bool ok = ui.lblIcon->setIconAnimData(romData->iconAnimData());
+			const IconAnimDataConstPtr iconAnimData = romData->iconAnimData();
+			if (iconAnimData) {
+				ok = ui.lblIcon->setIconAnimData(romData->iconAnimData());
+				if (ok) {
+					// Get the size of the first animated icon frame.
+					const int frame = iconAnimData->seq_index[0];
+					const rp_image_ptr &img = iconAnimData->frames[frame];
+					assert((bool)img);
+					if (img) {
+						iconSize = QSize(img->width(), img->height());
+					} else {
+						// Invalid icon frame?
+						ui.lblIcon->setIconAnimData(nullptr);
+						ok = false;
+					}
+				}
+			}
 			if (!ok) {
 				// Not an animated icon, or invalid icon data.
 				// Set the static icon.
 				ok = ui.lblIcon->setRpImage(icon);
+				if (ok) {
+					iconSize = QSize(icon->width(), icon->height());
+				}
 			}
-			ui.lblIcon->setVisible(ok);
-		} else {
-			// No icon.
-			ui.lblIcon->hide();
+
+			if (ok) {
+				if (iconSize.height() != imgStdHeight) {
+					// Need to scale the icon label to match the aspect ratio.
+					const QSize iconScaledSize(rintf(
+						(float)imgStdHeight * ((float)iconSize.width() / (float)iconSize.height())),
+						imgStdHeight);
+					ui.lblIcon->setMinimumSize(iconScaledSize);
+					ui.lblIcon->setMaximumSize(iconScaledSize);
+					ui.lblIcon->setScaledContents(true);
+				} else {
+					// Use the original icon size.
+					ui.lblIcon->setMinimumSize(iconSize);
+					ui.lblIcon->setMaximumSize(iconSize);
+					ui.lblIcon->setScaledContents(false);
+				}
+			}
 		}
-	} else {
-		// No icon.
-		ui.lblIcon->hide();
 	}
+	ui.lblIcon->setVisible(ok);
 
 	const bool ecksBawks = (romData->fileType() == RomData::FileType::DiscImage &&
 	                        systemName && strstr(systemName, "Xbox") != nullptr);
@@ -428,8 +469,7 @@ QTreeView *RomDataViewPrivate::initListData(QLabel *lblDesc,
 	}
 
 	assert(list_data != nullptr);
-	assert(!list_data->empty());
-	if (!list_data || list_data->empty()) {
+	if (!list_data) {
 		// No data...
 		delete lblDesc;
 		return nullptr;
@@ -494,12 +534,10 @@ QTreeView *RomDataViewPrivate::initListData(QLabel *lblDesc,
 	// while others might take up three or more.
 	treeView->setUniformRowHeights(false);
 
-	// Item models.
-	// TODO: Subclass QSortFilterProxyModel for custom sorting methods.
+	// Item models
 	ListDataModel *const listModel = new ListDataModel(q);
 	// NOTE: No name for this QObject.
 	ListDataSortProxyModel *const proxyModel = new ListDataSortProxyModel(q);
-	// NOTE: No name for this QObject.
 	proxyModel->setSortingMethods(listDataDesc.col_attrs.sorting);
 	proxyModel->setSourceModel(listModel);
 	treeView->setModel(proxyModel);
@@ -692,23 +730,10 @@ QLabel *RomDataViewPrivate::initAgeRatings(QLabel *lblDesc,
 QLabel *RomDataViewPrivate::initDimensions(QLabel *lblDesc,
 	const RomFields::Field &field)
 {
-	// Dimensions.
-	// TODO: 'x' or '×'? Using 'x' for now.
+	// Dimensions
 	const int *const dimensions = field.data.dimensions;
-	char buf[64];
-	if (dimensions[1] > 0) {
-		if (dimensions[2] > 0) {
-			snprintf(buf, sizeof(buf), "%dx%dx%d",
-				dimensions[0], dimensions[1], dimensions[2]);
-		} else {
-			snprintf(buf, sizeof(buf), "%dx%d",
-				dimensions[0], dimensions[1]);
-		}
-	} else {
-		snprintf(buf, sizeof(buf), "%d", dimensions[0]);
-	}
-
-	return initString(lblDesc, field, QString::fromLatin1(buf));
+	const QString str = formatDimensions(dimensions);
+	return initString(lblDesc, field, str);
 }
 
 /**
@@ -1154,7 +1179,7 @@ void RomDataView::paintEvent(QPaintEvent *event)
 {
 	// Check for "viewed" achievements.
 	Q_D(RomDataView);
-	if (!d->hasCheckedAchievements) {
+	if (!d->hasCheckedAchievements && (bool)d->romData) {
 		d->romData->checkViewedAchievements();
 		d->hasCheckedAchievements = true;
 	}

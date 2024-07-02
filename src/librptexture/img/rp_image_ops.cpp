@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * rp_image_ops.cpp: Image class. (operations)                             *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -10,6 +10,9 @@
 #include "rp_image.hpp"
 #include "rp_image_p.hpp"
 #include "rp_image_backend.hpp"
+
+// C includes (C++ namespace)
+#include <cmath>
 
 // librptexture
 #include "ImageSizeCalc.hpp"
@@ -731,9 +734,13 @@ int rp_image::swizzle_cpp(const char *swz_spec)
 	// NOTE: Texture uses ARGB format, but swizzle uses rgba.
 	// Rotate swz_ch to convert it to argb.
 	// The entire thing needs to be byteswapped to match the internal order, too.
-	// TODO: Verify on big-endian.
-	swz_ch.u32 = (swz_ch.u32 >> 24) | (swz_ch.u32 << 8);
-	swz_ch.u32 = be32_to_cpu(swz_ch.u32);
+#if SYS_BYTEORDER == SYS_LIL_ENDIAN
+	// LE: Rotate 8-bits right
+	swz_ch.u32 = (swz_ch.u32 >> 24) | (swz_ch.u32 <<  8);
+#else /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
+	// BE: Rotate 8-bits left
+	swz_ch.u32 = (swz_ch.u32 >>  8) | (swz_ch.u32 << 24);
+#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
 
 	uint32_t *bits = static_cast<uint32_t*>(backend->data());
 	const unsigned int stride_diff = (backend->stride - this->row_bytes()) / sizeof(uint32_t);
@@ -743,18 +750,10 @@ int rp_image::swizzle_cpp(const char *swz_spec)
 			u8_32 cur, swz;
 			cur.u32 = *bits;
 
-		// TODO: Verify on big-endian.
-#if SYS_BYTEORDER == SYS_LIL_ENDIAN
-#  define SWZ_CH_B 0
-#  define SWZ_CH_G 1
-#  define SWZ_CH_R 2
-#  define SWZ_CH_A 3
-#else /* SYS_BYTEORDER == SYS_BIG_ENDIAN */
-#  define SWZ_CH_B 3
-#  define SWZ_CH_G 2
-#  define SWZ_CH_R 1
-#  define SWZ_CH_A 0
-#endif /* SYS_BYTEORDER == SYS_LIL_ENDIAN */
+#define SWZ_CH_B 3
+#define SWZ_CH_G 2
+#define SWZ_CH_R 1
+#define SWZ_CH_A 0
 
 #define SWIZZLE_CHANNEL(n) do { \
 				switch (swz_ch.u8[n]) { \
@@ -810,6 +809,7 @@ int rp_image::swizzle_cpp(const char *swz_spec)
 
 static inline float saturate(float a)
 {
+	// FIXME: MSVC 2015 doesn't like this function being marked as constexpr.
 	if (a < 0) a = 0;
 	if (a > 1) a = 1;
 	return a;
@@ -836,7 +836,7 @@ int rp_image::unswizzle_YCoCg(void)
 	argb32_t *bits = static_cast<argb32_t*>(backend->data());
 
 	// Conversion offset (for YCoCg to RGB)
-	static const float YCoCg_offset = 0.5f * 256.0f / 255.0f;
+	static constexpr float YCoCg_offset = 0.5f * 256.0f / 255.0f;
 
 	for (unsigned int y = static_cast<unsigned int>(backend->height); y > 0; y--) {
 		for (unsigned int x = static_cast<unsigned int>(width); x > 0; x--) {
@@ -854,9 +854,9 @@ int rp_image::unswizzle_YCoCg(void)
 			const float B = saturate(Y_minus_Cg - Co);
 			const uint8_t A = bits->YCoCg.a;
 
-			bits->r = (uint8_t)(R * 255.0f);
-			bits->g = (uint8_t)(G * 255.0f);
-			bits->b = (uint8_t)(B * 255.0f);
+			bits->r = (uint8_t)lrintf(R * 255.0f);
+			bits->g = (uint8_t)lrintf(G * 255.0f);
+			bits->b = (uint8_t)lrintf(B * 255.0f);
 			bits->a = A;
 
 			bits++;
@@ -888,7 +888,7 @@ int rp_image::unswizzle_YCoCg_scaled(void)
 	argb32_t *bits = static_cast<argb32_t*>(backend->data());
 
 	// Conversion offset (for YCoCg to RGB)
-	static const float YCoCg_offset = 0.5f * 256.0f / 255.0f;
+	static constexpr float YCoCg_offset = 0.5f * 256.0f / 255.0f;
 
 	for (unsigned int y = static_cast<unsigned int>(backend->height); y > 0; y--) {
 		for (unsigned int x = static_cast<unsigned int>(width); x > 0; x--) {
@@ -913,9 +913,9 @@ int rp_image::unswizzle_YCoCg_scaled(void)
 			const float G = saturate(Y + Cg);
 			const float B = saturate(Y_minus_Cg - Co);
 
-			bits->r = (uint8_t)(R * 255.0f);
-			bits->g = (uint8_t)(G * 255.0f);
-			bits->b = (uint8_t)(B * 255.0f);
+			bits->r = (uint8_t)lrintf(R * 255.0f);
+			bits->g = (uint8_t)lrintf(G * 255.0f);
+			bits->b = (uint8_t)lrintf(B * 255.0f);
 			bits->a = 255;	// no alpha channel
 
 			bits++;
@@ -971,6 +971,11 @@ int rp_image::unswizzle_AExp(void)
 			bits++;
 		}
 		bits += stride_diff;
+	}
+
+	// Zero out the alpha channel in the sBIT metadata.
+	if (d->has_sBIT) {
+		d->sBIT.alpha = 0;
 	}
 
 	return 0;

@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (libromdata)                       *
  * XboxDisc.cpp: Microsoft Xbox disc image parser.                         *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -22,11 +22,12 @@ using namespace LibRpTexture;
 #include "../disc/XDVDFSPartition.hpp"
 
 // Other RomData subclasses
-#include "Other/ISO.hpp"
+#include "Media/ISO.hpp"
 #include "Xbox_XBE.hpp"
 #include "Xbox360_XEX.hpp"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -395,7 +396,7 @@ XboxDisc::XboxDisc(const IRpFilePtr &file)
 		// to be an edge case where it's an XGD3 disc that has a video
 		// partition that matches an XGD2 timestamp.
 		if (d->discType == XboxDiscPrivate::DiscType::XGD2) {
-			static const off64_t xgd3_offset = XDVDFS_LBA_OFFSET_XGD3 * XDVDFS_BLOCK_SIZE;
+			static constexpr off64_t xgd3_offset = XDVDFS_LBA_OFFSET_XGD3 * XDVDFS_BLOCK_SIZE;
 			d->xdvdfs_addr = XDVDFS_LBA_OFFSET_XGD3 * XDVDFS_BLOCK_SIZE;
 			d->xdvdfsPartition = std::make_shared<XDVDFSPartition>(d->file,
 				xgd3_offset, d->file->size() - xgd3_offset);
@@ -505,7 +506,7 @@ int XboxDisc::isRomSupported_static(
 		int32_t btime;	// Creation time.
 	};
 
-	static const std::array<xgd_pvd_t, 21> xgd_tbl = {{
+	static const array<xgd_pvd_t, 21> xgd_tbl = {{
 		// XGD1
 		{1,  0, 1000334575},	// XGD1: 2001-09-13 10:42:55.00 '0' (+12:00)
 
@@ -557,7 +558,7 @@ int XboxDisc::isRomSupported_static(
 	if (btime >= 1293811200) {
 		// Timestamp is after 2011/01/01 00:00:00.00 -08:00.
 		// Check for XGD3.
-		static const char xgd3_pvd_times[][9+1] = {
+		static constexpr char xgd3_pvd_times[][9+1] = {
 			"17000000\xE4",	// 17:00:00.00 -07:00
 			"16000000\xE0",	// 16:00:00.00 -08:00
 		};

@@ -30,6 +30,7 @@ using LibWin32UI::LoadDialog_i18n;
 #include "NetworkStatus.h"
 
 // C++ STL classes
+using std::array;
 using std::tstring;
 
 class OptionsTabPrivate
@@ -47,9 +48,9 @@ protected:
 	 * @param value Bool value.
 	 * @return BST_CHECKED or BST_UNCHECKED.
 	 */
-	static inline int boolToBstChecked(bool value)
+	static inline constexpr int boolToBstChecked(bool value)
 	{
-		return (value ? BST_CHECKED : BST_UNCHECKED);
+		return (value) ? BST_CHECKED : BST_UNCHECKED;
 	}
 
 	/**
@@ -57,9 +58,9 @@ protected:
 	 * @param value BST_CHECKED or BST_UNCHECKED.
 	 * @return Bool string.
 	 */
-	static inline const TCHAR *bstCheckedToBoolString(unsigned int value)
+	static inline constexpr LPCTSTR bstCheckedToBoolString(unsigned int value)
 	{
-		return (value == BST_CHECKED ? _T("true") : _T("false"));
+		return (value == BST_CHECKED) ? _T("true") : _T("false");
 	}
 
 	/**
@@ -67,7 +68,7 @@ protected:
 	 * @param value BST_CHECKED or BST_UNCHECKED.
 	 * @return bool.
 	 */
-	static inline bool bstCheckedToBool(unsigned int value)
+	static inline constexpr bool bstCheckedToBool(unsigned int value)
 	{
 		return (value == BST_CHECKED);
 	}
@@ -122,9 +123,6 @@ public:
 	// Has the user changed anything?
 	bool changed;
 
-	// PAL language codes for GameTDB.
-	static const uint32_t pal_lc[];
-
 public:
 	// Dark Mode background brush
 	HBRUSH hbrBkgnd;
@@ -132,13 +130,6 @@ public:
 };
 
 /** OptionsTabPrivate **/
-
-// PAL language codes for GameTDB.
-// NOTE: 'au' is technically not a language code, but
-// GameTDB handles it as a separate language.
-// TODO: Combine with the KDE version.
-// NOTE: Win32 LanguageComboBox uses a NULL-terminated pal_lc[] array.
-const uint32_t OptionsTabPrivate::pal_lc[] = {'au', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pt', 'ru', 0};
 
 OptionsTabPrivate::OptionsTabPrivate()
 	: hPropSheetPage(nullptr)
@@ -169,9 +160,9 @@ void OptionsTabPrivate::reset(void)
 	const Config *const config = Config::instance();
 
 	// Downloads
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_CHKEXTIMGDL, boolToBstChecked(config->extImgDownloadEnabled()));
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_INTICONSMALL, boolToBstChecked(config->useIntIconForSmallSizes()));
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_STOREFILEORIGININFO, boolToBstChecked(config->storeFileOriginInfo()));
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_CHKEXTIMGDL, boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Downloads_ExtImgDownloadEnabled)));
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_INTICONSMALL, boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Downloads_UseIntIconForSmallSizes)));
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_STOREFILEORIGININFO, boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Downloads_StoreFileOriginInfo)));
 
 	// Image bandwidth options
 	ComboBox_SetCurSel(GetDlgItem(hWndPropSheet, IDC_OPTIONS_CBO_UNMETERED_DL), static_cast<int>(config->imgBandwidthUnmetered()));
@@ -179,24 +170,32 @@ void OptionsTabPrivate::reset(void)
 	// Update sensitivity
 	updateGrpExtImgDl();
 
-	// Options
-	// FIXME: Uncomment this once the "dangerous" permissions overlay
-	// is working on Windows.
-	/*
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS,
-		boolToBstChecked(config->showDangerousPermissionsOverlayIcon()));
-	*/
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS,
-		boolToBstChecked(config->enableThumbnailOnNetworkFS()));
-
-	// FIXME: Remove this once the "dangerous" permissions overlay
-	// is working on Windows.
-	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS, BST_UNCHECKED);
-	EnableWindow(GetDlgItem(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS), FALSE);
-
 	// PAL language code
 	HWND cboGameTDBPAL = GetDlgItem(hWndPropSheet, IDC_OPTIONS_PALLANGUAGEFORGAMETDB);
 	LanguageComboBox_SetSelectedLC(cboGameTDBPAL, config->palLanguageForGameTDB());
+
+	// Options
+
+	// FIXME: Re-enable IDC_OPTIONS_DANGEROUSPERMISSIONS once the
+	// "dangerous" permissions overlay is working on Windows.
+#if 0
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS,
+		boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Options_ShowDangerousPermissionsOverlayIcon)));
+#else
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS, BST_UNCHECKED);
+	EnableWindow(GetDlgItem(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS), FALSE);
+#endif
+
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS,
+		boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS)));
+
+	// Thumbnail directory packages
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES,
+		boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Options_ThumbnailDirectoryPackages)));
+
+	// Show XAttrView
+	CheckDlgButton(hWndPropSheet, IDC_OPTIONS_SHOWXATTRVIEW,
+		boolToBstChecked(config->getBoolConfigOption(Config::BoolConfig::Options_ShowXAttrView)));
 
 	// No longer changed.
 	changed = false;
@@ -212,7 +211,7 @@ void OptionsTabPrivate::loadDefaults(void)
 
 	// Downloads
 	bool bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_CHKEXTIMGDL));
-	bool bdef = Config::extImgDownloadEnabled_default();
+	bool bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_ExtImgDownloadEnabled);
 	if (bcur != bdef) {
 		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_CHKEXTIMGDL, boolToBstChecked(bdef));
 		isDefChanged = true;
@@ -220,13 +219,13 @@ void OptionsTabPrivate::loadDefaults(void)
 		updateGrpExtImgDl();
 	}
 	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_INTICONSMALL));
-	bdef = Config::useIntIconForSmallSizes_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_UseIntIconForSmallSizes);
 	if (bcur != bdef) {
 		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_INTICONSMALL, boolToBstChecked(bdef));
 		isDefChanged = true;
 	}
 	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_STOREFILEORIGININFO));
-	bdef = Config::storeFileOriginInfo_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_StoreFileOriginInfo);
 	if (bcur != bdef) {
 		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_STOREFILEORIGININFO, boolToBstChecked(bdef));
 		isDefChanged = true;
@@ -256,20 +255,36 @@ void OptionsTabPrivate::loadDefaults(void)
 	}
 
 	// Options
+
+#if 0
 	// FIXME: Uncomment this once the "dangerous" permissions overlay
 	// is working on Windows.
-	/*
 	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS));
-	bdef = Config::showDangerousPermissionsOverlayIcon_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ShowDangerousPermissionsOverlayIcon);
 	if (bcur != bdef) {
 		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_DANGEROUSPERMISSIONS, boolToBstChecked(bdef));
 		isDefChanged = true;
 	}
-	*/
+#endif
+
 	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS));
-	bdef = Config::enableThumbnailOnNetworkFS_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS);
 	if (bcur != bdef) {
 		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS, boolToBstChecked(bdef));
+		isDefChanged = true;
+	}
+
+	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES));
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ThumbnailDirectoryPackages);
+	if (bcur != bdef) {
+		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES, boolToBstChecked(bdef));
+		isDefChanged = true;
+	}
+
+	bcur = bstCheckedToBool(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_SHOWXATTRVIEW));
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ShowXAttrView);
+	if (bcur != bdef) {
+		CheckDlgButton(hWndPropSheet, IDC_OPTIONS_SHOWXATTRVIEW, boolToBstChecked(bdef));
 		isDefChanged = true;
 	}
 
@@ -363,6 +378,12 @@ void OptionsTabPrivate::save(void)
 	btstr = bstCheckedToBoolString(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS));
 	WritePrivateProfileString(_T("Options"), _T("EnableThumbnailOnNetworkFS"), btstr, tfilename.c_str());
 
+	btstr = bstCheckedToBoolString(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES));
+	WritePrivateProfileString(_T("Options"), _T("ThumbnailDirectoryPackages"), btstr, tfilename.c_str());
+
+	btstr = bstCheckedToBoolString(IsDlgButtonChecked(hWndPropSheet, IDC_OPTIONS_SHOWXATTRVIEW));
+	WritePrivateProfileString(_T("Options"), _T("ShowXAttrView"), btstr, tfilename.c_str());
+
 	// No longer changed.
 	changed = false;
 }
@@ -437,7 +458,7 @@ INT_PTR CALLBACK OptionsTabPrivate::dlgProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 			assert(cboLanguage != nullptr);
 			if (cboLanguage) {
 				LanguageComboBox_SetForcePAL(cboLanguage, true);
-				LanguageComboBox_SetLCs(cboLanguage, pal_lc);
+				LanguageComboBox_SetLCs(cboLanguage, Config::get_all_pal_lcs());
 			}
 
 			// Set window themes for Win10's dark mode.
@@ -453,6 +474,8 @@ INT_PTR CALLBACK OptionsTabPrivate::dlgProc(HWND hDlg, UINT uMsg, WPARAM wParam,
 				DarkMode_InitButton_Dlg(hDlg, IDC_OPTIONS_GRPOPTIONS);
 				DarkMode_InitButton_Dlg(hDlg, IDC_OPTIONS_DANGEROUSPERMISSIONS);
 				DarkMode_InitButton_Dlg(hDlg, IDC_OPTIONS_ENABLETHUMBNAILONNETWORKFS);
+				DarkMode_InitButton_Dlg(hDlg, IDC_OPTIONS_THUMBNAILDIRECTORYPACKAGES);
+				DarkMode_InitButton_Dlg(hDlg, IDC_OPTIONS_SHOWXATTRVIEW);
 			}
 
 			// Reset the configuration. 338

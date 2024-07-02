@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (librptexture)                     *
  * rp_image.hpp: Image class.                                              *
  *                                                                         *
- * Copyright (c) 2016-2023 by David Korth.                                 *
+ * Copyright (c) 2016-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -16,11 +16,12 @@
 #include <stdint.h>
 
 // C++ includes
+#include <array>
 #include <memory>
 
-#include "librpcpu/cpu_dispatch.h"
+#include "librpcpuid/cpu_dispatch.h"
 #if defined(RP_CPU_I386) || defined(RP_CPU_AMD64)
-#  include "librpcpu/cpuflags_x86.h"
+#  include "librpcpuid/cpuflags_x86.h"
 #  define RP_IMAGE_HAS_SSE2 1
 #  define RP_IMAGE_HAS_SSSE3 1
 #  define RP_IMAGE_HAS_SSE41 1
@@ -86,7 +87,7 @@ class rp_image
 		* From Qt 5.9.1's qcolor.cpp.
 		* These values are: 0x00FF00FF / alpha
 		*/
-		static const unsigned int qt_inv_premul_factor[256];
+		static const std::array<unsigned int, 256> qt_inv_premul_factor;
 
 	public:
 		/**

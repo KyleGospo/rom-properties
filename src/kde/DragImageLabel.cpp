@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (KDE4/KF5)                         *
  * DragImageLabel.cpp: Drag & Drop image label.                            *
  *                                                                         *
- * Copyright (c) 2019-2023 by David Korth.                                 *
+ * Copyright (c) 2019-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -20,12 +20,12 @@ using namespace LibRpTexture;
 
 // C++ STL classes
 using std::shared_ptr;
+using std::unique_ptr;
 
 DragImageLabel::DragImageLabel(const QString &text, QWidget *parent, Qt::WindowFlags f)
 	: super(text, parent, f)
 	, m_minimumImageSize(DIL_MIN_IMAGE_SIZE, DIL_MIN_IMAGE_SIZE)
 	, m_ecksBawks(false)
-	, m_img(nullptr)
 	, m_anim(nullptr)
 {}
 
@@ -33,7 +33,6 @@ DragImageLabel::DragImageLabel(QWidget *parent, Qt::WindowFlags f)
 	: super(parent, f)
 	, m_minimumImageSize(DIL_MIN_IMAGE_SIZE, DIL_MIN_IMAGE_SIZE)
 	, m_ecksBawks(false)
-	, m_img(nullptr)
 	, m_anim(nullptr)
 {}
 
@@ -46,24 +45,27 @@ void DragImageLabel::setEcksBawks(bool newEcksBawks)
 {
 	m_ecksBawks = newEcksBawks;
 	setContextMenuPolicy(m_ecksBawks ? Qt::ActionsContextMenu : Qt::DefaultContextMenu);
-	if (m_ecksBawks && actions().isEmpty()) {
+	if (!m_ecksBawks)
+		return;
+	if (!actions().isEmpty())
+		return;
+
 #if QT_VERSION >= QT_VERSION_CHECK(5,0,0)
-		// Need to initialize Ecks Bawks actions.
-		// NOTE: Only supporting Qt 5 for lambda functions.
-		QAction *const actMenu1 = new QAction(QLatin1String("ermahgerd! an ecks bawks ISO!"), this);
-		connect(actMenu1, &QAction::triggered, [](bool) {
-			QDesktopServices::openUrl(QUrl(QLatin1String("https://twitter.com/DeaThProj/status/1684469412978458624")));
-		});
+	// Need to initialize Ecks Bawks actions.
+	// NOTE: Only supporting Qt 5 for lambda functions.
+	QAction *const actMenu1 = new QAction(QLatin1String("ermahgerd! an ecks bawks ISO!"), this);
+	connect(actMenu1, &QAction::triggered, [](bool) {
+		QDesktopServices::openUrl(QUrl(QLatin1String("https://twitter.com/DeaThProj/status/1684469412978458624")));
+	});
 
-		QAction *const actMenu2 = new QAction(QLatin1String("Yar, har, fiddle dee dee"), this);
-		connect(actMenu2, &QAction::triggered, [](bool) {
-			QDesktopServices::openUrl(QUrl(QLatin1String("https://github.com/xenia-canary/xenia-canary/pull/180")));
-		});
+	QAction *const actMenu2 = new QAction(QLatin1String("Yar, har, fiddle dee dee"), this);
+	connect(actMenu2, &QAction::triggered, [](bool) {
+		QDesktopServices::openUrl(QUrl(QLatin1String("https://github.com/xenia-canary/xenia-canary/pull/180")));
+	});
 
-		addAction(actMenu1);
-		addAction(actMenu2);
+	addAction(actMenu1);
+	addAction(actMenu2);
 #endif /* QT_VERSION >= QT_VERSION_CHECK(5,0,0) */
-	}
 }
 
 /**
@@ -324,15 +326,15 @@ void DragImageLabel::mouseMoveEvent(QMouseEvent *event)
 	const bool isAnimated = (m_anim && m_anim->iconAnimData && m_anim->iconAnimHelper.isAnimated());
 
 	shared_ptr<RpQByteArrayFile> pngData = std::make_shared<RpQByteArrayFile>();
-	RpPngWriter *pngWriter;
+	unique_ptr<RpPngWriter> pngWriter;
 	if (isAnimated) {
 		// Animated icon.
-		pngWriter = new RpPngWriter(pngData, m_anim->iconAnimData);
+		pngWriter.reset(new RpPngWriter(pngData, m_anim->iconAnimData));
 	} else if (m_img) {
 		// Standard icon.
 		// NOTE: Using the source image because we want the original
 		// size, not the resized version.
-		pngWriter = new RpPngWriter(pngData, m_img);
+		pngWriter.reset(new RpPngWriter(pngData, m_img));
 	} else {
 		// No icon...
 		return;
@@ -340,7 +342,6 @@ void DragImageLabel::mouseMoveEvent(QMouseEvent *event)
 
 	if (!pngWriter->isOpen()) {
 		// Unable to open the PNG writer.
-		delete pngWriter;
 		return;
 	}
 
@@ -349,22 +350,21 @@ void DragImageLabel::mouseMoveEvent(QMouseEvent *event)
 	int pwRet = pngWriter->write_IHDR();
 	if (pwRet != 0) {
 		// Error writing the PNG image...
-		delete pngWriter;
 		return;
 	}
 	pwRet = pngWriter->write_IDAT();
 	if (pwRet != 0) {
 		// Error writing the PNG image...
-		delete pngWriter;
 		return;
 	}
 
 	// RpPngWriter will finalize the PNG on delete.
-	delete pngWriter;
+	pngWriter.reset();
 
 	QMimeData *const mimeData = new QMimeData;
 	mimeData->setObjectName(QLatin1String("mimeData"));
 	mimeData->setData(QLatin1String("image/png"), pngData->qByteArray());
+	mimeData->setData(QLatin1String("application/octet-stream"), pngData->qByteArray());
 
 	QDrag *const drag = new QDrag(this);
 	drag->setObjectName(QLatin1String("drag"));

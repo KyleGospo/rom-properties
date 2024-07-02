@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ common)                      *
  * OptionsTab.cpp: Options tab for rp-config.                              *
  *                                                                         *
- * Copyright (c) 2017-2023 by David Korth.                                 *
+ * Copyright (c) 2017-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -11,19 +11,15 @@
 #include "RpConfigTab.h"
 
 #include "gtk-compat.h"
-#include "RpGtk.hpp"
+#include "RpGtk.h"
 
 #include "LanguageComboBox.hpp"
 
 // librpbase
 using namespace LibRpBase;
 
-// PAL language codes for GameTDB.
-// NOTE: 'au' is technically not a language code, but
-// GameTDB handles it as a separate language.
-// TODO: Combine with the KDE version.
-// NOTE: GTK LanguageComboBox uses a NULL-terminated pal_lc[] array.
-static const uint32_t pal_lc[] = {'au', 'de', 'en', 'es', 'fr', 'it', 'nl', 'pt', 'ru', 0};
+// C++ STL classes
+using std::array;
 
 #if GTK_CHECK_VERSION(3,0,0)
 typedef GtkBoxClass superclass;
@@ -62,6 +58,7 @@ struct _RpOptionsTab {
 	// Options
 	GtkWidget *chkShowDangerousPermissionsOverlayIcon;
 	GtkWidget *chkEnableThumbnailOnNetworkFS;
+	GtkWidget *chkThumbnailDirectoryPackages;
 	GtkWidget *chkShowXAttrView;
 };
 
@@ -81,8 +78,8 @@ static void	rp_options_tab_notify_selected_handler		(GtkDropDown	*dropDown,
 #endif /* USE_GTK_DROP_DOWN */
 static void	rp_options_tab_modified_handler			(GtkWidget	*widget,
 								 RpOptionsTab	*tab);
-static void	rp_options_tab_lc_changed_handler		(RpLanguageComboBox *widget,
-								 uint32_t	 lc,
+static void	cboGameTDBPAL_notify_selected_lc_handler	(RpLanguageComboBox *widget,
+								 GParamSpec	*pspec,
 								 RpOptionsTab	*tab);
 static void	rp_options_tab_chkExtImgDownloadEnabled_toggled	(GtkCheckButton	*checkButton,
 								 RpOptionsTab	*tab);
@@ -238,7 +235,7 @@ rp_options_tab_init(RpOptionsTab *tab)
 	tab->cboGameTDBPAL = rp_language_combo_box_new();
 	gtk_widget_set_name(tab->cboGameTDBPAL, "cboGameTDBPAL");
 	rp_language_combo_box_set_force_pal(RP_LANGUAGE_COMBO_BOX(tab->cboGameTDBPAL), true);
-	rp_language_combo_box_set_lcs(RP_LANGUAGE_COMBO_BOX(tab->cboGameTDBPAL), pal_lc);
+	rp_language_combo_box_set_lcs(RP_LANGUAGE_COMBO_BOX(tab->cboGameTDBPAL), Config::get_all_pal_lcs());
 
 	// Create the "Options" frame.
 	// FIXME: GtkFrame doesn't support mnemonics?
@@ -265,6 +262,10 @@ rp_options_tab_init(RpOptionsTab *tab)
 		C_("OptionsTab", "Enable thumbnailing and metadata extraction on network\n"
 			"file systems. This may slow down file browsing."));
 	gtk_widget_set_name(tab->chkEnableThumbnailOnNetworkFS, "chkEnableThumbnailOnNetworkFS");
+	tab->chkThumbnailDirectoryPackages = gtk_check_button_new_with_label(
+		C_("OptionsTab", "Enable thumbnailing and metadata extraction of directory-based\n"
+			"packages, e.g. for Wii U. This may slow down file browsing."));
+	gtk_widget_set_name(tab->chkThumbnailDirectoryPackages, "chkThumbnailDirectoryPackages");
 	tab->chkShowXAttrView = gtk_check_button_new_with_label(
 		C_("OptionsTab", "Show the Extended Attributes tab."));
 	gtk_widget_set_name(tab->chkShowXAttrView, "chkShowXAttrView");
@@ -292,12 +293,14 @@ rp_options_tab_init(RpOptionsTab *tab)
 		G_CALLBACK(rp_options_tab_modified_handler), tab);
 	g_signal_connect(tab->chkStoreFileOriginInfo, "toggled",
 		G_CALLBACK(rp_options_tab_modified_handler), tab);
-	g_signal_connect(tab->cboGameTDBPAL, "lc-changed",
-		G_CALLBACK(rp_options_tab_lc_changed_handler), tab);
+	g_signal_connect(tab->cboGameTDBPAL, "notify::selected-lc",
+		G_CALLBACK(cboGameTDBPAL_notify_selected_lc_handler), tab);
 
 	g_signal_connect(tab->chkShowDangerousPermissionsOverlayIcon, "toggled",
 		G_CALLBACK(rp_options_tab_modified_handler), tab);
 	g_signal_connect(tab->chkEnableThumbnailOnNetworkFS, "toggled",
+		G_CALLBACK(rp_options_tab_modified_handler), tab);
+	g_signal_connect(tab->chkThumbnailDirectoryPackages, "toggled",
 		G_CALLBACK(rp_options_tab_modified_handler), tab);
 	g_signal_connect(tab->chkShowXAttrView, "toggled",
 		G_CALLBACK(rp_options_tab_modified_handler), tab);
@@ -315,6 +318,7 @@ rp_options_tab_init(RpOptionsTab *tab)
 	gtk_box_append(GTK_BOX(tab), fraOptions);
 	gtk_box_append(GTK_BOX(vboxOptions), tab->chkShowDangerousPermissionsOverlayIcon);
 	gtk_box_append(GTK_BOX(vboxOptions), tab->chkEnableThumbnailOnNetworkFS);
+	gtk_box_append(GTK_BOX(vboxOptions), tab->chkThumbnailDirectoryPackages);
 	gtk_box_append(GTK_BOX(vboxOptions), tab->chkShowXAttrView);
 #else /* !GTK_CHECK_VERSION(4,0,0) */
 	gtk_box_pack_start(GTK_BOX(tab), fraDownloads, false, false, 0);
@@ -329,6 +333,7 @@ rp_options_tab_init(RpOptionsTab *tab)
 	gtk_box_pack_start(GTK_BOX(tab), fraOptions, false, false, 0);
 	gtk_box_pack_start(GTK_BOX(vboxOptions), tab->chkShowDangerousPermissionsOverlayIcon, false, false, 0);
 	gtk_box_pack_start(GTK_BOX(vboxOptions), tab->chkEnableThumbnailOnNetworkFS, false, false, 0);
+	gtk_box_pack_start(GTK_BOX(vboxOptions), tab->chkThumbnailDirectoryPackages, false, false, 0);
 	gtk_box_pack_start(GTK_BOX(vboxOptions), tab->chkShowXAttrView, false, false, 0);
 
 	gtk_widget_show_all(fraDownloads);
@@ -367,13 +372,13 @@ rp_options_tab_reset(RpOptionsTab *tab)
 	// Downloads
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkExtImgDownloadEnabled),
-		config->extImgDownloadEnabled());
+		config->getBoolConfigOption(Config::BoolConfig::Downloads_ExtImgDownloadEnabled));
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkUseIntIconForSmallSizes),
-		config->useIntIconForSmallSizes());
+		config->getBoolConfigOption(Config::BoolConfig::Downloads_UseIntIconForSmallSizes));
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkStoreFileOriginInfo),
-		config->storeFileOriginInfo());
+		config->getBoolConfigOption(Config::BoolConfig::Downloads_StoreFileOriginInfo));
 
 	// Image bandwidth options
 	SET_CBO(tab->cboUnmeteredConnection, static_cast<int>(config->imgBandwidthUnmetered()));
@@ -384,13 +389,16 @@ rp_options_tab_reset(RpOptionsTab *tab)
 	// Options
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkShowDangerousPermissionsOverlayIcon),
-		config->showDangerousPermissionsOverlayIcon());
+		config->getBoolConfigOption(Config::BoolConfig::Options_ShowDangerousPermissionsOverlayIcon));
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkEnableThumbnailOnNetworkFS),
-		config->enableThumbnailOnNetworkFS());
+		config->getBoolConfigOption(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS));
+	gtk_check_button_set_active(
+		GTK_CHECK_BUTTON(tab->chkThumbnailDirectoryPackages),
+		config->getBoolConfigOption(Config::BoolConfig::Options_ThumbnailDirectoryPackages));
 	gtk_check_button_set_active(
 		GTK_CHECK_BUTTON(tab->chkShowXAttrView),
-		config->showXAttrView());
+		config->getBoolConfigOption(Config::BoolConfig::Options_ShowXAttrView));
 
 	// PAL language code
 	rp_language_combo_box_set_selected_lc(RP_LANGUAGE_COMBO_BOX(tab->cboGameTDBPAL), config->palLanguageForGameTDB());
@@ -409,19 +417,19 @@ rp_options_tab_load_defaults(RpOptionsTab *tab)
 	bool isDefChanged = false;
 
 	// Downloads
-	bool bdef = Config::extImgDownloadEnabled_default();
+	bool bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_ExtImgDownloadEnabled);
 	if (COMPARE_CHK(tab->chkExtImgDownloadEnabled, bdef)) {
 		SET_CHK(tab->chkExtImgDownloadEnabled, bdef);
 		isDefChanged = true;
 		// Update sensitivity
 		rp_options_tab_chkExtImgDownloadEnabled_toggled(GTK_CHECK_BUTTON(tab->chkExtImgDownloadEnabled), tab);
 	}
-	bdef = Config::useIntIconForSmallSizes_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_UseIntIconForSmallSizes);
 	if (COMPARE_CHK(tab->chkUseIntIconForSmallSizes, bdef)) {
 		SET_CHK(tab->chkUseIntIconForSmallSizes, bdef);
 		isDefChanged = true;
 	}
-	bdef = Config::storeFileOriginInfo_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Downloads_StoreFileOriginInfo);
 	if (COMPARE_CHK(tab->chkStoreFileOriginInfo, bdef)) {
 		SET_CHK(tab->chkStoreFileOriginInfo, bdef);
 		isDefChanged = true;
@@ -446,17 +454,22 @@ rp_options_tab_load_defaults(RpOptionsTab *tab)
 	}
 
 	// Options
-	bdef = Config::showDangerousPermissionsOverlayIcon_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ShowDangerousPermissionsOverlayIcon);
 	if (COMPARE_CHK(tab->chkShowDangerousPermissionsOverlayIcon, bdef)) {
 		gtk_check_button_set_active(GTK_CHECK_BUTTON(tab->chkShowDangerousPermissionsOverlayIcon), bdef);
 		isDefChanged = true;
 	}
-	bdef = Config::enableThumbnailOnNetworkFS_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_EnableThumbnailOnNetworkFS);
 	if (COMPARE_CHK(tab->chkEnableThumbnailOnNetworkFS, bdef)) {
 		gtk_check_button_set_active(GTK_CHECK_BUTTON(tab->chkEnableThumbnailOnNetworkFS), bdef);
 		isDefChanged = true;
 	}
-	bdef = Config::showXAttrView_default();
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ThumbnailDirectoryPackages);
+	if (COMPARE_CHK(tab->chkThumbnailDirectoryPackages, bdef)) {
+		gtk_check_button_set_active(GTK_CHECK_BUTTON(tab->chkThumbnailDirectoryPackages), bdef);
+		isDefChanged = true;
+	}
+	bdef = Config::getBoolConfigOption_default(Config::BoolConfig::Options_ShowXAttrView);
 	if (COMPARE_CHK(tab->chkShowXAttrView, bdef)) {
 		gtk_check_button_set_active(GTK_CHECK_BUTTON(tab->chkShowXAttrView), bdef);
 		isDefChanged = true;
@@ -530,6 +543,8 @@ rp_options_tab_save(RpOptionsTab *tab, GKeyFile *keyFile)
 		GET_CHK(tab->chkShowDangerousPermissionsOverlayIcon));
 	g_key_file_set_boolean(keyFile, "Options", "EnableThumbnailOnNetworkFS",
 		GET_CHK(tab->chkEnableThumbnailOnNetworkFS));
+	g_key_file_set_boolean(keyFile, "Options", "ThumbnailDirectoryPackages",
+		GET_CHK(tab->chkThumbnailDirectoryPackages));
 	g_key_file_set_boolean(keyFile, "Options", "ShowXAttrView",
 		GET_CHK(tab->chkShowXAttrView));
 
@@ -578,18 +593,18 @@ rp_options_tab_modified_handler(GtkWidget *widget, RpOptionsTab *tab)
 }
 
 /**
- * "lc-changed" signal handler for RpLanguageComboBox
- * @param widget RpLanguageComboBox
- * @param lc New language code
+ * Notification for "selected-lc" for RpLanguageComboBox
+ * @param widget LanguageComboBox
+ * @param pspec Property specification
  * @param tab OptionsTab
  */
 static void
-rp_options_tab_lc_changed_handler(RpLanguageComboBox *widget,
-				  uint32_t	 lc,
-				  RpOptionsTab	*tab)
+cboGameTDBPAL_notify_selected_lc_handler(RpLanguageComboBox *widget,
+					 GParamSpec	*pspec,
+					 RpOptionsTab	*tab)
 {
 	RP_UNUSED(widget);
-	RP_UNUSED(lc);
+	RP_UNUSED(pspec);
 	if (tab->inhibit)
 		return;
 

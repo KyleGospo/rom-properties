@@ -43,6 +43,8 @@ application/x-wia			# GameCube
 application/x-cso			# GameCube
 application/x-nasos-image		# GameCube
 application/x-gcz-image			# GameCube
+application/x-dpf-image			# GameCube
+application/x-rpf-image			# GameCube
 application/x-rvz-image			# GameCube
 application/x-gamecube-bnr		# GameCubeBNR
 application/x-gamecube-save		# GameCubeSave
@@ -62,6 +64,7 @@ application/x-snes-rom			# SNES
 application/x-sufami-turbo-rom		# SufamiTurbo
 application/x-wii-save			# WiiSave
 application/x-wii-u-rom			# WiiU
+inode/directory				# WiiUPackage (NOTE: Very generic!)
 application/x-nintendo-dsi-tad		# WiiWAD
 application/x-wii-wad			# WiiWAD
 application/x-doom-wad			# WiiWAD (for compatibility)
@@ -97,6 +100,9 @@ application/x-ctr-smdh			# Nintendo3DS_SMDH (Citra)
 application/x-nintendo-ds-rom		# NintendoDS
 application/vnd.nintendo.nitro.rom	# NintendoDS
 application/x-nintendo-dsi-rom		# NintendoDS
+application/x-nintendo-ds-bnr		# NintendoDS_BNR
+application/vnd.palm			# Palm OS
+application/x-mobipocket-ebook		# Palm OS (may take precedence on some systems)
 application/x-psp-ciso-image		# PSP
 application/x-psp-dax-image		# PSP
 application/x-psp-jiso-image		# PSP

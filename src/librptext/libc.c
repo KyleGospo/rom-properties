@@ -3,7 +3,7 @@
  * libc.c: Reimplementations of libc functions that aren't present on      *
  * this system.                                                            *
  *                                                                         *
- * Copyright (c) 2009-2023 by David Korth.                                 *
+ * Copyright (c) 2009-2024 by David Korth.                                 *
  * SPDX-License-Identifier: GPL-2.0-or-later                               *
  ***************************************************************************/
 
@@ -21,7 +21,7 @@
  * @param maxlen Maximum length of the string
  * @returns equivivalent to min(strlen(str), maxlen) without buffer overruns
  */
-size_t strnlen(const char *str, size_t maxlen)
+size_t rp_strnlen(const char *str, size_t maxlen)
 {
 	const char *ptr = memchr(str, 0, maxlen);
 	if (!ptr)
@@ -39,12 +39,13 @@ size_t strnlen(const char *str, size_t maxlen)
  * @param needlelen Length of needle.
  * @return Location of needle in haystack, or NULL if not found.
  */
-void *memmem(const void *haystack, size_t haystacklen,
-	     const void *needle, size_t needlelen)
+void *rp_memmem(const void *haystack, size_t haystacklen,
+	        const void *needle, size_t needlelen)
 {
 	// Reference: https://opensource.apple.com/source/Libc/Libc-1044.1.2/string/FreeBSD/memmem.c
 	// NOTE: haystack was originally 'l'; needle was originally 's'.
-	register const char *cur, *last;
+	// NOTE: 'register' keywords were removed.
+	const char *cur, *last;
 	const char *cl = (const char *)haystack;
 	const char *cs = (const char *)needle;
 
@@ -71,3 +72,42 @@ void *memmem(const void *haystack, size_t haystacklen,
 	return NULL;
 }
 #endif /* HAVE_MEMMEM */
+
+#ifndef HAVE_STRLCAT
+/**
+ * strcat() but with a length parameter to prevent buffer overflows.
+ * @param dst [in,out] Destination string
+ * @param src [in] Source string
+ * @param size [in] Size of destination string
+ * @return Total length of the string that was attempted to be created: strlen(dst) + strlen(src)
+ */
+size_t rp_strlcat(char *dst, const char *src, size_t size)
+{
+	// Reference: https://opensource.apple.com/source/Libc/Libc-262/string/strlcat.c.auto.html
+	// NOTE: 'size' was originally 'siz'.
+	// NOTE: 'register' keywords were removed.
+	register char *d = dst;
+	register const char *s = src;
+	register size_t n = size;
+	size_t dlen;
+
+	/* Find the end of dst and adjust bytes left but don't go past end */
+	while (n-- != 0 && *d != '\0')
+		d++;
+	dlen = d - dst;
+	n = size - dlen;
+
+	if (n == 0)
+		return(dlen + strlen(s));
+	while (*s != '\0') {
+		if (n != 1) {
+			*d++ = *s;
+			n--;
+		}
+		s++;
+	}
+	*d = '\0';
+
+	return(dlen + (s - src));	/* count does not include NUL */
+}
+#endif /* HAVE_STRLCAT */
