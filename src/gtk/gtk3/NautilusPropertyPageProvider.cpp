@@ -2,7 +2,7 @@
  * ROM Properties Page shell extension. (GTK+ 3.x)                              *
  * NautilusPropertyPageProvider.cpp: Nautilus Property Page Provider Definition *
  *                                                                              *
- * Copyright (c) 2017-2022 by David Korth.                                      *
+ * Copyright (c) 2017-2024 by David Korth.                                      *
  * SPDX-License-Identifier: GPL-2.0-or-later                                    *
  ********************************************************************************/
 
@@ -17,6 +17,7 @@
 
 #include "stdafx.h"
 #include "NautilusPropertyPageProvider.hpp"
+#include "NautilusExtraInterfaces.h"
 
 #include "is-supported.hpp"
 #include "NautilusPlugin.hpp"
@@ -56,8 +57,8 @@ struct _RpNautilusPropertyPageProvider {
 // due to an implicit int to GTypeFlags conversion.
 G_DEFINE_DYNAMIC_TYPE_EXTENDED(RpNautilusPropertyPageProvider, rp_nautilus_property_page_provider,
 	G_TYPE_OBJECT, 0,
-	G_IMPLEMENT_INTERFACE_DYNAMIC(NAUTILUS_TYPE_PROPERTY_PAGE_PROVIDER,
-		rp_nautilus_property_page_provider_page_provider_init));
+	G_IMPLEMENT_INTERFACE_DYNAMIC(NAUTILUS_TYPE_PROPERTY_PAGE_PROVIDER, rp_nautilus_property_page_provider_page_provider_init)
+);
 
 #if !GLIB_CHECK_VERSION(2,59,1)
 #  if defined(__GNUC__) && __GNUC__ > 8
@@ -66,9 +67,14 @@ G_DEFINE_DYNAMIC_TYPE_EXTENDED(RpNautilusPropertyPageProvider, rp_nautilus_prope
 #endif /* !GLIB_CHECK_VERSION(2,59,1) */
 
 void
-rp_nautilus_property_page_provider_register_type_ext(GTypeModule *module)
+rp_nautilus_property_page_provider_register_type_ext(GTypeModule *g_module)
 {
-	rp_nautilus_property_page_provider_register_type(module);
+	rp_nautilus_property_page_provider_register_type(g_module);
+
+#ifdef HAVE_EXTRA_INTERFACES
+	// Add extra fork-specific interfaces.
+	rp_nautilus_extra_interfaces_add(g_module, RP_TYPE_NAUTILUS_PROPERTY_PAGE_PROVIDER);
+#endif /* HAVE_EXTRA_INTERFACES */
 }
 
 static void

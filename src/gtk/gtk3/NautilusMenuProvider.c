@@ -11,6 +11,7 @@
 #include "stdafx.h"
 #include "NautilusMenuProvider.h"
 #include "MenuProviderCommon.h"
+#include "NautilusExtraInterfaces.h"
 
 #include "../RomDataView.hpp"
 
@@ -25,7 +26,7 @@
 
 static GQuark rp_item_convert_to_png_quark;
 
-static void   rp_nautilus_menu_provider_page_provider_init	(NautilusMenuProviderInterface *iface);
+static void	rp_nautilus_menu_provider_page_provider_init		(NautilusMenuProviderInterface *iface);
 
 static GList *rp_nautilus_menu_provider_get_file_items(
 	NautilusMenuProvider *provider,
@@ -54,8 +55,8 @@ struct _RpNautilusMenuProvider {
 // due to an implicit int to GTypeFlags conversion.
 G_DEFINE_DYNAMIC_TYPE_EXTENDED(RpNautilusMenuProvider, rp_nautilus_menu_provider,
 	G_TYPE_OBJECT, (GTypeFlags)0,
-	G_IMPLEMENT_INTERFACE_DYNAMIC(NAUTILUS_TYPE_MENU_PROVIDER,
-		rp_nautilus_menu_provider_page_provider_init));
+	G_IMPLEMENT_INTERFACE_DYNAMIC(NAUTILUS_TYPE_MENU_PROVIDER, rp_nautilus_menu_provider_page_provider_init)
+);
 
 #if !GLIB_CHECK_VERSION(2,59,1)
 #  if defined(__GNUC__) && __GNUC__ > 8
@@ -64,9 +65,14 @@ G_DEFINE_DYNAMIC_TYPE_EXTENDED(RpNautilusMenuProvider, rp_nautilus_menu_provider
 #endif /* !GLIB_CHECK_VERSION(2,59,1) */
 
 void
-rp_nautilus_menu_provider_register_type_ext(GTypeModule *plugin)
+rp_nautilus_menu_provider_register_type_ext(GTypeModule *g_module)
 {
-	rp_nautilus_menu_provider_register_type(G_TYPE_MODULE(plugin));
+	rp_nautilus_menu_provider_register_type(G_TYPE_MODULE(g_module));
+
+#ifdef HAVE_EXTRA_INTERFACES
+	// Add extra fork-specific interfaces.
+	rp_nautilus_extra_interfaces_add(g_module, RP_TYPE_NAUTILUS_MENU_PROVIDER);
+#endif /* HAVE_EXTRA_INTERFACES */
 }
 
 static void

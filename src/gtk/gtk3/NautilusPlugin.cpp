@@ -13,6 +13,7 @@
 #include "AchGDBus.hpp"
 #include "NautilusMenuProvider.h"
 #include "NautilusPropertyPageProvider.hpp"
+#include "NautilusExtraInterfaces.h"
 #include "plugin-helper.h"
 
 static GType type_list[2];
@@ -20,7 +21,7 @@ static GType type_list[2];
 // C includes (C++ namespace)
 #include <cassert>
 
-// Function pointers.
+// Function pointers
 static void *libextension_so;
 PFN_NAUTILUS_FILE_INFO_GET_TYPE			pfn_nautilus_file_info_get_type;
 PFN_NAUTILUS_FILE_INFO_GET_MIME_TYPE		pfn_nautilus_file_info_get_mime_type;
@@ -35,13 +36,13 @@ PFN_NAUTILUS_PROPERTY_PAGE_PROVIDER_GET_TYPE	pfn_nautilus_property_page_provider
 PFN_NAUTILUS_PROPERTY_PAGE_NEW			pfn_nautilus_property_page_new;
 
 static void
-rp_nautilus_register_types(GTypeModule *module)
+rp_nautilus_register_types(GTypeModule *g_module)
 {
 	/* Register the types provided by this module */
 	// NOTE: G_DEFINE_DYNAMIC_TYPE() marks the *_register_type()
 	// functions as static, so we're using wrapper functions here.
-	rp_nautilus_property_page_provider_register_type_ext(module);
-	rp_nautilus_menu_provider_register_type_ext(module);
+	rp_nautilus_property_page_provider_register_type_ext(g_module);
+	rp_nautilus_menu_provider_register_type_ext(g_module);
 
 	/* Setup the plugin provider type list */
 	type_list[0] = RP_TYPE_NAUTILUS_PROPERTY_PAGE_PROVIDER;
@@ -56,10 +57,7 @@ rp_nautilus_register_types(GTypeModule *module)
 #  define REGISTER_ACHDBUS() do { } while (0)
 #endif /* ENABLE_ACHIEVEMENTS */
 
-#define NAUTILUS_MODULE_INITIALIZE_FUNC(prefix) \
-extern "C" G_MODULE_EXPORT void \
-prefix##_module_initialize(GTypeModule *module) \
-{ \
+#define NAUTILUS_MODULE_INITIALIZE_FUNC_INT(prefix) do { \
 	CHECK_UID(); \
 	SHOW_INIT_MESSAGE(); \
 	VERIFY_GTK_VERSION(); \
@@ -91,16 +89,42 @@ prefix##_module_initialize(GTypeModule *module) \
 	DLSYM(nautilus_property_page_provider_get_type,	prefix##_property_page_provider_get_type); \
 	DLSYM(nautilus_property_page_new,		prefix##_property_page_new); \
 \
-	/* Symbols loaded. Register our types. */ \
-	rp_nautilus_register_types(module); \
-\
 	/* Register AchGDBus if it's available. */ \
 	REGISTER_ACHDBUS(); \
+} while (0)
+
+extern "C" G_MODULE_EXPORT void
+nautilus_module_initialize(GTypeModule *g_module)
+{
+	NAUTILUS_MODULE_INITIALIZE_FUNC_INT(nautilus);
+
+	// Symbols loaded. Register our types
+	rp_nautilus_register_types(g_module);
 }
 
-NAUTILUS_MODULE_INITIALIZE_FUNC(nautilus)
-NAUTILUS_MODULE_INITIALIZE_FUNC(caja)
-NAUTILUS_MODULE_INITIALIZE_FUNC(nemo)
+extern "C" G_MODULE_EXPORT void
+caja_module_initialize(GTypeModule *g_module)
+{
+	NAUTILUS_MODULE_INITIALIZE_FUNC_INT(caja);
+
+	// Initialize Caja-specific function pointers.
+	rp_caja_init(libextension_so);
+
+	// Symbols loaded. Register our types
+	rp_nautilus_register_types(g_module);
+}
+
+extern "C" G_MODULE_EXPORT void
+nemo_module_initialize(GTypeModule *g_module)
+{
+	NAUTILUS_MODULE_INITIALIZE_FUNC_INT(nemo);
+
+	// Initialize Nemo-specific function pointers.
+	rp_nemo_init(libextension_so);
+
+	// Symbols loaded. Register our types
+	rp_nautilus_register_types(g_module);
+}
 
 /** Common shutdown and list_types functions. **/
 

@@ -31,6 +31,14 @@
  * will result in a dangling pointer.
  */
 
+// Qt6 uses qsizetype for string lengths, which is ssize_t on Linux systems.
+// Qt5 uses int for string lengths. (qsizetype introduced in Qt 5.10)
+#if QT_VERSION >= QT_VERSION_CHECK(6,0,0)
+typedef qsizetype rp_qstringsizetype;
+#else /* QT_VERSION < QT_VERSION_CHECK(6,0,0) */
+typedef int rp_qstringsizetype;
+#endif /* QT_VERSION >= QT_VERSION_CHECK(6,0,0) */
+
 /**
  * Convert an std::string to QString.
  * @param str std::string
@@ -38,7 +46,7 @@
  */
 static inline QString U82Q(const std::string &str)
 {
-	return QString::fromUtf8(str.data(), static_cast<int>(str.size()));
+	return QString::fromUtf8(str.data(), static_cast<rp_qstringsizetype>(str.size()));
 }
 
 /**
@@ -47,10 +55,21 @@ static inline QString U82Q(const std::string &str)
  * @param len Length of str, in characters. (optional; -1 for C string)
  * @return QString
  */
-static inline QString U82Q(const char *str, int len = -1)
+static inline QString U82Q(const char *str, rp_qstringsizetype len = -1)
 {
 	return QString::fromUtf8(str, len);
 }
+
+// Helper macro for using C_() with U82Q().
+// NOTE: Must include i18n.h before using this macro!
+#define Q_(msgid)				U82Q(_(msgid))
+#define QC_(msgctxt, msgid)			U82Q(C_(msgctxt, msgid))
+#define QN_(msgid1, msgid2, n)			U82Q(N_(msgid1, msgid2, n))
+#define QNC_(msgctxt, msgid1, msgid2, n)	U82Q(NC_(msgctxt, msgid1, msgid2, n))
+#define qpgettext_expr(msgctxt, msgid)				U82Q(pgettext_expr(msgctxt, msgid))
+#define qdpgettext_expr(domain, msgctxt, msgid)			U82Q(dpgettext_expr(domain, msgctxt, msgid))
+#define qnpgettext_expr(msgctxt, msgid1, msgid2, n)		U82Q(npgettext_expr(msgctxt, msgid1, msgid2, n))
+#define qdnpgettext_expr(domain, msgctxt, msgid1, msgid2, n)	U82Q(dnpgettext_expr(domain, msgctxt, msgid1, msgid2, n))
 
 /**
  * Get const char* from QString.
