@@ -103,7 +103,7 @@ static void	updChecker_error			(RpUpdateChecker	*updChecker,
 							 const gchar		*error,
 							 RpAboutTab		*tab);
 static void	updChecker_retrieved			(RpUpdateChecker	*updChecker,
-							 guint64		 updateVersion,
+							 uint64_t		 updateVersion,
 							 RpAboutTab		*tab);
 #endif /* ENABLE_UPDATE_CHECK */
 
@@ -395,11 +395,9 @@ rp_about_tab_reset(RpAboutTab *tab)
 static void
 rp_about_tab_save(RpAboutTab *tab, GKeyFile *keyFile)
 {
+	// Not implemented.
 	g_return_if_fail(RP_IS_ABOUT_TAB(tab));
 	g_return_if_fail(keyFile != nullptr);
-
-	// Not implemented.
-	return;
 }
 
 /** Label initialization **/
@@ -851,7 +849,7 @@ updChecker_error(RpUpdateChecker	*updChecker,
 
 static void
 updChecker_retrieved(RpUpdateChecker	*updChecker,
-		     guint64	 	 updateVersion,
+		     uint64_t	 	 updateVersion,
 		     RpAboutTab		*tab)
 {
 	RP_UNUSED(updChecker);

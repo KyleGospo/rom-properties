@@ -28,8 +28,7 @@ namespace LibRomData {
 class WiiWIBNPrivate final : public RomDataPrivate
 {
 public:
-	WiiWIBNPrivate(const IRpFilePtr &file);
-	~WiiWIBNPrivate() final = default;
+	explicit WiiWIBNPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -341,10 +340,10 @@ const char *WiiWIBN::systemName(unsigned int type) const
 		"WiiWIBN::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		// NOTE: Same as Wii.
 		"Nintendo Wii", "Wii", "Wii", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -465,11 +464,10 @@ int WiiWIBN::loadFieldData(void)
 	}
 
 	// Flags
-	static const char *const flags_names[] = {
+	static const array<const char*, 1> flags_names = {{
 		NOP_C_("WiiWIBN|Flags", "No Copy"),
-	};
-	vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n(
-		"WiiWIBN|Flags", flags_names, ARRAY_SIZE(flags_names));
+	}};
+	vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n("WiiWIBN|Flags", flags_names);
 	d->fields.addField_bitfield(C_("RomData", "Flags"),
 		v_flags_names, 0, be32_to_cpu(wibnHeader->flags));
 
@@ -607,4 +605,4 @@ IconAnimDataConstPtr WiiWIBN::iconAnimData(void) const
 	return d->iconAnimData;
 }
 
-}
+} // namespace LibRomData

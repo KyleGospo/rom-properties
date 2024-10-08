@@ -26,6 +26,7 @@ using namespace LibRpTexture;
 #include "Other/EXE.hpp"
 
 // C++ STL classes
+using std::array;
 using std::ostringstream;
 using std::shared_ptr;
 using std::string;
@@ -40,8 +41,7 @@ namespace LibRomData {
 class Xbox_XBE_Private final : public RomDataPrivate
 {
 public:
-	Xbox_XBE_Private(const IRpFilePtr &file);
-	~Xbox_XBE_Private() final;
+	explicit Xbox_XBE_Private(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -64,7 +64,7 @@ public:
 
 	// RomData subclasses
 	// TODO: Also get the save image? ($$XSIMAGE)
-	EXE *pe_exe;		// PE executable
+	unique_ptr<EXE> pe_exe;		// PE executable
 
 	// Title image.
 	// NOTE: May be a PNG image on some discs.
@@ -129,7 +129,6 @@ const RomDataInfo Xbox_XBE_Private::romDataInfo = {
 
 Xbox_XBE_Private::Xbox_XBE_Private(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
-	, pe_exe(nullptr)
 {
 	// Clear the XBE structs.
 	memset(&xbeHeader, 0, sizeof(xbeHeader));
@@ -138,11 +137,6 @@ Xbox_XBE_Private::Xbox_XBE_Private(const IRpFilePtr &file)
 	// No xtImage initially.
 	xtImage.isInit = false;
 	xtImage.isPng = false;
-}
-
-Xbox_XBE_Private::~Xbox_XBE_Private()
-{
-	delete pe_exe;
 }
 
 /**
@@ -316,7 +310,7 @@ const EXE *Xbox_XBE_Private::initEXE(void)
 {
 	if (pe_exe) {
 		// EXE is already initialized.
-		return pe_exe;
+		return pe_exe.get();
 	}
 
 	if (!file || !file->isOpen()) {
@@ -341,7 +335,7 @@ const EXE *Xbox_XBE_Private::initEXE(void)
 		EXE *const pe_exe_tmp = new EXE(subFile);
 		if (pe_exe_tmp->isOpen()) {
 			// EXE opened.
-			this->pe_exe = pe_exe_tmp;
+			this->pe_exe.reset(pe_exe_tmp);
 		} else {
 			// Failed to open the EXE.
 			delete pe_exe_tmp;
@@ -349,7 +343,7 @@ const EXE *Xbox_XBE_Private::initEXE(void)
 	}
 
 	// EXE loaded.
-	return this->pe_exe;
+	return this->pe_exe.get();
 }
 
 /**
@@ -520,9 +514,9 @@ const char *Xbox_XBE::systemName(unsigned int type) const
 		"Xbox_XBE::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Microsoft Xbox", "Xbox", "Xbox", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -685,33 +679,40 @@ int Xbox_XBE::loadFieldData(void)
 	}
 
 	// Title ID
-	// FIXME: Verify behavior on big-endian.
-	// TODO: Consolidate implementations into a shared function.
-	string tid_str;
-	char hexbuf[4];
-	if (ISUPPER(xbeCertificate->title_id.a)) {
-		tid_str += (char)xbeCertificate->title_id.a;
-	} else {
-		tid_str += "\\x";
-		snprintf(hexbuf, sizeof(hexbuf), "%02X",
-			(uint8_t)xbeCertificate->title_id.a);
-		tid_str.append(hexbuf, 2);
-	}
-	if (ISUPPER(xbeCertificate->title_id.b)) {
-		tid_str += (char)xbeCertificate->title_id.b;
-	} else {
-		tid_str += "\\x";
-		snprintf(hexbuf, sizeof(hexbuf), "%02X",
-			(uint8_t)xbeCertificate->title_id.b);
-		tid_str.append(hexbuf, 2);
-	}
+	const char *const s_title_id_desc = C_("Xbox_XBE", "Title ID");
+	if (likely(xbeCertificate->title_id.u32 != 0)) {
+		// FIXME: Verify behavior on big-endian.
+		// TODO: Consolidate implementations into a shared function.
+		string tid_str;
+		char hexbuf[4];
+		if (ISUPPER(xbeCertificate->title_id.a)) {
+			tid_str += (char)xbeCertificate->title_id.a;
+		} else {
+			tid_str += "\\x";
+			snprintf(hexbuf, sizeof(hexbuf), "%02X",
+				(uint8_t)xbeCertificate->title_id.a);
+			tid_str.append(hexbuf, 2);
+		}
+		if (ISUPPER(xbeCertificate->title_id.b)) {
+			tid_str += (char)xbeCertificate->title_id.b;
+		} else {
+			tid_str += "\\x";
+			snprintf(hexbuf, sizeof(hexbuf), "%02X",
+				(uint8_t)xbeCertificate->title_id.b);
+			tid_str.append(hexbuf, 2);
+		}
 
-	d->fields.addField_string(C_("Xbox_XBE", "Title ID"),
-		rp_sprintf_p(C_("Xbox_XBE", "%1$08X (%2$s-%3$03u)"),
-			le32_to_cpu(xbeCertificate->title_id.u32),
-			tid_str.c_str(),
-			le16_to_cpu(xbeCertificate->title_id.u16)),
-		RomFields::STRF_MONOSPACE);
+		d->fields.addField_string(s_title_id_desc,
+			rp_sprintf_p(C_("Xbox_XBE", "%1$08X (%2$s-%3$03u)"),
+				le32_to_cpu(xbeCertificate->title_id.u32),
+				tid_str.c_str(),
+				le16_to_cpu(xbeCertificate->title_id.u16)),
+			RomFields::STRF_MONOSPACE);
+	} else {
+		// Title ID is zero.
+		d->fields.addField_string(s_title_id_desc,
+			rp_sprintf("%08X", le32_to_cpu(xbeCertificate->title_id.u32)));
+	}
 
 	// Publisher
 	d->fields.addField_string(C_("RomData", "Publisher"), d->getPublisher());
@@ -774,14 +775,13 @@ int Xbox_XBE::loadFieldData(void)
 
 	// Initialization flags
 	const uint32_t init_flags = le32_to_cpu(xbeHeader->init_flags);
-	static const char *const init_flags_tbl[] = {
+	static const array<const char*, 4> init_flags_tbl = {{
 		NOP_C_("Xbox_XBE|InitFlags", "Mount Utility Drive"),
 		NOP_C_("Xbox_XBE|InitFlags", "Format Utility Drive"),
 		NOP_C_("Xbox_XBE|InitFlags", "Limit RAM to 64 MB"),
 		NOP_C_("Xbox_XBE|InitFlags", "Don't Setup HDD"),
-	};
-	vector<string> *const v_init_flags = RomFields::strArrayToVector_i18n(
-		"Region", init_flags_tbl, ARRAY_SIZE(init_flags_tbl));
+	}};
+	vector<string> *const v_init_flags = RomFields::strArrayToVector_i18n("Region", init_flags_tbl);
 	d->fields.addField_bitfield(C_("Xbox_XBE", "Init Flags"),
 		v_init_flags, 2, init_flags);
 
@@ -793,14 +793,13 @@ int Xbox_XBE::loadFieldData(void)
 		region_code &= ~XBE_REGION_CODE_MANUFACTURING;
 		region_code |= 8;
 	}
-	static const char *const region_code_tbl[] = {
+	static const array<const char*, 4> region_code_tbl = {{
 		NOP_C_("Region", "North America"),
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "Rest of World"),
 		NOP_C_("Region", "Manufacturing"),
-	};
-	vector<string> *const v_region_code = RomFields::strArrayToVector_i18n(
-		"Region", region_code_tbl, ARRAY_SIZE(region_code_tbl));
+	}};
+	vector<string> *const v_region_code = RomFields::strArrayToVector_i18n("Region", region_code_tbl);
 	d->fields.addField_bitfield(C_("RomData", "Region Code"),
 		v_region_code, 3, region_code);
 
@@ -901,4 +900,4 @@ int Xbox_XBE::loadInternalImage(ImageType imageType, rp_image_const_ptr &pImage)
 	return ((bool)pImage ? 0 : -EIO);
 }
 
-}
+} // namespace LibRomData

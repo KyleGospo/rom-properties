@@ -23,6 +23,7 @@ using namespace LibRpTexture;
 #include "librptext/libc.h"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -43,8 +44,7 @@ DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
 class iQuePlayerPrivate final : public RomDataPrivate
 {
 public:
-	iQuePlayerPrivate(const IRpFilePtr &file);
-	~iQuePlayerPrivate() final = default;
+	explicit iQuePlayerPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -530,9 +530,9 @@ const char *iQuePlayer::systemName(unsigned int type) const
 		"iQuePlayer::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"iQue Player", "iQue Player", "iQue", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -662,14 +662,13 @@ int iQuePlayer::loadFieldData(void)
 
 	// Hardware access rights.
 	// TODO: Localization?
-	static const char *const hw_access_names[] = {
+	static const array<const char*, 10> hw_access_names = {{
 		"PI Buffer", "NAND Flash", "Memory Mapper",
 		"AES Engine", "New PI DMA", "GPIO",
 		"External I/O", "New PI Errors", "USB",
 		"SK Stack RAM"
-	};
-	vector<string> *const v_hw_access_names = RomFields::strArrayToVector(
-		hw_access_names, ARRAY_SIZE(hw_access_names));
+	}};
+	vector<string> *const v_hw_access_names = RomFields::strArrayToVector(hw_access_names);
 
 	d->fields.addField_bitfield(C_("iQuePlayer", "HW Access"),
 		v_hw_access_names, 3, be32_to_cpu(bbContentMetaDataHead->hwAccessRights));
@@ -780,4 +779,4 @@ int iQuePlayer::loadInternalImage(ImageType imageType, rp_image_const_ptr &pImag
 	return ((bool)pImage ? 0 : -EIO);
 }
 
-}
+} // namespace LibRomData

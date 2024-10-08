@@ -16,9 +16,6 @@
 using namespace LibRpBase;
 using namespace LibRpText;
 
-// C includes
-#include <stdint.h>
-
 // cinttypes was added in MSVC 2013.
 // For older versions, we'll need to manually define PRIX64.
 // TODO: Split into a separate header file?
@@ -29,11 +26,12 @@ using namespace LibRpText;
 #  define PRId64 "I64d"
 #else
 #  define __STDC_FORMAT_MACROS
-#  include <inttypes.h>
+#  include <cinttypes>
 #endif
 
 // C includes (C++ namespace)
 #include <cerrno>
+#include <cstdint>
 #include <cstdio>
 
 // C++ includes

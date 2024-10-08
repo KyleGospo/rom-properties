@@ -26,7 +26,7 @@ namespace LibRomData {
 class WonderSwanPrivate final : public RomDataPrivate
 {
 public:
-	WonderSwanPrivate(const IRpFilePtr &file);
+	explicit WonderSwanPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -415,10 +415,10 @@ const char *WonderSwan::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"WonderSwan::systemName() array index optimization needs to be updated.");
 	
-	static const char *const sysNames[2][4] = {
-		{"Bandai WonderSwan", "WonderSwan", "WS", nullptr},
-		{"Bandai WonderSwan Color", "WonderSwan Color", "WSC", nullptr},
-	};
+	static const array<array<const char*, 4>, 2> sysNames = {{
+		{{"Bandai WonderSwan", "WonderSwan", "WS", nullptr}},
+		{{"Bandai WonderSwan Color", "WonderSwan Color", "WSC", nullptr}},
+	}};
 
 	return sysNames[d->romFooter.system_id & 1][type & SYSNAME_TYPE_MASK];
 }
@@ -551,11 +551,11 @@ int WonderSwan::loadFieldData(void)
 	d->fields.addField_string(C_("RomData", "Publisher"), s_publisher);
 
 	// System
-	static const char *const system_bitfield_names[] = {
+	static const array<const char*, 2> system_bitfield_names = {{
 		"WonderSwan", "WonderSwan Color"
-	};
-	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(
-		system_bitfield_names, ARRAY_SIZE(system_bitfield_names));
+	}};
+	// TODO: Localize?
+	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(system_bitfield_names);
 	const uint32_t ws_system = (romFooter->system_id & 1) ? 3 : 1;
 	d->fields.addField_bitfield(C_("WonderSwan", "System"),
 		v_system_bitfield_names, 0, ws_system);
@@ -615,11 +615,11 @@ int WonderSwan::loadFieldData(void)
 	}
 
 	// Features (aka RTC Present)
-	static const char *const ws_feature_bitfield_names[] = {
+	static const array<const char*, 1> ws_feature_bitfield_names = {{
 		NOP_C_("WonderSwan|Features", "RTC Present"),
-	};
+	}};
 	vector<string> *const v_ws_feature_bitfield_names = RomFields::strArrayToVector_i18n(
-		"WonderSwan|Features", ws_feature_bitfield_names, ARRAY_SIZE(ws_feature_bitfield_names));
+		"WonderSwan|Features", ws_feature_bitfield_names);
 	d->fields.addField_bitfield(C_("WonderSwan", "Features"),
 		v_ws_feature_bitfield_names, 0, romFooter->rtc_present);
 
@@ -758,4 +758,4 @@ int WonderSwan::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size)
 	return 0;
 }
 
-}
+} // namespace LibRomData

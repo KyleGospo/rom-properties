@@ -30,6 +30,7 @@ using namespace LibRpTexture;
 using std::array;
 using std::shared_ptr;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace LibRomData {
@@ -40,8 +41,7 @@ namespace LibRomData {
 class Xbox360_STFS_Private final : public RomDataPrivate
 {
 public:
-	Xbox360_STFS_Private(const IRpFilePtr &file);
-	~Xbox360_STFS_Private() final;
+	explicit Xbox360_STFS_Private(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -108,7 +108,7 @@ public:
 
 public:
 	// XEX executable
-	Xbox360_XEX *xex;
+	unique_ptr<Xbox360_XEX> xex;
 
 	// File table
 	rp::uvector<STFS_DirEntry_t> fileTable;
@@ -186,11 +186,6 @@ Xbox360_STFS_Private::Xbox360_STFS_Private(const IRpFilePtr &file)
 	memset(&stfsHeader, 0, sizeof(stfsHeader));
 	memset(&stfsMetadata, 0, sizeof(stfsMetadata));
 	memset(&stfsThumbnails, 0, sizeof(stfsThumbnails));
-}
-
-Xbox360_STFS_Private::~Xbox360_STFS_Private()
-{
-	delete xex;
 }
 
 /**
@@ -463,7 +458,7 @@ int Xbox360_STFS_Private::loadFileTable(void)
 Xbox360_XEX *Xbox360_STFS_Private::openDefaultXex(void)
 {
 	if (this->xex) {
-		return this->xex;
+		return this->xex.get();
 	}
 
 	// Make sure the file table is loaded.
@@ -530,13 +525,13 @@ Xbox360_XEX *Xbox360_STFS_Private::openDefaultXex(void)
 	if (xexFile_tmp->isOpen()) {
 		Xbox360_XEX *const xex_tmp = new Xbox360_XEX(xexFile_tmp);
 		if (xex_tmp->isOpen()) {
-			this->xex = xex_tmp;
+			this->xex.reset(xex_tmp);
 		} else {
 			delete xex_tmp;
 		}
 	}
 
-	return this->xex;
+	return this->xex.get();
 }
 
 /** Xbox360_STFS **/
@@ -729,9 +724,9 @@ const char *Xbox360_STFS::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// TODO: STFS-specific, or just use Xbox 360?
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Microsoft Xbox 360", "Xbox 360", "X360", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -1124,4 +1119,4 @@ int Xbox360_STFS::loadInternalImage(ImageType imageType, rp_image_const_ptr &pIm
 		d->loadIcon);	// func
 }
 
-}
+} // namespace LibRomData

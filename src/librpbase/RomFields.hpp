@@ -11,11 +11,9 @@
 #include "common.h"
 #include "dll-macros.h"	// for RP_LIBROMDATA_PUBLIC
 
-// C includes
-#include <stddef.h>	/* size_t */
-#include <stdint.h>
-
 // C includes (C++ namespace)
+#include <cstddef>	/* size_t */
+#include <cstdint>
 #include <cstring>
 #include <ctime>
 
@@ -574,8 +572,8 @@ class RomFields
 		/**
 		 * Convert an array of char strings to a vector of std::string.
 		 * This can be used for addField_bitfield() and addField_listData().
-		 * @param strArray Array of strings.
-		 * @param count Number of strings. (nullptrs will be handled as empty strings)
+		 * @param strArray Array of strings
+		 * @param count Number of strings (nullptrs will be handled as empty strings)
 		 * @return Allocated std::vector<std::string>.
 		 */
 		static std::vector<std::string> *strArrayToVector(const char *const *strArray, size_t count);
@@ -583,12 +581,40 @@ class RomFields
 		/**
 		 * Convert an array of char strings to a vector of std::string.
 		 * This can be used for addField_bitfield() and addField_listData().
-		 * @param msgctxt i18n context.
-		 * @param strArray Array of strings.
-		 * @param count Number of strings. (nullptrs will be handled as empty strings)
+		 * @tparam size std::array<> size
+		 * @param strArray Array of strings
+		 * @return Allocated std::vector<std::string>.
+		 */
+		template<size_t size>
+		static inline std::vector<std::string> *strArrayToVector(const std::array<const char*, size> &strArray)
+		{
+			return strArrayToVector(strArray.data(), strArray.size());
+		}
+
+		/**
+		 * Convert an array of char strings to a vector of std::string.
+		 * This can be used for addField_bitfield() and addField_listData().
+		 * @param msgctxt i18n context
+		 * @param strArray Array of strings
+		 * @param count Number of strings (nullptrs will be handled as empty strings)
 		 * @return Allocated std::vector<std::string>.
 		 */
 		static std::vector<std::string> *strArrayToVector_i18n(const char *msgctxt, const char *const *strArray, size_t count);
+
+		/**
+		 * Convert an array of char strings to a vector of std::string.
+		 * This can be used for addField_bitfield() and addField_listData().
+		 * @tparam size std::array<> size
+		 * @param msgctxt i18n context
+		 * @param strArray Array of strings
+		 * @param count Number of strings (nullptrs will be handled as empty strings)
+		 * @return Allocated std::vector<std::string>.
+		 */
+		template<size_t size>
+		static inline std::vector<std::string> *strArrayToVector_i18n(const char *msgctxt, const std::array<const char*, size> &strArray)
+		{
+			return strArrayToVector_i18n(msgctxt, strArray.data(), strArray.size());
+		}
 
 		enum TabOffset {
 			TabOffset_Ignore = -1,

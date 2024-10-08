@@ -31,7 +31,7 @@ namespace LibRomData {
 class ISOPrivate final : public RomDataPrivate
 {
 public:
-	ISOPrivate(const IRpFilePtr &file);
+	explicit ISOPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -745,11 +745,11 @@ const char *ISO::systemName(unsigned int type) const
 		"ISO::systemName() array index optimization needs to be updated.");
 
 	// TODO: UDF, HFS, others?
-	static const char *const sysNames[3][4] = {
-		{"ISO-9660", "ISO", "ISO", nullptr},
-		{"High Sierra Format", "High Sierra", "HSF", nullptr},
-		{"Compact Disc Interactive", "CD-i", "CD-i", nullptr},
-	};
+	static const array<array<const char*, 4>, 3> sysNames = {{
+		{{"ISO-9660", "ISO", "ISO", nullptr}},
+		{{"High Sierra Format", "High Sierra", "HSF", nullptr}},
+		{{"Compact Disc Interactive", "CD-i", "CD-i", nullptr}},
+	}};
 
 	unsigned int sysID = 0;
 	if ((int)d->discType >= 0 && d->discType < ISOPrivate::DiscType::Max) {
@@ -806,11 +806,10 @@ int ISO::loadFieldData(void)
 				// TODO: More comprehensive boot catalog.
 				// For now, only showing boot platforms, and
 				// only if a boot catalog is present.
-				static const char *const boot_platforms_names[] = {
+				static const array<const char*, 2> boot_platforms_names = {{
 					"x86", "EFI"
-				};
-				vector<string> *const v_boot_platforms_names = RomFields::strArrayToVector(
-					boot_platforms_names, ARRAY_SIZE(boot_platforms_names));
+				}};
+				vector<string> *const v_boot_platforms_names = RomFields::strArrayToVector(boot_platforms_names);
 				d->fields.addField_bitfield(C_("ISO", "Boot Platforms"),
 					v_boot_platforms_names, 0, d->boot_platforms);
 
@@ -930,4 +929,4 @@ int ISO::checkViewedAchievements(void) const
 	return ret;
 }
 
-}
+} // namespace LibRomData

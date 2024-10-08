@@ -33,6 +33,7 @@ using namespace LibRpTexture;
 // C++ STL classes
 using std::array;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace LibRomData {
@@ -40,8 +41,7 @@ namespace LibRomData {
 class WiiSavePrivate final : public RomDataPrivate
 {
 public:
-	WiiSavePrivate(const IRpFilePtr &file);
-	~WiiSavePrivate() final;
+	explicit WiiSavePrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -77,7 +77,7 @@ public:
 #ifdef ENABLE_DECRYPTION
 	// CBC reader for the main data area.
 	CBCReaderPtr cbcReader;
-	WiiWIBN *wibnData;
+	unique_ptr<WiiWIBN> wibnData;
 
 	// Key indexes (0 == AES, 1 == IV)
 	std::array<WiiTicket::EncryptionKeys, 2> key_idx;
@@ -117,9 +117,6 @@ const array<uint8_t, 8> WiiSavePrivate::bk_header_magic = {{
 WiiSavePrivate::WiiSavePrivate(const IRpFilePtr &file)
 	: super(file, &romDataInfo)
 	, svLoaded(false)
-#ifdef ENABLE_DECRYPTION
-	, wibnData(nullptr)
-#endif /* ENABLE_DECRYPTION */
 {
 	// Clear the various structs.
 	memset(&svHeader, 0, sizeof(svHeader));
@@ -128,13 +125,6 @@ WiiSavePrivate::WiiSavePrivate(const IRpFilePtr &file)
 #ifdef ENABLE_DECRYPTION
 	key_idx.fill(WiiTicket::EncryptionKeys::Max);
 	key_status.fill(KeyManager::VerifyResult::Unknown);
-#endif /* ENABLE_DECRYPTION */
-}
-
-WiiSavePrivate::~WiiSavePrivate()
-{
-#ifdef ENABLE_DECRYPTION
-	delete wibnData;
 #endif /* ENABLE_DECRYPTION */
 }
 
@@ -277,7 +267,7 @@ WiiSave::WiiSave(const IRpFilePtr &file)
 			WiiWIBN *const wibn = new WiiWIBN(ptFile);
 			if (wibn->isOpen()) {
 				// Opened successfully.
-				d->wibnData = wibn;
+				d->wibnData.reset(wibn);
 			} else {
 				// Unable to open the WiiWIBN.
 				delete wibn;
@@ -361,9 +351,9 @@ const char *WiiSave::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"WiiSave::systemName() array index optimization needs to be updated.");
 
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Wii", "Wii", "Wii", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -573,4 +563,4 @@ IconAnimDataConstPtr WiiSave::iconAnimData(void) const
 	return nullptr;
 }
 
-}
+} // namespace LibRomData

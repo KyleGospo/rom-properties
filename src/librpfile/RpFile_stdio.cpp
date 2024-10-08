@@ -24,13 +24,16 @@
 #include <sys/stat.h>	// stat(), statx()
 #include <unistd.h>	// ftruncate()
 
+// C++ STL classes
+using std::string;
+
 namespace LibRpFile {
 
 /** RpFilePrivate **/
 
 RpFilePrivate::RpFilePrivate(RpFile *q, const char *filename, RpFile::FileMode mode)
 	: q_ptr(q), file(INVALID_HANDLE_VALUE)
-	, mode(mode), gzfd(nullptr), gzsz(-1), devInfo(nullptr)
+	, mode(mode), gzfd(nullptr), gzsz(-1)
 {
 	assert(filename != nullptr);
 	this->filename = strdup(filename);
@@ -45,7 +48,6 @@ RpFilePrivate::~RpFilePrivate()
 		fclose(file);
 	}
 	free(filename);
-	delete devInfo;
 }
 
 /**
@@ -213,7 +215,7 @@ int RpFilePrivate::reOpenFile(void)
 		// Allocate devInfo.
 		// NOTE: This is kept around until RpFile is deleted,
 		// even if the device can't be opeend for some reason.
-		devInfo = new DeviceInfo();
+		devInfo.reset(new DeviceInfo());
 
 		// Get the device size from the OS.
 		q->rereadDeviceSizeOS();
@@ -231,30 +233,7 @@ int RpFilePrivate::reOpenFile(void)
  * @param mode File mode
  */
 RpFile::RpFile(const char *filename, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, filename, mode))
-{
-	init();
-}
-
-/**
- * Open a file.
- * NOTE: Files are always opened in binary mode.
- * @param filename Filename
- * @param mode File mode
- */
-RpFile::RpFile(const string &filename, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, filename.c_str(), mode))
-{
-	init();
-}
-
-/**
- * Common initialization function for RpFile's constructors.
- * Filename must be set in d->filename.
- */
-void RpFile::init(void)
+	: d_ptr(new RpFilePrivate(this, filename, mode))
 {
 	RP_D(RpFile);
 
@@ -330,6 +309,16 @@ void RpFile::init(void)
 		::fflush(d->file);
 	}
 }
+
+/**
+ * Open a file.
+ * NOTE: Files are always opened in binary mode.
+ * @param filename Filename
+ * @param mode File mode
+ */
+RpFile::RpFile(const string &filename, FileMode mode)
+	: RpFile(filename.c_str(), mode)
+{}
 
 RpFile::~RpFile()
 {
@@ -659,4 +648,4 @@ int RpFile::makeWritable(void)
 	return 0;
 }
 
-}
+} // namespace LibRpFile

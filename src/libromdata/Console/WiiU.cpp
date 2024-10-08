@@ -23,6 +23,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -31,8 +32,7 @@ namespace LibRomData {
 class WiiUPrivate final : public RomDataPrivate
 {
 public:
-	WiiUPrivate(const IRpFilePtr &file);
-	~WiiUPrivate() final = default;
+	explicit WiiUPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -235,9 +235,9 @@ const char *WiiU::systemName(unsigned int type) const
 		"WiiU::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Wii U", "Wii U", "Wii U", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -511,7 +511,6 @@ int WiiU::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	// Add the URLs.
 	pExtURLs->resize(szdef_count * tdb_lc.size());
 	auto extURL_iter = pExtURLs->begin();
-	const auto tdb_lc_cend = tdb_lc.cend();
 	for (unsigned int i = 0; i < szdef_count; i++) {
 		// Current image type.
 		char imageTypeName[16];
@@ -519,15 +518,14 @@ int WiiU::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 			 imageTypeName_base, (szdefs_dl[i]->name ? szdefs_dl[i]->name : ""));
 
 		// Add the images.
-		for (auto tdb_iter = tdb_lc.cbegin();
-		     tdb_iter != tdb_lc_cend; ++tdb_iter, ++extURL_iter)
-		{
-			const string lc_str = SystemRegion::lcToStringUpper(*tdb_iter);
+		for (const uint16_t lc : tdb_lc) {
+			const string lc_str = SystemRegion::lcToStringUpper(lc);
 			extURL_iter->url = d->getURL_GameTDB("wiiu", imageTypeName, lc_str.c_str(), id6, ext);
 			extURL_iter->cache_key = d->getCacheKey_GameTDB("wiiu", imageTypeName, lc_str.c_str(), id6, ext);
 			extURL_iter->width = szdefs_dl[i]->width;
 			extURL_iter->height = szdefs_dl[i]->height;
 			extURL_iter->high_res = (szdefs_dl[i]->index > 0);
+			++extURL_iter;
 		}
 	}
 
@@ -535,4 +533,4 @@ int WiiU::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	return 0;
 }
 
-}
+} // namespace LibRomData

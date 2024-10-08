@@ -17,6 +17,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::unordered_map;
@@ -194,11 +195,6 @@ int PEResourceReaderPrivate::loadResDir(uint32_t addr, rsrc_dir_t &dir)
 
 	// Total number of entries.
 	unsigned int entryCount = le16_to_cpu(root.NumberOfNamedEntries) + le16_to_cpu(root.NumberOfIdEntries);
-	assert(entryCount <= 64);
-	if (entryCount > 64) {
-		// Sanity check; constrain to 64 entries.
-		entryCount = 64;
-	}
 	uint32_t szToRead = static_cast<uint32_t>(entryCount * sizeof(IMAGE_RESOURCE_DIRECTORY_ENTRY));
 	unique_ptr<IMAGE_RESOURCE_DIRECTORY_ENTRY[]> irdEntries(new IMAGE_RESOURCE_DIRECTORY_ENTRY[entryCount]);
 	size = q->m_file->read(irdEntries.get(), szToRead);
@@ -788,9 +784,9 @@ int PEResourceReader::load_VS_VERSION_INFO(int id, int lang, VS_FIXEDFILEINFO *p
 	}
 
 	// Read the version header.
-	static constexpr char16_t vsvi[] = {'V','S','_','V','E','R','S','I','O','N','_','I','N','F','O',0};
+	static constexpr array<char16_t, 16> vsvi = {{'V','S','_','V','E','R','S','I','O','N','_','I','N','F','O',0}};
 	uint16_t len, valueLen;
-	int ret = PEResourceReaderPrivate::load_VS_VERSION_INFO_header(f_ver.get(), vsvi, 0, &len, &valueLen);
+	int ret = PEResourceReaderPrivate::load_VS_VERSION_INFO_header(f_ver.get(), vsvi.data(), 0, &len, &valueLen);
 	if (ret != 0) {
 		// Header is incorrect.
 		return ret;
@@ -840,8 +836,8 @@ int PEResourceReader::load_VS_VERSION_INFO(int id, int lang, VS_FIXEDFILEINFO *p
 	alignFileDWORD(f_ver.get());
 
 	// Read the StringFileInfo section header.
-	static constexpr char16_t vssfi[] = {'S','t','r','i','n','g','F','i','l','e','I','n','f','o',0};
-	ret = PEResourceReaderPrivate::load_VS_VERSION_INFO_header(f_ver.get(), vssfi, 1, &len, &valueLen);
+	static constexpr array<char16_t, 15> vssfi = {{'S','t','r','i','n','g','F','i','l','e','I','n','f','o',0}};
+	ret = PEResourceReaderPrivate::load_VS_VERSION_INFO_header(f_ver.get(), vssfi.data(), 1, &len, &valueLen);
 	if (ret != 0) {
 		// No StringFileInfo section.
 		return 0;

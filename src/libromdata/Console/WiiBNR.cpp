@@ -21,7 +21,6 @@ using namespace LibRpText;
 // C++ STL classes
 using std::array;
 using std::string;
-using std::vector;
 
 // Uninitialized vector class
 #include "uvector.h"
@@ -31,8 +30,7 @@ namespace LibRomData {
 class WiiBNRPrivate final : public RomDataPrivate
 {
 public:
-	WiiBNRPrivate(const IRpFilePtr &file, uint32_t gcnRegion = ~0U, char id4_region = 'A');
-	~WiiBNRPrivate() final = default;
+	explicit WiiBNRPrivate(const IRpFilePtr &file, uint32_t gcnRegion = ~0U, char id4_region = 'A');
 
 private:
 	typedef RomDataPrivate super;
@@ -88,25 +86,6 @@ WiiBNRPrivate::WiiBNRPrivate(const IRpFilePtr &file, uint32_t gcnRegion, char id
 /**
  * Read a Nintendo Wii banner file.
  *
- * A save file must be opened by the caller. The file handle
- * will be ref()'d and must be kept open in order to load
- * data from the disc image.
- *
- * To close the file, either delete this object or call close().
- *
- * NOTE: Check isValid() to determine if this is a valid ROM.
- *
- * @param file Open banner file
- */
-WiiBNR::WiiBNR(const IRpFilePtr &file)
-	: super(new WiiBNRPrivate(file))
-{
-	init();
-}
-
-/**
- * Read a Nintendo Wii banner file.
- *
  * A ROM image must be opened by the caller. The file handle
  * will be ref()'d and must be kept open in order to load
  * data from the ROM image.
@@ -121,14 +100,6 @@ WiiBNR::WiiBNR(const IRpFilePtr &file)
  */
 WiiBNR::WiiBNR(const LibRpFile::IRpFilePtr &file, uint32_t gcnRegion, char id4_region)
 	: super(new WiiBNRPrivate(file, gcnRegion, id4_region))
-{
-	init();
-}
-
-/**
- * Common initialization function for the constructors.
- */
-void WiiBNR::init(void)
 {
 	// This class handles banner files.
 	// NOTE: This will be handled using the same
@@ -241,9 +212,9 @@ const char *WiiBNR::systemName(unsigned int type) const
 		"WiiBNR::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Wii", "Wii", "Wii", nullptr,
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -317,4 +288,4 @@ int WiiBNR::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

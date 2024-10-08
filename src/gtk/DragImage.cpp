@@ -86,8 +86,6 @@ struct _RpDragImageCxx {
 
 	~_RpDragImageCxx()
 	{
-		delete anim;
-
 #if GTK_CHECK_VERSION(4,0,0)
 		if (pngBytes) {
 			g_bytes_unref(pngBytes);
@@ -130,7 +128,7 @@ struct _RpDragImageCxx {
 			}
 		}
 	};
-	anim_vars *anim;
+	unique_ptr<anim_vars> anim;
 
 #if GTK_CHECK_VERSION(4,0,0)
 	// Temporary buffer for PNG data when dragging and dropping images.
@@ -285,7 +283,7 @@ rp_drag_image_update_pixmaps(RpDragImage *image)
 {
 	g_return_val_if_fail(RP_IS_DRAG_IMAGE(image), false);
 	_RpDragImageCxx *const cxx = image->cxx;
-	auto *const anim = cxx->anim;
+	auto *const anim = cxx->anim.get();
 	bool bRet = false;
 
 	if (!gtk_widget_get_mapped(GTK_WIDGET(image))) {
@@ -393,7 +391,7 @@ rp_drag_image_update_pixmaps(RpDragImage *image)
 		// Set a drag source.
 		// TODO: Use text/uri-list and extract to a temporary directory?
 		// FIXME: application/octet-stream works on Nautilus, but not Thunar...
-		static const GtkTargetEntry targetEntries[2] = {
+		static const array<GtkTargetEntry, 2> targetEntries = {{
 			{(char*)"image/png",			// target
 			 GTK_TARGET_OTHER_APP,			// flags
 			 1},					// info
@@ -401,8 +399,8 @@ rp_drag_image_update_pixmaps(RpDragImage *image)
 			{(char*)"application/octet-stream",	// target
 			 GTK_TARGET_OTHER_APP,			// flags
 			 2},					// info
-		};
-		gtk_drag_source_set(GTK_WIDGET(image), GDK_BUTTON1_MASK, targetEntries, ARRAY_SIZE(targetEntries), GDK_ACTION_COPY);
+		}};
+		gtk_drag_source_set(GTK_WIDGET(image), GDK_BUTTON1_MASK, targetEntries.data(), targetEntries.size(), GDK_ACTION_COPY);
 	} else {
 		// No image or animated icon data.
 		// Unset the drag source.
@@ -592,9 +590,9 @@ rp_drag_image_set_icon_anim_data(RpDragImage *image, const IconAnimDataConstPtr 
 	_RpDragImageCxx *const cxx = image->cxx;
 
 	if (!cxx->anim) {
-		cxx->anim = new _RpDragImageCxx::anim_vars();
+		cxx->anim.reset(new _RpDragImageCxx::anim_vars());
 	}
-	auto *const anim = cxx->anim;
+	auto *const anim = cxx->anim.get();
 
 	// NOTE: We're not checking if the image pointer matches the
 	// previously stored image, since the underlying image may
@@ -629,7 +627,7 @@ rp_drag_image_clear(RpDragImage *image)
 	g_return_if_fail(RP_IS_DRAG_IMAGE(image));
 	_RpDragImageCxx *const cxx = image->cxx;
 
-	auto *const anim = cxx->anim;
+	auto *const anim = cxx->anim.get();
 	if (anim) {
 		g_clear_handle_id(&anim->tmrIconAnim, g_source_remove);
 		anim->iconAnimData.reset();
@@ -652,7 +650,7 @@ static gboolean
 rp_drag_image_anim_timer_func(RpDragImage *image)
 {
 	g_return_val_if_fail(RP_IS_DRAG_IMAGE(image), false);
-	auto *const anim = image->cxx->anim;
+	auto *const anim = image->cxx->anim.get();
 	g_return_val_if_fail(anim != nullptr, false);
 
 	if (anim->tmrIconAnim == 0) {
@@ -701,7 +699,7 @@ rp_drag_image_start_anim_timer(RpDragImage *image)
 {
 	g_return_if_fail(RP_IS_DRAG_IMAGE(image));
 
-	auto *const anim = image->cxx->anim;
+	auto *const anim = image->cxx->anim.get();
 	if (!anim || !anim->iconAnimHelper.isAnimated()) {
 		// Not an animated icon.
 		return;
@@ -734,7 +732,7 @@ rp_drag_image_stop_anim_timer(RpDragImage *image)
 {
 	g_return_if_fail(RP_IS_DRAG_IMAGE(image));
 
-	auto *const anim = image->cxx->anim;
+	auto *const anim = image->cxx->anim.get();
 	if (anim) {
 		g_clear_handle_id(&anim->tmrIconAnim, g_source_remove);
 		anim->last_delay = 0;
@@ -750,7 +748,7 @@ bool
 rp_drag_image_is_anim_timer_running(RpDragImage *image)
 {
 	g_return_val_if_fail(RP_IS_DRAG_IMAGE(image), false);
-	auto *const anim = image->cxx->anim;
+	auto *const anim = image->cxx->anim.get();
 	return (anim && (anim->tmrIconAnim > 0));
 }
 
@@ -764,7 +762,7 @@ rp_drag_image_reset_anim_frame(RpDragImage *image)
 {
 	g_return_if_fail(RP_IS_DRAG_IMAGE(image));
 
-	auto *const anim = image->cxx->anim;
+	auto *const anim = image->cxx->anim.get();
 	if (anim) {
 		anim->last_frame_number = 0;
 	}
@@ -820,7 +818,7 @@ static VectorFilePtr
 rp_drag_image_create_PNG_file(RpDragImage *image)
 {
 	_RpDragImageCxx *const cxx = image->cxx;
-	auto *const anim = cxx->anim;
+	auto *const anim = cxx->anim.get();
 	const bool isAnimated = (anim && anim->iconAnimData && anim->iconAnimHelper.isAnimated());
 
 	VectorFilePtr pngData = std::make_shared<VectorFile>();
@@ -881,11 +879,11 @@ rp_drag_image_drag_source_prepare(GtkDragSource *source, double x, double y, RpD
 	const std::vector<uint8_t> &pngVec = cxx->pngData->vector();
 	cxx->pngBytes = g_bytes_new_static(pngVec.data(), pngVec.size());
 
-	GdkContentProvider *providers[2] = {
+	array<GdkContentProvider*, 2> providers = {{
 		gdk_content_provider_new_for_bytes("image/png", cxx->pngBytes),
 		gdk_content_provider_new_for_bytes("application/octet-stream", cxx->pngBytes),
-	};
-	return gdk_content_provider_new_union(providers, ARRAY_SIZE(providers));
+	}};
+	return gdk_content_provider_new_union(providers.data(), providers.size());
 }
 
 static void

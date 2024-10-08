@@ -18,6 +18,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 
 namespace LibRomData {
@@ -25,7 +26,7 @@ namespace LibRomData {
 class VirtualBoyPrivate final : public RomDataPrivate
 {
 public:
-	VirtualBoyPrivate(const IRpFilePtr &file);
+	explicit VirtualBoyPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -278,9 +279,9 @@ const char *VirtualBoy::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"VirtualBoy::systemName() array index optimization needs to be updated.");
 	
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Virtual Boy", "Virtual Boy", "VB", nullptr,
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -421,4 +422,4 @@ int VirtualBoy::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

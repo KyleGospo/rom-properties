@@ -1480,7 +1480,7 @@ const char *Nintendo3DS::systemName(unsigned int type) const
 	// Bit 2: *New* Nintendo 3DS
 	// Bit 3: iQue
 	// TODO: Compare code gen for 2D vs. 1D arrays.
-	static const char *const sysNames[4*4] = {
+	static const array<const char*, 4*4> sysNames = {{
 		"Nintendo 3DS", "Nintendo 3DS", "3DS", nullptr,
 		"*New* Nintendo 3DS", "*New* Nintendo 3DS", "N3DS", nullptr,
 
@@ -1488,7 +1488,7 @@ const char *Nintendo3DS::systemName(unsigned int type) const
 		// NOTE: *New* iQue 3DS wasn't actually released...
 		"iQue 3DS", "iQue 3DS", "3DS", nullptr,
 		"*New* iQue 3DS", "*New* iQue 3DS", "N3DS", nullptr,
-	};
+	}};
 
 	return sysNames[type];
 }
@@ -1839,15 +1839,14 @@ int Nintendo3DS::loadFieldData(void)
 			pt_types = partition_types[0];
 
 			// Columns for the partition table.
-			static const char *const cci_partitions_names[] = {
+			static const array<const char*, 5> cci_partitions_names = {{
 				NOP_C_("Nintendo3DS|CCI", "#"),
 				NOP_C_("Nintendo3DS|CCI", "Type"),
 				NOP_C_("Nintendo3DS|CCI", "Encryption"),
 				NOP_C_("Nintendo3DS|CCI", "Version"),
 				NOP_C_("Nintendo3DS|CCI", "Size"),
-			};
-			v_partitions_names = RomFields::strArrayToVector_i18n(
-				"Nintendo3DS|CCI", cci_partitions_names, ARRAY_SIZE(cci_partitions_names));
+			}};
+			v_partitions_names = RomFields::strArrayToVector_i18n("Nintendo3DS|CCI", cci_partitions_names);
 		} else {
 			// eMMC (NAND dump)
 
@@ -1866,14 +1865,13 @@ int Nintendo3DS::loadFieldData(void)
 			keyslots = emmc_keyslots[new3ds];
 
 			// Columns for the partition table.
-			static const char *const emmc_partitions_names[] = {
+			static const array<const char*, 4> emmc_partitions_names = {{
 				NOP_C_("Nintendo3DS|eMMC", "#"),
 				NOP_C_("Nintendo3DS|eMMC", "Type"),
 				NOP_C_("Nintendo3DS|eMMC", "Keyslot"),
 				NOP_C_("Nintendo3DS|eMMC", "Size"),
-			};
-			v_partitions_names = RomFields::strArrayToVector_i18n(
-				"Nintendo3DS|eMMC", emmc_partitions_names, ARRAY_SIZE(emmc_partitions_names));
+			}};
+			v_partitions_names = RomFields::strArrayToVector_i18n("Nintendo3DS|eMMC", emmc_partitions_names);
 		}
 
 		if (d->romType == Nintendo3DSPrivate::RomType::CCI) {
@@ -2233,15 +2231,14 @@ int Nintendo3DS::loadFieldData(void)
 		}
 
 		// Add the contents table.
-		static const char *const contents_names[] = {
+		static const array<const char*, 5> contents_names = {{
 			NOP_C_("Nintendo3DS|CtNames", "#"),
 			NOP_C_("Nintendo3DS|CtNames", "Type"),
 			NOP_C_("Nintendo3DS|CtNames", "Encryption"),
 			NOP_C_("Nintendo3DS|CtNames", "Version"),
 			NOP_C_("Nintendo3DS|CtNames", "Size"),
-		};
-		vector<string> *const v_contents_names = RomFields::strArrayToVector_i18n(
-			"Nintendo3DS|CtNames", contents_names, ARRAY_SIZE(contents_names));
+		}};
+		vector<string> *const v_contents_names = RomFields::strArrayToVector_i18n("Nintendo3DS|CtNames", contents_names);
 
 		RomFields::AFLD_PARAMS params(RomFields::RFT_LISTDATA_SEPARATE_ROW, 0);
 		params.headers = v_contents_names;
@@ -2283,11 +2280,10 @@ int Nintendo3DS::loadFieldData(void)
 		}
 
 		// Flags.
-		static const char *const exheader_flags_names[] = {
+		static const array<const char*, 2> exheader_flags_names = {{
 			"CompressExefsCode", "SDApplication"
-		};
-		vector<string> *const v_exheader_flags_names = RomFields::strArrayToVector(
-			exheader_flags_names, ARRAY_SIZE(exheader_flags_names));
+		}};
+		vector<string> *const v_exheader_flags_names = RomFields::strArrayToVector(exheader_flags_names);
 		d->fields.addField_bitfield("Flags",
 			v_exheader_flags_names, 0, ncch_exheader->sci.flags);
 
@@ -2347,12 +2343,12 @@ int Nintendo3DS::loadFieldData(void)
 		}
 
 		// New3DS CPU Mode
-		static const char *const new3ds_cpu_mode_names[] = {
+		static const array<const char*, 2> new3ds_cpu_mode_names = {{
 			NOP_C_("Nintendo3DS|N3DSCPUMode", "L2 Cache"),
 			NOP_C_("Nintendo3DS|N3DSCPUMode", "804 MHz"),
-		};
+		}};
 		vector<string> *const v_new3ds_cpu_mode_names = RomFields::strArrayToVector_i18n(
-			"Nintendo3DS|N3DSCPUMode", new3ds_cpu_mode_names, ARRAY_SIZE(new3ds_cpu_mode_names));
+			"Nintendo3DS|N3DSCPUMode", new3ds_cpu_mode_names);
 		d->fields.addField_bitfield("New3DS CPU Mode",
 			v_new3ds_cpu_mode_names, 0, ncch_exheader->aci.arm11_local.flags[0]);
 
@@ -2690,7 +2686,6 @@ int Nintendo3DS::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size
 	// Add the URLs.
 	pExtURLs->resize(szdef_count * tdb_lc.size());
 	auto extURL_iter = pExtURLs->begin();
-	const auto tdb_lc_cend = tdb_lc.cend();
 	for (unsigned int i = 0; i < szdef_count; i++) {
 		// Current image type.
 		char imageTypeName[16];
@@ -2698,15 +2693,14 @@ int Nintendo3DS::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size
 			 imageTypeName_base, (szdefs_dl[i]->name ? szdefs_dl[i]->name : ""));
 
 		// Add the images.
-		for (auto tdb_iter = tdb_lc.cbegin();
-		     tdb_iter != tdb_lc_cend; ++tdb_iter, ++extURL_iter)
-		{
-			const string lc_str = SystemRegion::lcToStringUpper(*tdb_iter);
+		for (const uint16_t lc : tdb_lc) {
+			const string lc_str = SystemRegion::lcToStringUpper(lc);
 			extURL_iter->url = d->getURL_GameTDB("3ds", imageTypeName, lc_str.c_str(), id4, ext);
 			extURL_iter->cache_key = d->getCacheKey_GameTDB("3ds", imageTypeName, lc_str.c_str(), id4, ext);
 			extURL_iter->width = szdefs_dl[i]->width;
 			extURL_iter->height = szdefs_dl[i]->height;
 			extURL_iter->high_res = (szdefs_dl[i]->index >= 2);
+			++extURL_iter;
 		}
 	}
 
@@ -2791,4 +2785,4 @@ int Nintendo3DS::checkViewedAchievements(void) const
 #endif /* ENABLE_DECRYPTION */
 }
 
-}
+} // namespace LibRomData

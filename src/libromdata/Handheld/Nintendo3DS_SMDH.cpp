@@ -33,8 +33,7 @@ namespace LibRomData {
 class Nintendo3DS_SMDH_Private final : public RomDataPrivate
 {
 public:
-	Nintendo3DS_SMDH_Private(const IRpFilePtr &file);
-	~Nintendo3DS_SMDH_Private() final = default;
+	explicit Nintendo3DS_SMDH_Private(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -341,10 +340,10 @@ const char *Nintendo3DS_SMDH::systemName(unsigned int type) const
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// Bit 2: iQue
 	// TODO: Is it possible to identify "*New*" Nintendo 3DS" from just the SMDH?
-	static const char *const sysNames[4*4] = {
+	static const array<const char*, 2*4> sysNames = {{
 		"Nintendo 3DS", "Nintendo 3DS", "3DS", nullptr,
 		"iQue 3DS", "iQue 3DS", "3DS", nullptr,
-	};
+	}};
 
 	return sysNames[idx];
 }
@@ -522,7 +521,7 @@ int Nintendo3DS_SMDH::loadFieldData(void)
 
 	// Region code.
 	// Maps directly to the SMDH field.
-	static const char *const n3ds_region_bitfield_names[] = {
+	static const array<const char*, 7> n3ds_region_bitfield_names = {{
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "USA"),
 		NOP_C_("Region", "Europe"),
@@ -530,9 +529,8 @@ int Nintendo3DS_SMDH::loadFieldData(void)
 		NOP_C_("Region", "China"),
 		NOP_C_("Region", "South Korea"),
 		NOP_C_("Region", "Taiwan"),
-	};
-	vector<string> *const v_n3ds_region_bitfield_names = RomFields::strArrayToVector_i18n(
-		"Region", n3ds_region_bitfield_names, ARRAY_SIZE(n3ds_region_bitfield_names));
+	}};
+	vector<string> *const v_n3ds_region_bitfield_names = RomFields::strArrayToVector_i18n("Region", n3ds_region_bitfield_names);
 	d->fields.addField_bitfield(C_("RomData", "Region Code"),
 		v_n3ds_region_bitfield_names, 3, le32_to_cpu(smdhHeader->settings.region_code));
 
@@ -725,4 +723,4 @@ uint32_t Nintendo3DS_SMDH::getRegionCode(void) const
 	return le32_to_cpu(d->smdh.header.settings.region_code);
 }
 
-}
+} // namespace LibRomData

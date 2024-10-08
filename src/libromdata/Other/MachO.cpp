@@ -29,7 +29,7 @@ namespace LibRomData {
 class MachOPrivate final : public RomDataPrivate
 {
 public:
-	MachOPrivate(const IRpFilePtr &file);
+	explicit MachOPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -427,9 +427,9 @@ const char *MachO::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"MachO::systemName() array index optimization needs to be updated.");
 
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Mach Microkernel", "Mach", "Mach", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -523,7 +523,7 @@ int MachO::loadFieldData(void)
 
 		// Flags.
 		// I/O support bitfield.
-		static const char *const flags_bitfield_names[] = {
+		static const array<const char*, 32> flags_bitfield_names = {{
 			// 0x00000000
 			"NoUndefs", "IncrLink", "DyldLink", "BindAtLoad",
 			// 0x00000010
@@ -540,9 +540,8 @@ int MachO::loadFieldData(void)
 			"NoHeapExec", "AppExtSafe", "NListOutOfSync", "SimSupport",
 			// 0x10000000
 			nullptr, nullptr, nullptr, "DylibInCache",
-		};
-		vector<string> *const v_flags_bitfield_names = RomFields::strArrayToVector(
-			flags_bitfield_names, ARRAY_SIZE(flags_bitfield_names));
+		}};
+		vector<string> *const v_flags_bitfield_names = RomFields::strArrayToVector(flags_bitfield_names);
 		d->fields.addField_bitfield(C_("RomData", "Flags"),
 			v_flags_bitfield_names, 3, machHeader->flags);
 	}
@@ -551,4 +550,4 @@ int MachO::loadFieldData(void)
 	return static_cast<int>(d->fields.count());
 }
 
-}
+} // namespace LibRomData

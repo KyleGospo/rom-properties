@@ -38,7 +38,7 @@ namespace LibRomData {
 class SNDHPrivate final : public RomDataPrivate
 {
 public:
-	SNDHPrivate(const IRpFilePtr &file);
+	explicit SNDHPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -762,9 +762,9 @@ const char *SNDH::systemName(unsigned int type) const
 		"SNDH::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Atari ST SNDH Audio", "SNDH", "SNDH", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -919,10 +919,11 @@ int SNDH::loadFieldData(void)
 			// No durations. Don't bother showing the list.
 			delete vv_subtune_list;
 		} else {
-			static const char *subtune_list_hdr[3] = {
+			array<const char*, 3> subtune_list_hdr = {{
 				NOP_C_("SNDH|SubtuneList", "#"),
-				nullptr, nullptr
-			};
+				nullptr,
+				nullptr
+			}};
 			if (has_SN && has_TIME) {
 				subtune_list_hdr[1] = NOP_C_("SNDH|SubtuneList", "Name");
 				subtune_list_hdr[2] = NOP_C_("RomData|Audio", "Duration");
@@ -936,7 +937,7 @@ int SNDH::loadFieldData(void)
 			}
 
 			vector<string> *const v_subtune_list_hdr = RomFields::strArrayToVector_i18n(
-				"SNDH|SubtuneList", subtune_list_hdr, col_count);
+				"SNDH|SubtuneList", subtune_list_hdr.data(), col_count);
 
 			RomFields::AFLD_PARAMS params;
 			params.headers = v_subtune_list_hdr;
@@ -1023,4 +1024,4 @@ int SNDH::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

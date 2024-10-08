@@ -29,6 +29,7 @@ using namespace LibRpTexture;
 // C++ STL classes
 using std::array;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace LibRomData {
@@ -36,7 +37,7 @@ namespace LibRomData {
 class XboxDiscPrivate final : public RomDataPrivate
 {
 public:
-	XboxDiscPrivate(const IRpFilePtr &file);
+	explicit XboxDiscPrivate(const IRpFilePtr &file);
 	~XboxDiscPrivate() final;
 
 private:
@@ -72,7 +73,7 @@ public:
 	XDVDFSPartitionPtr xdvdfsPartition;
 
 	// default.xbe / default.xex
-	RomData *defaultExeData;
+	unique_ptr<RomData> defaultExeData;
 
 	enum class ExeType {
 		Unknown	= -1,
@@ -151,7 +152,6 @@ XboxDiscPrivate::XboxDiscPrivate(const IRpFilePtr &file)
 	, wave(0)
 	, isKreon(false)
 	, xdvdfs_addr(0)
-	, defaultExeData(nullptr)
 	, exeType(ExeType::Unknown)
 {
 }
@@ -161,8 +161,6 @@ XboxDiscPrivate::~XboxDiscPrivate()
 	if (isKreon) {
 		lockKreonDrive();
 	}
-
-	delete defaultExeData;
 }
 
 /**
@@ -177,7 +175,7 @@ RomData *XboxDiscPrivate::openDefaultExe(ExeType *pExeType)
 		if (pExeType) {
 			*pExeType = exeType;
 		}
-		return defaultExeData;
+		return defaultExeData.get();
 	}
 
 	if (!xdvdfsPartition || !xdvdfsPartition->isOpen()) {
@@ -191,7 +189,7 @@ RomData *XboxDiscPrivate::openDefaultExe(ExeType *pExeType)
 		RomData *const xexData = new Xbox360_XEX(f_defaultExe);
 		if (xexData->isValid()) {
 			// default.xex is open and valid.
-			defaultExeData = xexData;
+			defaultExeData.reset(xexData);
 			exeType = ExeType::XEX;
 			if (pExeType) {
 				*pExeType = ExeType::XEX;
@@ -210,7 +208,7 @@ RomData *XboxDiscPrivate::openDefaultExe(ExeType *pExeType)
 		RomData *const xbeData = new Xbox_XBE(f_defaultExe);
 		if (xbeData->isValid()) {
 			// default.xbe is open and valid.
-			defaultExeData = xbeData;
+			defaultExeData.reset(xbeData);
 			exeType = ExeType::XBE;
 			if (pExeType) {
 				*pExeType = ExeType::XBE;
@@ -599,16 +597,16 @@ const char *XboxDisc::systemName(unsigned int type) const
 	switch (consoleType) {
 		default:
 		case XboxDiscPrivate::ConsoleType::Xbox: {
-			static const char *const sysNames_Xbox[4] = {
+			static const array<const char*, 4> sysNames_Xbox = {{
 				"Microsoft Xbox", "Xbox", "Xbox", nullptr
-			};
+			}};
 			return sysNames_Xbox[type & SYSNAME_TYPE_MASK];
 		}
 
 		case XboxDiscPrivate::ConsoleType::Xbox360: {
-			static const char *const sysNames_X360[4] = {
+			static const array<const char*, 4> sysNames_X360 = {{
 				"Microsoft Xbox 360", "Xbox 360", "X360", nullptr
-			};
+			}};
 			return sysNames_X360[type & SYSNAME_TYPE_MASK];
 		}
 	}
@@ -896,4 +894,4 @@ int XboxDisc::checkViewedAchievements(void) const
 	return exe->checkViewedAchievements();
 }
 
-}
+} // namespace LibRomData

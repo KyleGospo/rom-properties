@@ -36,6 +36,7 @@ using namespace LibRpText;
 #include <ctime>
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -44,7 +45,8 @@ namespace LibRomData {
 class WimPrivate final : public RomDataPrivate
 {
 public:
-	WimPrivate(const IRpFilePtr &file);  
+	explicit WimPrivate(const IRpFilePtr &file);
+
 private:
 	typedef RomDataPrivate super;
 	RP_DISABLE_COPY(WimPrivate)
@@ -402,7 +404,7 @@ int WimPrivate::addFields_XML()
 		data_row.emplace_back(windowsinfo.languages.language);
 	}	
 
-	static const char *const field_names[] = {
+	static const array<const char*, 10> field_names = {{
 		NOP_C_("Wim|Images", "#"),
 		NOP_C_("Wim|Images", "Name"),
 		NOP_C_("Wim|Images", "Description"),
@@ -413,9 +415,8 @@ int WimPrivate::addFields_XML()
 		NOP_C_("Wim|Images", "Edition"),
 		NOP_C_("Wim|Images", "Architecture"),
 		NOP_C_("Wim|Images", "Language"),
-	};
-	vector<string> *const v_field_names = RomFields::strArrayToVector_i18n(
-		"Wim|Images", field_names, ARRAY_SIZE(field_names));
+	}};
+	vector<string> *const v_field_names = RomFields::strArrayToVector_i18n("Wim|Images", field_names);
 
 	RomFields::AFLD_PARAMS params;
 	params.flags = RomFields::RFT_LISTDATA_SEPARATE_ROW;
@@ -570,12 +571,9 @@ const char* Wim::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"Wim::systemName() array index optimization needs to be updated.");
 
-	static const char *const sysNames[4] = {
-		"Microsoft WIM",
-		"WIM Image",
-		"WIM",
-		nullptr
-	};
+	static const array<const char*, 4> sysNames = {{
+		"Microsoft WIM", "WIM Image", "WIM", nullptr
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -613,7 +611,7 @@ int Wim::loadFieldData(void)
 		return 0;
 	}
 
-	static const char* const wim_flag_names[] = {
+	static const array<const char*, 7> wim_flag_names = {{
 		nullptr,
 		NOP_C_("Wim|Flags", "Compressed"),
 		NOP_C_("Wim|Flags", "Read-only"),
@@ -621,12 +619,11 @@ int Wim::loadFieldData(void)
 		NOP_C_("Wim|Flags", "Resource Only"),
 		NOP_C_("Wim|Flags", "Metadata Only"),
 		NOP_C_("Wim|Flags", "Write in progress"),
-	};
+	}};
 
 	const uint32_t wimflags = d->wimHeader.flags;
 
-	vector<string> *const v_wim_flag_names = RomFields::strArrayToVector_i18n(
-		"RomData", wim_flag_names, ARRAY_SIZE(wim_flag_names));
+	vector<string> *const v_wim_flag_names = RomFields::strArrayToVector_i18n("RomData", wim_flag_names);
 	d->fields.addField_bitfield(C_("RomData", "Flags"),
 		v_wim_flag_names, 3, wimflags);
 
@@ -673,4 +670,4 @@ int Wim::loadFieldData(void)
 	return static_cast<int>(d->fields.count());
 }
 
-}
+} // namespace LibRomData

@@ -52,7 +52,7 @@ DELAYLOAD_TEST_FUNCTION_IMPL0(get_crc_table);
 
 RpFilePrivate::RpFilePrivate(RpFile *q, const wchar_t *filenameW, RpFile::FileMode mode)
 	: q_ptr(q), file(INVALID_HANDLE_VALUE), filename(nullptr)
-	, mode(mode), gzfd(nullptr), gzsz(-1), devInfo(nullptr)
+	, mode(mode), gzfd(nullptr), gzsz(-1)
 {
 	assert(filenameW != nullptr);
 	this->filenameW = wcsdup(filenameW);
@@ -68,7 +68,6 @@ RpFilePrivate::~RpFilePrivate()
 	}
 	free(filename);
 	free(filenameW);
-	delete devInfo;
 }
 
 /**
@@ -208,7 +207,7 @@ int RpFilePrivate::reOpenFile(void)
 		// This is a device. Allocate devInfo.
 		// NOTE: This is kept around until RpFile is deleted,
 		// even if the device can't be opeend for some reason.
-		devInfo = new DeviceInfo();
+		devInfo.reset(new DeviceInfo());
 
 		if (mode & RpFile::FM_WRITE) {
 			// Writing to block devices is not allowed.
@@ -299,60 +298,11 @@ int RpFilePrivate::reOpenFile(void)
 /**
  * Open a file.
  * NOTE: Files are always opened in binary mode.
- * @param filename Filename (UTF-8)
- * @param mode File mode
- */
-RpFile::RpFile(const char *filename, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, U82W_c(filename), mode))
-{
-	init();
-}
-
-/**
- * Open a file.
- * NOTE: Files are always opened in binary mode.
- * @param filename Filename (UTF-8)
- * @param mode File mode
- */
-RpFile::RpFile(const string &filename, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, U82W_s(filename), mode))
-{
-	init();
-}
-
-/**
- * Open a file.
- * NOTE: Files are always opened in binary mode.
  * @param filename Filename (UTF-16)
  * @param mode File mode
  */
 RpFile::RpFile(const wchar_t *filenameW, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, filenameW, mode))
-{
-	init();
-}
-
-/**
- * Open a file.
- * NOTE: Files are always opened in binary mode.
- * @param filename Filename (UTF-16)
- * @param mode File mode
- */
-RpFile::RpFile(const wstring &filenameW, FileMode mode)
-	: super()
-	, d_ptr(new RpFilePrivate(this, filenameW.c_str(), mode))
-{
-	init();
-}
-
-/**
- * Common initialization function for RpFile's constructors.
- * Filename must be set in d->filename.
- */
-void RpFile::init(void)
+	: d_ptr(new RpFilePrivate(this, filenameW, mode))
 {
 	RP_D(RpFile);
 
@@ -465,6 +415,36 @@ void RpFile::init(void)
 		FlushFileBuffers(d->file);
 	}
 }
+
+/**
+ * Open a file.
+ * NOTE: Files are always opened in binary mode.
+ * @param filename Filename (UTF-8)
+ * @param mode File mode
+ */
+RpFile::RpFile(const char *filename, FileMode mode)
+	: RpFile(U82W_c(filename), mode)
+{}
+
+/**
+ * Open a file.
+ * NOTE: Files are always opened in binary mode.
+ * @param filename Filename (UTF-8)
+ * @param mode File mode
+ */
+RpFile::RpFile(const string &filename, FileMode mode)
+	: RpFile(U82W_s(filename), mode)
+{}
+
+/**
+ * Open a file.
+ * NOTE: Files are always opened in binary mode.
+ * @param filename Filename (UTF-16)
+ * @param mode File mode
+ */
+RpFile::RpFile(const wstring &filenameW, FileMode mode)
+	: RpFile(filenameW.c_str(), mode)
+{}
 
 RpFile::~RpFile()
 {
@@ -853,4 +833,4 @@ int RpFile::makeWritable(void)
 	return 0;
 }
 
-}
+} // namespace LibRpFile

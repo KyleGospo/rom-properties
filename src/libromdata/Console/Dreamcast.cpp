@@ -29,6 +29,7 @@ using namespace LibRpTexture;
 #include "Media/ISO.hpp"
 
 // C++ STL classes
+using std::array;
 using std::shared_ptr;
 using std::string;
 using std::vector;
@@ -38,8 +39,7 @@ namespace LibRomData {
 class DreamcastPrivate final : public RomDataPrivate
 {
 public:
-	DreamcastPrivate(const IRpFilePtr &file);
-	~DreamcastPrivate() final = default;
+	explicit DreamcastPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -516,9 +516,9 @@ const char *Dreamcast::systemName(unsigned int type) const
 		"Dreamcast::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Sega Dreamcast", "Dreamcast", "DC", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -641,13 +641,13 @@ int Dreamcast::loadFieldData(void)
 	region_code |= (discHeader->area_symbols[1] == 'U') << 1;
 	region_code |= (discHeader->area_symbols[2] == 'E') << 2;
 
-	static const char *const region_code_bitfield_names[] = {
+	static const array<const char*, 3> region_code_bitfield_names = {{
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "USA"),
 		NOP_C_("Region", "Europe"),
-	};
+	}};
 	vector<string> *const v_region_code_bitfield_names = RomFields::strArrayToVector_i18n(
-		"Region", region_code_bitfield_names, ARRAY_SIZE(region_code_bitfield_names));
+		"Region", region_code_bitfield_names);
 	d->fields.addField_bitfield(C_("RomData", "Region Code"),
 		v_region_code_bitfield_names, 0, region_code);
 
@@ -708,31 +708,31 @@ int Dreamcast::loadFieldData(void)
 	{
 		// Peripherals decoded.
 		// OS support.
-		static const char *const os_bitfield_names[] = {
+		static const array<const char*, 5> os_bitfield_names = {{
 			NOP_C_("Dreamcast|OSSupport", "Windows CE"),
 			nullptr, nullptr, nullptr,
 			NOP_C_("Dreamcast|OSSupport", "VGA Box"),
-		};
+		}};
 		vector<string> *const v_os_bitfield_names = RomFields::strArrayToVector_i18n(
-			"Dreamcast|OSSupport", os_bitfield_names, ARRAY_SIZE(os_bitfield_names));
+			"Dreamcast|OSSupport", os_bitfield_names);
 		d->fields.addField_bitfield(C_("Dreamcast", "OS Support"),
 			v_os_bitfield_names, 0, peripherals);
 
 		// Supported expansion units.
-		static const char *const expansion_bitfield_names[] = {
+		static const array<const char*, 4> expansion_bitfield_names = {{
 			NOP_C_("Dreamcast|Expansion", "Other"),
 			NOP_C_("Dreamcast|Expansion", "Jump Pack"),
 			NOP_C_("Dreamcast|Expansion", "Microphone"),
 			// tr: "VMS" in Japan; "VMU" in USA; "VM" in Europe
 			NOP_C_("Dreamcast|Expansion", "VMU"),
-		};
+		}};
 		vector<string> *const v_expansion_bitfield_names = RomFields::strArrayToVector_i18n(
-			"Dreamcast|Expansion", expansion_bitfield_names, ARRAY_SIZE(expansion_bitfield_names));
+			"Dreamcast|Expansion", expansion_bitfield_names);
 		d->fields.addField_bitfield(C_("Dreamcast", "Expansion Units"),
 			v_expansion_bitfield_names, 0, peripherals >> 8);
 
 		// Required controller features.
-		static const char *const req_controller_bitfield_names[] = {
+		static const array<const char*, 13> req_controller_bitfield_names = {{
 			NOP_C_("Dreamcast|ReqCtrl", "Start, A, B, D-Pad"),
 			NOP_C_("Dreamcast|ReqCtrl", "C Button"),
 			NOP_C_("Dreamcast|ReqCtrl", "D Button"),
@@ -746,21 +746,21 @@ int Dreamcast::loadFieldData(void)
 			NOP_C_("Dreamcast|ReqCtrl", "Analog V1"),
 			NOP_C_("Dreamcast|ReqCtrl", "Analog H2"),
 			NOP_C_("Dreamcast|ReqCtrl", "Analog V2"),
-		};
+		}};
 		vector<string> *const v_req_controller_bitfield_names = RomFields::strArrayToVector_i18n(
-			"Dreamcast|ReqCtrl", req_controller_bitfield_names, ARRAY_SIZE(req_controller_bitfield_names));
+			"Dreamcast|ReqCtrl", req_controller_bitfield_names);
 		// tr: Required controller features.
 		d->fields.addField_bitfield(C_("Dreamcast", "Req. Controller"),
 			v_req_controller_bitfield_names, 3, peripherals >> 12);
 
 		// Optional controller features.
-		static const char *const opt_controller_bitfield_names[] = {
+		static const array<const char*, 3> opt_controller_bitfield_names = {{
 			NOP_C_("Dreamcast|OptCtrl", "Light Gun"),
 			NOP_C_("Dreamcast|OptCtrl", "Keyboard"),
 			NOP_C_("Dreamcast|OptCtrl", "Mouse"),
-		};
+		}};
 		vector<string> *const v_opt_controller_bitfield_names = RomFields::strArrayToVector_i18n(
-			"Dreamcast|OptCtrl", opt_controller_bitfield_names, ARRAY_SIZE(opt_controller_bitfield_names));
+			"Dreamcast|OptCtrl", opt_controller_bitfield_names);
 		// tr: Optional controller features.
 		d->fields.addField_bitfield(C_("Dreamcast", "Opt. Controller"),
 			v_opt_controller_bitfield_names, 0, peripherals >> 25);
@@ -866,4 +866,4 @@ int Dreamcast::loadInternalImage(ImageType imageType, rp_image_const_ptr &pImage
 		d->load0GDTEX);	// func
 }
 
-}
+} // namespace LibRomData

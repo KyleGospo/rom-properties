@@ -18,6 +18,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -26,7 +27,7 @@ namespace LibRomData {
 class IntellivisionPrivate final : public RomDataPrivate
 {
 public:
-	IntellivisionPrivate(const IRpFilePtr &file);
+	explicit IntellivisionPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -238,9 +239,9 @@ const char *Intellivision::systemName(unsigned int type) const
 		"Intellivision::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Intellivision", "Intellivision", "INTV", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -287,7 +288,7 @@ int Intellivision::loadFieldData(void)
 		flags &= ~INTV_SKIP_ECS;
 	}
 
-	static const char *const flags_bitfield_names[] = {
+	static const array<const char*, 9> flags_bitfield_names = {{
 		// Bits 0-5: Keyclick bits (TODO)
 		nullptr, nullptr, nullptr, nullptr, nullptr,
 
@@ -295,9 +296,8 @@ int Intellivision::loadFieldData(void)
 		NOP_C_("Intellivision|Flags", "Intellivision 2"),
 		NOP_C_("Intellivision|Flags", "Run code after title string"),
 		NOP_C_("Intellivision|Flags", "Skip ECS title screen"),
-	};
-	vector<string> *const v_flags_bitfield_names = RomFields::strArrayToVector_i18n(
-		"Region", flags_bitfield_names, ARRAY_SIZE(flags_bitfield_names));
+	}};
+	vector<string> *const v_flags_bitfield_names = RomFields::strArrayToVector_i18n("Region", flags_bitfield_names);
 	d->fields.addField_bitfield(C_("RomData", "Flags"),
 		v_flags_bitfield_names, 2, flags);
 
@@ -348,4 +348,4 @@ int Intellivision::loadMetaData(void)
 	return (d->metaData ? static_cast<int>(d->metaData->count()) : -ENOENT);
 }
 
-}
+} // namespace LibRomData

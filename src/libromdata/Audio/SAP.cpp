@@ -29,7 +29,7 @@ namespace LibRomData {
 class SAPPrivate final : public RomDataPrivate
 {
 public:
-	SAPPrivate(const IRpFilePtr &file);
+	explicit SAPPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -535,9 +535,9 @@ const char *SAP::systemName(unsigned int type) const
 		"SAP::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Atari 8-bit SAP Audio", "SAP", "SAP", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -595,13 +595,12 @@ int SAP::loadFieldData(void)
 	}
 
 	// Flags: NTSC/PAL, Stereo
-	static const char *const flags_names[] = {
+	static const array<const char*, 2> flags_names = {{
 		// tr: PAL is default; if set, the file is for NTSC.
 		"NTSC",
 		NOP_C_("SAP|Flags", "Stereo"),
-	};
-	vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n(
-		"SAP|Flags", flags_names, ARRAY_SIZE(flags_names));
+	}};
+	vector<string> *const v_flags_names = RomFields::strArrayToVector_i18n("SAP|Flags", flags_names);
 	// TODO: Use a bitfield in tags?
 	uint32_t flags = 0;
 	if (tags.ntsc)   flags |= (1U << 0);
@@ -685,13 +684,12 @@ int SAP::loadFieldData(void)
 			data_row.emplace_back(src_iter->second ? s_yes : s_no);
 		}
 
-		static const char *const song_list_hdr[3] = {
+		static const array<const char*, 3> song_list_hdr = {{
 			NOP_C_("SAP|SongList", "#"),
 			NOP_C_("RomData|Audio", "Duration"),
 			NOP_C_("SAP|SongList", "Looping"),
-		};
-		vector<string> *const v_song_list_hdr = RomFields::strArrayToVector_i18n(
-			"SAP|SongList", song_list_hdr, ARRAY_SIZE(song_list_hdr));
+		}};
+		vector<string> *const v_song_list_hdr = RomFields::strArrayToVector_i18n("SAP|SongList", song_list_hdr);
 
 		RomFields::AFLD_PARAMS params;
 		params.headers = v_song_list_hdr;
@@ -762,4 +760,4 @@ int SAP::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

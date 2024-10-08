@@ -99,9 +99,6 @@ WiiUPackagePrivate::WiiUPackagePrivate(const wchar_t *path)
 WiiUPackagePrivate::~WiiUPackagePrivate()
 {
 	free(path);
-	delete ticket;
-	delete tmd;
-	delete fst;
 }
 
 /**
@@ -110,14 +107,11 @@ WiiUPackagePrivate::~WiiUPackagePrivate()
 void WiiUPackagePrivate::reset(void)
 {
 	free(path);
-	delete ticket;
-	delete tmd;
-	delete fst;
+	path = nullptr;
 
-	path = nullptr;
-	ticket = nullptr;
-	tmd = nullptr;
-	path = nullptr;
+	ticket.reset();
+	tmd.reset();
+	fst.reset();
 }
 
 /**
@@ -282,7 +276,6 @@ WiiUPackage::WiiUPackage(const IRpFilePtr &file)
 {
 	// Not supported!
 	RP_UNUSED(file);
-	return;
 }
 
 /**
@@ -381,7 +374,7 @@ void WiiUPackage::init(void)
 		d->isValid = false;
 		return;
 	}
-	d->ticket = ticket;
+	d->ticket.reset(ticket);
 
 	// Open the TMD.
 	WiiTMD *tmd = nullptr;
@@ -410,7 +403,7 @@ void WiiUPackage::init(void)
 		d->isValid = false;
 		return;
 	}
-	d->tmd = tmd;
+	d->tmd.reset(tmd);
 
 	// NOTE: From this point on, if an error occurs, we won't reset fields.
 	// This will allow Ticket and TMD to be displayed, even if we can't
@@ -475,9 +468,10 @@ void WiiUPackage::init(void)
 	if (!fst->isOpen()) {
 		// FST is invalid?
 		// NOTE: boot1 does not have an FST.
+		delete fst;
 		return;
 	}
-	d->fst = fst;
+	d->fst.reset(fst);
 
 	// FST loaded.
 }
@@ -581,9 +575,9 @@ const char *WiiUPackage::systemName(unsigned int type) const
 		"WiiUPackage::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Wii U", "Wii U", "Wii U", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -760,4 +754,4 @@ int WiiUPackage::loadInternalImage(ImageType imageType, rp_image_const_ptr &pIma
 		d->loadIcon);	// func
 }
 
-}
+} // namespace LibRomData

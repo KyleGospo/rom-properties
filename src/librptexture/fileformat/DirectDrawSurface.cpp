@@ -42,7 +42,6 @@ class DirectDrawSurfacePrivate final : public FileFormatPrivate
 {
 	public:
 		DirectDrawSurfacePrivate(DirectDrawSurface *q, const IRpFilePtr &file);
-		~DirectDrawSurfacePrivate() final = default;
 
 	private:
 		typedef FileFormatPrivate super;
@@ -384,7 +383,7 @@ int DirectDrawSurfacePrivate::updatePixelFormat(void)
 			uint8_t dxgi_format;
 			uint8_t dxgi_alpha;
 		};
-		static const array<fourCC_dxgi_tbl_t, 28> fourCC_dxgi_tbl = {{
+		static const array<fourCC_dxgi_tbl_t, 31> fourCC_dxgi_tbl = {{
 			{DDPF_FOURCC_DXT1, DXGI_FORMAT_BC1_UNORM, DDS_ALPHA_MODE_STRAIGHT},
 			{DDPF_FOURCC_DXT2, DXGI_FORMAT_BC2_UNORM, DDS_ALPHA_MODE_PREMULTIPLIED},
 			{DDPF_FOURCC_DXT3, DXGI_FORMAT_BC2_UNORM, DDS_ALPHA_MODE_STRAIGHT},
@@ -402,6 +401,10 @@ int DirectDrawSurfacePrivate::updatePixelFormat(void)
 			// TODO: PVRTC no-alpha formats?
 			{DDPF_FOURCC_PTC2, DXGI_FORMAT_FAKE_PVRTC_2bpp, DDS_ALPHA_MODE_STRAIGHT},
 			{DDPF_FOURCC_PTC4, DXGI_FORMAT_FAKE_PVRTC_4bpp, DDS_ALPHA_MODE_STRAIGHT},
+
+			{DDPF_FOURCC_ATC, DXGI_FORMAT_FAKE_ATC, DDS_ALPHA_MODE_STRAIGHT},
+			{DDPF_FOURCC_ATCE, DXGI_FORMAT_FAKE_ATCE, DDS_ALPHA_MODE_STRAIGHT},
+			{DDPF_FOURCC_ATCI, DXGI_FORMAT_FAKE_ATCI, DDS_ALPHA_MODE_STRAIGHT},
 
 			{DDPF_FOURCC_ASTC4x4, DXGI_FORMAT_ASTC_4X4_UNORM, DDS_ALPHA_MODE_STRAIGHT},
 			{DDPF_FOURCC_ASTC5x4, DXGI_FORMAT_ASTC_5X4_UNORM, DDS_ALPHA_MODE_STRAIGHT},
@@ -629,6 +632,7 @@ unsigned int DirectDrawSurfacePrivate::calcExpectedSize(int width, int height, i
 		case DXGI_FORMAT_BC4_TYPELESS:
 		case DXGI_FORMAT_BC4_UNORM:
 		//case DXGI_FORMAT_BC4_SNORM:
+		case DXGI_FORMAT_FAKE_ATC:
 			// 16 pixels compressed into 64 bits. (4bpp)
 			// NOTE: Width and height must be rounded to the nearest tile. (4x4)
 			expected_size = ImageSizeCalc::T_calcImageSize(ALIGN_BYTES(4, width), ALIGN_BYTES(4, height)) / 2;
@@ -649,6 +653,8 @@ unsigned int DirectDrawSurfacePrivate::calcExpectedSize(int width, int height, i
 		case DXGI_FORMAT_BC7_TYPELESS:
 		case DXGI_FORMAT_BC7_UNORM:
 		case DXGI_FORMAT_BC7_UNORM_SRGB:
+		case DXGI_FORMAT_FAKE_ATCE:
+		case DXGI_FORMAT_FAKE_ATCI:
 			// 16 pixels compressed into 128 bits. (8bpp)
 			// NOTE: Width and height must be rounded to the nearest tile. (4x4)
 			expected_size = ImageSizeCalc::T_calcImageSize(ALIGN_BYTES(4, width), ALIGN_BYTES(4, height));
@@ -1372,7 +1378,7 @@ int DirectDrawSurface::getFields(RomFields *fields) const
 	}
 
 	// dwFlags
-	static const char *const dwFlags_names[] = {
+	static const array<const char*, 24> dwFlags_names = {{
 		// 0x1-0x8
 		NOP_C_("DirectDrawSurface|dwFlags", "Caps"),
 		NOP_C_("DirectDrawSurface|dwFlags", "Height"),
@@ -1393,25 +1399,23 @@ int DirectDrawSurface::getFields(RomFields *fields) const
 		// 0x100000-0x800000
 		nullptr, nullptr, nullptr,
 		NOP_C_("DirectDrawSurface|dwFlags", "Depth"),
-	};
-	vector<string> *const v_dwFlags_names = RomFields::strArrayToVector_i18n(
-		"DirectDrawSurface|dwFlags", dwFlags_names, ARRAY_SIZE(dwFlags_names));
+	}};
+	vector<string> *const v_dwFlags_names = RomFields::strArrayToVector_i18n("DirectDrawSurface|dwFlags", dwFlags_names);
 	fields->addField_bitfield(C_("DirectDrawSurface", "Flags"),
 		v_dwFlags_names, 3, ddsHeader->dwFlags);
 
 	// ddspf.dwFlags (high bits; nVidia-specific)
 	const uint32_t pf_flags_high = (ddsHeader->ddspf.dwFlags >> 30);
-	static const char *const ddspf_dwFlags_names[] = {
+	static const array<const char*, 2> ddspf_dwFlags_names = {{
 		"sRGB",	// Not translatable
 		NOP_C_("DirectDrawSurface|ddspf", "Normal Map"),
-	};
-	vector<string> *const v_ddspf_dwFlags_names = RomFields::strArrayToVector_i18n(
-		"DirectDrawSurface|ddspf", ddspf_dwFlags_names, ARRAY_SIZE(ddspf_dwFlags_names));
+	}};
+	vector<string> *const v_ddspf_dwFlags_names = RomFields::strArrayToVector_i18n("DirectDrawSurface|ddspf", ddspf_dwFlags_names);
 	fields->addField_bitfield(C_("DirectDrawSurface", "PF Flags"),
 		v_ddspf_dwFlags_names, 4, pf_flags_high);
 
 	// dwCaps
-	static const char *const dwCaps_names[] = {
+	static const array<const char*, 23> dwCaps_names = {{
 		// 0x1-0x8
 		nullptr, nullptr, nullptr,
 		NOP_C_("DirectDrawSurface|dwCaps", "Complex"),
@@ -1427,14 +1431,13 @@ int DirectDrawSurface::getFields(RomFields *fields) const
 		// 0x100000-0x400000
 		nullptr, nullptr,
 		NOP_C_("DirectDrawSurface|dwCaps", "Mipmap"),
-	};
-	vector<string> *const v_dwCaps_names = RomFields::strArrayToVector_i18n(
-		"DirectDrawSurface|dwFlags", dwCaps_names, ARRAY_SIZE(dwCaps_names));
+	}};
+	vector<string> *const v_dwCaps_names = RomFields::strArrayToVector_i18n("DirectDrawSurface|dwFlags", dwCaps_names);
 	fields->addField_bitfield(C_("DirectDrawSurface", "Caps"),
 		v_dwCaps_names, 3, ddsHeader->dwCaps);
 
 	// dwCaps2 (rshifted by 8)
-	static const char *const dwCaps2_names[] = {
+	static const array<const char*, 14> dwCaps2_names = {{
 		// 0x100-0x800
 		nullptr,
 		NOP_C_("DirectDrawSurface|dwCaps2", "Cubemap"),
@@ -1450,9 +1453,8 @@ int DirectDrawSurface::getFields(RomFields *fields) const
 		// 0x100000-0x200000
 		nullptr,
 		NOP_C_("DirectDrawSurface|dwCaps2", "Volume"),
-	};
-	vector<string> *const v_dwCaps2_names = RomFields::strArrayToVector_i18n(
-		"DirectDrawSurface|dwCaps2", dwCaps2_names, ARRAY_SIZE(dwCaps2_names));
+	}};
+	vector<string> *const v_dwCaps2_names = RomFields::strArrayToVector_i18n("DirectDrawSurface|dwCaps2", dwCaps2_names);
 	fields->addField_bitfield(C_("DirectDrawSurface", "Caps2"),
 		v_dwCaps2_names, 4, (ddsHeader->dwCaps2 >> 8));
 

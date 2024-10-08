@@ -21,6 +21,7 @@ using namespace LibRpText;
 using namespace LibRpTexture;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -32,8 +33,7 @@ namespace LibRomData {
 class GameCubeBNRPrivate final : public RomDataPrivate
 {
 public:
-	GameCubeBNRPrivate(const IRpFilePtr &file, uint32_t gcnRegion = ~0U);
-	~GameCubeBNRPrivate() final = default;
+	explicit GameCubeBNRPrivate(const IRpFilePtr &file, uint32_t gcnRegion = ~0U);
 
 private:
 	typedef RomDataPrivate super;
@@ -374,35 +374,8 @@ string GameCubeBNRPrivate::getGameInfoString(const gcn_banner_comment_t *comment
  *
  * @param file Open banner file
  */
-GameCubeBNR::GameCubeBNR(const IRpFilePtr &file)
-	: super(new GameCubeBNRPrivate(file))
-{
-	init();
-}
-
-/**
- * Read a Nintendo GameCube banner file.
- *
- * A save file must be opened by the caller. The file handle
- * will be ref()'d and must be kept open in order to load
- * data from the disc image.
- *
- * To close the file, either delete this object or call close().
- *
- * NOTE: Check isValid() to determine if this is a valid ROM.
- *
- * @param file Open banner file
- */
 GameCubeBNR::GameCubeBNR(const IRpFilePtr &file, uint32_t gcnRegion)
 	: super(new GameCubeBNRPrivate(file, gcnRegion))
-{
-	init();
-}
-
-/**
- * Common initialization function for the constructors.
- */
-void GameCubeBNR::init(void)
 {
 	// This class handles banner files.
 	// NOTE: This will be handled using the same
@@ -532,10 +505,10 @@ const char *GameCubeBNR::systemName(unsigned int type) const
 		"GameCubeBNR::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		// FIXME: "NGC" in Japan?
 		"Nintendo GameCube", "GameCube", "GCN", nullptr,
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -935,4 +908,4 @@ int GameCubeBNR::addField_gameInfo(LibRpBase::RomFields *fields) const
 	return 0;
 }
 
-}
+} // namespace LibRomData

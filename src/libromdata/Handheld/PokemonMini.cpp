@@ -25,7 +25,7 @@ namespace LibRomData {
 class PokemonMiniPrivate final : public RomDataPrivate
 {
 public:
-	PokemonMiniPrivate(const IRpFilePtr &file);
+	explicit PokemonMiniPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -176,12 +176,9 @@ const char *PokemonMini::systemName(unsigned int type) const
 	static_assert(SYSNAME_TYPE_MASK == 3,
 		"PokemonMini::systemName() array index optimization needs to be updated.");
 
-	static const char *const sysNames[4] = {
-		"Pok\xC3\xA9mon Mini",
-		"Pok\xC3\xA9mon Mini",
-		"Pkmn Mini",
-		nullptr
-	};
+	static const array<const char*, 4> sysNames = {{
+		"Pok\xC3\xA9mon Mini", "Pok\xC3\xA9mon Mini", "Pkmn Mini", nullptr
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -321,13 +318,12 @@ int PokemonMini::loadFieldData(void)
 		data_row.emplace_back(std::move(s_address));
 	}
 
-	static const char *const vectors_headers[] = {
+	static const array<const char*, 3> vectors_headers = {{
 		NOP_C_("RomData|VectorTable", "#"),
 		NOP_C_("RomData|VectorTable", "Vector"),
 		NOP_C_("RomData|VectorTable", "Address"),
-	};
-	vector<string> *const v_vectors_headers = RomFields::strArrayToVector_i18n(
-		"RomData|VectorTable", vectors_headers, ARRAY_SIZE(vectors_headers));
+	}};
+	vector<string> *const v_vectors_headers = RomFields::strArrayToVector_i18n("RomData|VectorTable", vectors_headers);
 
 	RomFields::AFLD_PARAMS params(RomFields::RFT_LISTDATA_SEPARATE_ROW, 8);
 	params.headers = v_vectors_headers;
@@ -380,4 +376,4 @@ int PokemonMini::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

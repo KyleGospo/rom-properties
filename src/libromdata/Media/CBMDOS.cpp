@@ -34,6 +34,7 @@ using namespace LibRpTexture;
 using std::array;
 using std::bitset;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 // Uninitialized vector class
@@ -44,8 +45,7 @@ namespace LibRomData {
 class CBMDOSPrivate final : public RomDataPrivate
 {
 public:
-	CBMDOSPrivate(const IRpFilePtr &file);
-	~CBMDOSPrivate();
+	explicit CBMDOSPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -134,7 +134,7 @@ public:
 	struct GCR_track_buffer_t {
 		uint8_t sectors[21][CBMDOS_SECTOR_SIZE];
 	};
-	GCR_track_buffer_t *GCR_track_buffer;
+	unique_ptr<GCR_track_buffer_t> GCR_track_buffer;
 
 	// GCR track size (usually 7,928; we'll allow up to 8,192)
 	unsigned int GCR_track_size;
@@ -264,16 +264,10 @@ CBMDOSPrivate::CBMDOSPrivate(const IRpFilePtr &file)
 	, GCR_track_cache_number(0)
 	, err_bytes_count(0)
 	, err_bytes_offset(0)
-	, GCR_track_buffer(nullptr)
 	, GCR_track_size(0)
 {
 	// Clear the ROM header struct.
 	memset(&diskHeader, 0, sizeof(diskHeader));
-}
-
-CBMDOSPrivate::~CBMDOSPrivate()
-{
-	delete GCR_track_buffer;
 }
 
 /**
@@ -614,7 +608,7 @@ int CBMDOSPrivate::read_GCR_track(uint8_t track)
 
 	// Make sure the GCR track buffer is allocated.
 	if (!GCR_track_buffer) {
-		GCR_track_buffer = new GCR_track_buffer_t;
+		GCR_track_buffer.reset(new GCR_track_buffer_t);
 	}
 
 	// NOTE: C1541 normally writes 40 '1' bits (FF FF FF FF FF),
@@ -1115,17 +1109,17 @@ const char *CBMDOS::systemName(unsigned int type) const
 		"CBMDOS::systemName() array index optimization needs to be updated.");
 
 	// TODO: More types.
-	static const char *const sysNames[8][4] = {
-		{"Commodore 1541", "C1541", "C1541", nullptr},
-		{"Commodore 1571", "C1571", "C1571", nullptr},
-		{"Commodore 8050", "C8050", "C8050", nullptr},
-		{"Commodore 8250", "C8250", "C8250", nullptr},
-		{"Commodore 1581", "C1581", "C1581", nullptr},
-		{"Commodore 2040", "C2040", "C2040", nullptr},
+	static const array<array<const char*, 4>, 8> sysNames = {{
+		{{"Commodore 1541", "C1541", "C1541", nullptr}},
+		{{"Commodore 1571", "C1571", "C1571", nullptr}},
+		{{"Commodore 8050", "C8050", "C8050", nullptr}},
+		{{"Commodore 8250", "C8250", "C8250", nullptr}},
+		{{"Commodore 1581", "C1581", "C1581", nullptr}},
+		{{"Commodore 2040", "C2040", "C2040", nullptr}},
 
-		{"Commodore 1541 (GCR)", "C1541 (GCR)", "C1541 (GCR)", nullptr},
-		{"Commodore 1571 (GCR)", "C1571 (GCR)", "C1571 (GCR)", nullptr},
-	};
+		{{"Commodore 1541 (GCR)", "C1541 (GCR)", "C1541 (GCR)", nullptr}},
+		{{"Commodore 1571 (GCR)", "C1571 (GCR)", "C1571 (GCR)", nullptr}},
+	}};
 
 	unsigned int sysID = 0;
 	if ((int)d->diskType >= 0 && d->diskType < CBMDOSPrivate::DiskType::Max) {
@@ -1345,13 +1339,12 @@ int CBMDOS::loadFieldData(void)
 		}
 	}
 
-	static const char *const dir_headers[] = {
+	static const array<const char*, 3> dir_headers = {{
 		NOP_C_("CBMDOS|Directory", "Blocks"),
 		NOP_C_("CBMDOS|Directory", "Filename"),
 		NOP_C_("CBMDOS|Directory", "Type"),
-	};
-	vector<string> *const v_dir_headers = RomFields::strArrayToVector_i18n(
-		"CBMDOS|Directory", dir_headers, ARRAY_SIZE(dir_headers));
+	}};
+	vector<string> *const v_dir_headers = RomFields::strArrayToVector_i18n("CBMDOS|Directory", dir_headers);
 
 	RomFields::AFLD_PARAMS params(has_icons ? (unsigned int)RomFields::RFT_LISTDATA_ICONS : 0, 8);
 	params.headers = v_dir_headers;
@@ -1470,4 +1463,4 @@ int CBMDOS::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

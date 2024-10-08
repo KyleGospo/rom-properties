@@ -28,8 +28,7 @@ namespace LibRomData {
 class DreamcastSavePrivate final : public RomDataPrivate
 {
 public:
-	DreamcastSavePrivate(const IRpFilePtr &file);
-	~DreamcastSavePrivate() final = default;
+	explicit DreamcastSavePrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -1084,9 +1083,9 @@ const char *DreamcastSave::systemName(unsigned int type) const
 		"DreamcastSave::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Sega Dreamcast", "Dreamcast", "DC", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -1588,4 +1587,4 @@ IconAnimDataConstPtr DreamcastSave::iconAnimData(void) const
 	return d->iconAnimData;
 }
 
-}
+} // namespace LibRomData

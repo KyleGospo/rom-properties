@@ -28,6 +28,7 @@ using namespace LibRpText;
 // C++ STL classes
 using std::array;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 namespace LibRomData {
@@ -35,8 +36,7 @@ namespace LibRomData {
 class MegaDrivePrivate final : public RomDataPrivate
 {
 public:
-	MegaDrivePrivate(const IRpFilePtr &file);
-	~MegaDrivePrivate() final;
+	explicit MegaDrivePrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -185,8 +185,8 @@ public:
 	uint32_t gt_crc;		// Game Toshokan: CRC32 of $20000-$200FF.
 
 	// Extra headers
-	SMD_Header *pSmdHeader;		// SMD header.
-	MD_RomHeader *pRomHeaderLockOn;	// Locked-on ROM header.
+	//unique_ptr<SMD_Header> pSmdHeader;		// SMD header (NOTE: Not used anywhere right now.)
+	unique_ptr<MD_RomHeader> pRomHeaderLockOn;	// Locked-on ROM header
 
 public:
 	/**
@@ -238,18 +238,10 @@ MegaDrivePrivate::MegaDrivePrivate(const IRpFilePtr &file)
 	, romType(ROM_UNKNOWN)
 	, md_region(0)
 	, gt_crc(0)
-	, pSmdHeader(nullptr)
-	, pRomHeaderLockOn(nullptr)
 {
 	// Clear the various structs.
 	memset(&vectors, 0, sizeof(vectors));
 	memset(&romHeader, 0, sizeof(romHeader));
-}
-
-MegaDrivePrivate::~MegaDrivePrivate()
-{
-	delete pSmdHeader;
-	delete pRomHeaderLockOn;
 }
 
 /** Internal ROM data **/
@@ -411,7 +403,7 @@ void MegaDrivePrivate::addFields_romHeader(const MD_RomHeader *pRomHeader, bool 
 	}
 
 	// I/O support bitfield.
-	static const char *const io_bitfield_names[] = {
+	static const array<const char*, 16> io_bitfield_names = {{
 		NOP_C_("MegaDrive|I/O", "Joypad"),
 		NOP_C_("MegaDrive|I/O", "6-button"),
 		// tr: Use a locale-specific abbreviation for Sega Master System, e.g. MK3 or similar.
@@ -430,7 +422,7 @@ void MegaDrivePrivate::addFields_romHeader(const MD_RomHeader *pRomHeader, bool 
 		// tr: Brand name; only translate if the name was changed in your region.
 		NOP_C_("MegaDrive|I/O", "Activator"),
 		NOP_C_("MegaDrive|I/O", "Mega Mouse"),
-	};
+	}};
 	// NOTE: Using a plain text field because most games only support
 	// one or two devices, so we don't need to list them all.
 	const uint32_t io_support = parseIOSupport(s_io_support, sizeof(pRomHeader->io_support));
@@ -518,21 +510,21 @@ void MegaDrivePrivate::addFields_romHeader(const MD_RomHeader *pRomHeader, bool 
 		}
 	}
 
-	// Region code.
+	// Region code
 	// NOTE: bRedetectRegion is only used for S&K lock-on,
 	// so we don't need to worry about the Mega CD security program.
 	const uint32_t md_region_check = (unlikely(bRedetectRegion))
 		? parseRegionCodes(pRomHeader)
 		: this->md_region;
 
-	static const char *const region_code_bitfield_names[] = {
+	static const array<const char*, 4> region_code_bitfield_names = {{
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "Asia"),
 		NOP_C_("Region", "USA"),
 		NOP_C_("Region", "Europe"),
-	};
+	}};
 	vector<string> *const v_region_code_bitfield_names = RomFields::strArrayToVector_i18n(
-		"Region", region_code_bitfield_names, ARRAY_SIZE(region_code_bitfield_names));
+		"Region", region_code_bitfield_names);
 	fields.addField_bitfield(C_("RomData", "Region Code"),
 		v_region_code_bitfield_names, 0, md_region_check);
 
@@ -622,13 +614,13 @@ void MegaDrivePrivate::addFields_vectorTable(const M68K_VectorTable *pVectors)
 		data_row.emplace_back(rp_sprintf("$%08X", be32_to_cpu(pVectors->vectors[vector_index])));
 	}
 
-	static const char *const vectors_headers[] = {
+	static const array<const char*, 3> vectors_headers = {{
 		NOP_C_("RomData|VectorTable", "#"),
 		NOP_C_("RomData|VectorTable", "Vector"),
 		NOP_C_("RomData|VectorTable", "Address"),
-	};
+	}};
 	vector<string> *const v_vectors_headers = RomFields::strArrayToVector_i18n(
-		"RomData|VectorTable", vectors_headers, ARRAY_SIZE(vectors_headers));
+		"RomData|VectorTable", vectors_headers);
 
 	RomFields::AFLD_PARAMS params(RomFields::RFT_LISTDATA_SEPARATE_ROW, 8);
 	params.headers = v_vectors_headers;
@@ -754,8 +746,9 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 
 			case MegaDrivePrivate::ROM_FORMAT_CART_SMD: {
 				// Save the SMD header.
-				d->pSmdHeader = new SMD_Header;
-				memcpy(d->pSmdHeader, header, sizeof(*d->pSmdHeader));
+				// NOTE: Not actually used anywhere; disabling for now.
+				//d->pSmdHeader.reset(new SMD_Header);
+				//memcpy(d->pSmdHeader.get(), header, sizeof(SMD_Header));
 
 				// First bank needs to be deinterleaved.
 				auto block = aligned_uptr<uint8_t>(16, SuperMagicDrive::SMD_BLOCK_SIZE * 2);
@@ -924,26 +917,25 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 				if (size == SuperMagicDrive::SMD_BLOCK_SIZE) {
 					// Deinterleave the block.
 					SuperMagicDrive::decodeBlock(bin_data, smd_data);
-					d->pRomHeaderLockOn = new MD_RomHeader;
-					memcpy(d->pRomHeaderLockOn, &bin_data[0x100], sizeof(*d->pRomHeaderLockOn));
+					d->pRomHeaderLockOn.reset(new MD_RomHeader);
+					memcpy(d->pRomHeaderLockOn.get(), &bin_data[0x100], sizeof(MD_RomHeader));
 				}
 			}
 		} else {
 			// Load the header directly.
-			d->pRomHeaderLockOn = new MD_RomHeader;
-			size_t size = d->file->seekAndRead((2*1024*1024)+0x100, d->pRomHeaderLockOn, sizeof(*d->pRomHeaderLockOn));
+			d->pRomHeaderLockOn.reset(new MD_RomHeader);
+			size_t size = d->file->seekAndRead((2*1024*1024)+0x100, d->pRomHeaderLockOn.get(), sizeof(MD_RomHeader));
 			if (size != sizeof(*d->pRomHeaderLockOn)) {
 				// Error loading the ROM header.
-				delete d->pRomHeaderLockOn;
-				d->pRomHeaderLockOn = nullptr;
+				d->pRomHeaderLockOn.reset();
 			}
 		}
 
 		if (d->pRomHeaderLockOn) {
 			// Verify the "SEGA" magic.
-			static constexpr char sega_magic[4] = {'S','E','G','A'};
-			if (!memcmp(&d->pRomHeaderLockOn->system[0], sega_magic, sizeof(sega_magic)) ||
-			    !memcmp(&d->pRomHeaderLockOn->system[1], sega_magic, sizeof(sega_magic)))
+			static constexpr array<char, 4> sega_magic = {{'S','E','G','A'}};
+			if (!memcmp(&d->pRomHeaderLockOn->system[0], sega_magic.data(), sega_magic.size()) ||
+			    !memcmp(&d->pRomHeaderLockOn->system[1], sega_magic.data(), sega_magic.size()))
 			{
 				// Found the "SEGA" magic.
 			}
@@ -951,8 +943,7 @@ MegaDrive::MegaDrive(const IRpFilePtr &file)
 			{
 				// "SEGA" magic not found.
 				// Assume this is invalid.
-				delete d->pRomHeaderLockOn;
-				d->pRomHeaderLockOn = nullptr;
+				d->pRomHeaderLockOn.reset();
 			}
 		}
 	}
@@ -983,10 +974,10 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	const uint8_t *const pHeader = info->header.pData;
 
 	// Magic strings. (NOTE: **NOT** NULL-terminated!)
-	static constexpr char sega_magic[4] = {'S','E','G','A'};
-	static constexpr char segacd_magic[16] =  {'S','E','G','A','D','I','S','C','S','Y','S','T','E','M',' ',' '};
+	static constexpr array<char,  4> sega_magic    = {{'S','E','G','A'}};
+	static constexpr array<char, 16> segacd_magic  = {{'S','E','G','A','D','I','S','C','S','Y','S','T','E','M',' ',' '}};
 	// NOTE: Only used for Sega CD 32X.
-	static constexpr char sega32x_magic[16] = {'S','E','G','A',' ','3','2','X',' ',' ',' ',' ',' ',' ',' ',' '};
+	static constexpr array<char, 16> sega32x_magic = {{'S','E','G','A',' ','3','2','X',' ',' ',' ',' ',' ',' ',' ',' '}};
 
 	// Extra system types from:
 	// - https://www.plutiedev.com/rom-header#system
@@ -997,7 +988,7 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 		uint8_t sys_name_len;	// Length to check at $100; for $101, subtract 1.
 		uint32_t system_id;
 	};
-	static const cart_magic_sega_t cart_magic_sega[] = {
+	static const array<cart_magic_sega_t, 10> cart_magic_sega = {{
 		{" 32X      ",   10, MegaDrivePrivate::ROM_SYSTEM_32X},
 		{" SSF        ", 12, MegaDrivePrivate::ROM_SYSTEM_MD |
 		                     MegaDrivePrivate::ROM_EXT_SSF2},
@@ -1013,19 +1004,19 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 		{"TOYS PICO   ", 12, MegaDrivePrivate::ROM_SYSTEM_PICO},	// Late 90s
 		{" TOYS PICO  ", 12, MegaDrivePrivate::ROM_SYSTEM_PICO},	// Late 90s
 		{" IAC        ", 12, MegaDrivePrivate::ROM_SYSTEM_PICO},	// Some JP ROMs
-	};
+	}};
 
 	// Ohter non-Sega system IDs. (Sega Pico, Sega Picture Magic)
 	struct cart_magic_other_t {
 		char sys_name[17];
 		uint8_t system_id;
 	};
-	static const cart_magic_other_t cart_magic_other[] = {
+	static const array<cart_magic_other_t, 4> cart_magic_other = {{
 		{"SAMSUNG PICO    ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// TODO: Indicate Korean.
 		{"IMA IKUNOUJYUKU ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// Some JP ROMs
 		{"IMA IKUNOJYUKU  ", MegaDrivePrivate::ROM_SYSTEM_PICO},	// Some JP ROMs
 		{"Picture Magic   ", MegaDrivePrivate::ROM_SYSTEM_32X},		// Picture Magic
-	};
+	}};
 
 	// Check for Sega CD.
 	// TODO: Gens/GS II lists "ISO/2048", "ISO/2352",
@@ -1034,10 +1025,10 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	// TODO: Detect Sega CD 32X.
 	// TODO: Use a struct instead of raw bytes?
 	int mcd_offset = -1;
-	if (!memcmp(&pHeader[0x10], segacd_magic, sizeof(segacd_magic))) {
+	if (!memcmp(&pHeader[0x10], segacd_magic.data(), segacd_magic.size())) {
 		// Found a Sega CD disc image. (2352-byte sectors)
 		mcd_offset = 0x10;
-	} else if (!memcmp(&pHeader[0], segacd_magic, sizeof(segacd_magic))) {
+	} else if (!memcmp(&pHeader[0], segacd_magic.data(), segacd_magic.size())) {
 		// Found a Sega CD disc image. (2048-byte sectors)
 		mcd_offset = 0;
 	}
@@ -1050,7 +1041,7 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 			? MegaDrivePrivate::ROM_FORMAT_DISC_2352
 			: MegaDrivePrivate::ROM_FORMAT_DISC_2048;
 
-		if (unlikely(!memcmp(&pMcdHeader[0x0100], sega32x_magic, sizeof(sega32x_magic)))) {
+		if (unlikely(!memcmp(&pMcdHeader[0x0100], sega32x_magic.data(), sega32x_magic.size()))) {
 			// This is a Sega CD 32X disc image.
 			// TODO: Check for 32X security code?
 			return discSectorSize | MegaDrivePrivate::ROM_SYSTEM_MCD32X;
@@ -1082,11 +1073,11 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 	if (info->header.size >= 0x300) {
 		// Check if "SEGA" is in the header in the correct place
 		// for a plain binary ROM.
-		if (memcmp(&pHeader[0x100], sega_magic, sizeof(sega_magic)) != 0 &&
-		    memcmp(&pHeader[0x101], sega_magic, sizeof(sega_magic)) != 0)
+		if (memcmp(&pHeader[0x100], sega_magic.data(), sega_magic.size()) != 0 &&
+		    memcmp(&pHeader[0x101], sega_magic.data(), sega_magic.size()) != 0)
 		{
 			// "SEGA" is not in the header. This might be SMD.
-			const SMD_Header *pSmdHeader = reinterpret_cast<const SMD_Header*>(pHeader);
+			const SMD_Header *const pSmdHeader = reinterpret_cast<const SMD_Header*>(pHeader);
 			if (pSmdHeader->id[0] == 0xAA && pSmdHeader->id[1] == 0xBB &&
 			    pSmdHeader->smd.file_data_type == SMD_FDT_68K_PROGRAM &&
 			    pSmdHeader->file_type == SMD_FT_SMD_GAME_FILE)
@@ -1102,7 +1093,7 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 
 	// Check for other MD-based cartridge formats.
 	int sysId = MegaDrivePrivate::ROM_UNKNOWN;
-	if (!memcmp(&pHeader[0x100], sega_magic, sizeof(sega_magic))) {
+	if (!memcmp(&pHeader[0x100], sega_magic.data(), sega_magic.size())) {
 		// "SEGA" is at 0x100.
 		for (const auto &p : cart_magic_sega) {
 			if (!memcmp(&pHeader[0x104], p.sys_name, p.sys_name_len)) {
@@ -1116,7 +1107,7 @@ int MegaDrive::isRomSupported_static(const DetectInfo *info)
 			// NOTE: "Virtua Racing Deluxe (USA).32x" has "SEGA 32X U".
 			sysId = MegaDrivePrivate::ROM_SYSTEM_MD;
 		}
-	} else if (!memcmp(&pHeader[0x101], sega_magic, sizeof(sega_magic))) {
+	} else if (!memcmp(&pHeader[0x101], sega_magic.data(), sega_magic.size())) {
 		// "SEGA" is at 0x101.
 		for (const auto &p : cart_magic_sega) {
 			if (!memcmp(&pHeader[0x105], p.sys_name, p.sys_name_len-1)) {
@@ -1207,14 +1198,14 @@ const char *MegaDrive::systemName(unsigned int type) const
 	const unsigned int idx = (type & SYSNAME_TYPE_MASK);
 	if ((type & SYSNAME_REGION_MASK) == SYSNAME_REGION_GENERIC) {
 		// Generic system name.
-		static const char *const sysNames[6][4] = {
-			{"Sega Mega Drive", "Mega Drive", "MD", nullptr},
-			{"Sega Mega CD", "Mega CD", "MCD", nullptr},
-			{"Sega 32X", "Sega 32X", "32X", nullptr},
-			{"Sega Mega CD 32X", "Mega CD 32X", "MCD32X", nullptr},
-			{"Sega Pico", "Pico", "Pico", nullptr},
-			{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-		};
+		static const array<array<const char*, 4>, 6> sysNames = {{
+			{{"Sega Mega Drive", "Mega Drive", "MD", nullptr}},
+			{{"Sega Mega CD", "Mega CD", "MCD", nullptr}},
+			{{"Sega 32X", "Sega 32X", "32X", nullptr}},
+			{{"Sega Mega CD 32X", "Mega CD 32X", "MCD32X", nullptr}},
+			{{"Sega Pico", "Pico", "Pico", nullptr}},
+			{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}},
+		}};
 		return sysNames[romSys][idx];
 	}
 
@@ -1224,64 +1215,64 @@ const char *MegaDrive::systemName(unsigned int type) const
 	switch (md_bregion) {
 		case MegaDriveRegions::MD_BrandingRegion::Japan:
 		default: {
-			static const char *const sysNames_JP[6][4] = {
-				{"Sega Mega Drive", "Mega Drive", "MD", nullptr},
-				{"Sega Mega CD", "Mega CD", "MCD", nullptr},
-				{"Sega Super 32X", "Super 32X", "32X", nullptr},
-				{"Sega Mega CD 32X", "Mega CD 32X", "MCD32X", nullptr},
-				{"Sega Kids Computer Pico", "Kids Computer Pico", "Pico", nullptr},
-				{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-			};
+			static const array<array<const char*, 4>, 6> sysNames_JP = {{
+				{{"Sega Mega Drive", "Mega Drive", "MD", nullptr}},
+				{{"Sega Mega CD", "Mega CD", "MCD", nullptr}},
+				{{"Sega Super 32X", "Super 32X", "32X", nullptr}},
+				{{"Sega Mega CD 32X", "Mega CD 32X", "MCD32X", nullptr}},
+				{{"Sega Kids Computer Pico", "Kids Computer Pico", "Pico", nullptr}},
+				{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}},
+			}};
 			return sysNames_JP[romSys][idx];
 		}
 
 		case MegaDriveRegions::MD_BrandingRegion::USA: {
-			static const char *const sysNames_US[6][4] = {
+			static const array<array<const char*, 4>, 6> sysNames_US = {{
 				// TODO: "MD" or "Gen"?
-				{"Sega Genesis", "Genesis", "MD", nullptr},
-				{"Sega CD", "Sega CD", "MCD", nullptr},
-				{"Sega 32X", "Sega 32X", "32X", nullptr},
-				{"Sega CD 32X", "Sega CD 32X", "MCD32X", nullptr},
-				{"Sega Pico", "Pico", "Pico", nullptr},
-				{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-			};
+				{{"Sega Genesis", "Genesis", "MD", nullptr}},
+				{{"Sega CD", "Sega CD", "MCD", nullptr}},
+				{{"Sega 32X", "Sega 32X", "32X", nullptr}},
+				{{"Sega CD 32X", "Sega CD 32X", "MCD32X", nullptr}},
+				{{"Sega Pico", "Pico", "Pico", nullptr}},
+				{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}},
+			}};
 			return sysNames_US[romSys][idx];
 		}
 
 		case MegaDriveRegions::MD_BrandingRegion::Europe: {
-			static const char *const sysNames_EU[6][4] = {
-				{"Sega Mega Drive", "Mega Drive", "MD", nullptr},
-				{"Sega Mega CD", "Mega CD", "MCD", nullptr},
-				{"Sega Mega Drive 32X", "Mega Drive 32X", "32X", nullptr},
-				{"Sega Mega CD 32X", "Sega Mega CD 32X", "MCD32X", nullptr},
-				{"Sega Pico", "Pico", "Pico", nullptr},
-				{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-			};
+			static const array<array<const char*, 4>, 6> sysNames_EU = {{
+				{{"Sega Mega Drive", "Mega Drive", "MD", nullptr}},
+				{{"Sega Mega CD", "Mega CD", "MCD", nullptr}},
+				{{"Sega Mega Drive 32X", "Mega Drive 32X", "32X", nullptr}},
+				{{"Sega Mega CD 32X", "Sega Mega CD 32X", "MCD32X", nullptr}},
+				{{"Sega Pico", "Pico", "Pico", nullptr}},
+				{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}},
+			}};
 			return sysNames_EU[romSys][idx];
 		}
 
 		case MegaDriveRegions::MD_BrandingRegion::South_Korea: {
-			static const char *const sysNames_KR[6][4] = {
+			static const array<array<const char*, 4>, 6> sysNames_KR = {{
 				// TODO: "MD" or something else?
-				{"Samsung Super Aladdin Boy", "Super Aladdin Boy", "MD", nullptr},
-				{"Samsung CD Aladdin Boy", "CD Aladdin Boy", "MCD", nullptr},
-				{"Samsung Super 32X", "Super 32X", "32X", nullptr},
-				{"Sega Mega CD 32X", "Sega Mega CD 32X", "MCD32X", nullptr},
-				{"Samsung Pico", "Pico", "Pico", nullptr},
-				{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-			};
+				{{"Samsung Super Aladdin Boy", "Super Aladdin Boy", "MD", nullptr}},
+				{{"Samsung CD Aladdin Boy", "CD Aladdin Boy", "MCD", nullptr}},
+				{{"Samsung Super 32X", "Super 32X", "32X", nullptr}},
+				{{"Sega Mega CD 32X", "Sega Mega CD 32X", "MCD32X", nullptr}},
+				{{"Samsung Pico", "Pico", "Pico", nullptr}},
+				{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}},
+			}};
 			return sysNames_KR[romSys][idx];
 		}
 
 		case MegaDriveRegions::MD_BrandingRegion::Brazil: {
-			static const char *const sysNames_BR[6][4] = {
-				{"Sega Mega Drive", "Mega Drive", "MD", nullptr},
-				{"Sega CD", "Sega CD", "MCD", nullptr},
-				{"Sega Mega 32X", "Mega 32X", "32X", nullptr},
-				{"Sega CD 32X", "Sega CD 32X", "MCD32X", nullptr},
-				{"Sega Pico", "Pico", "Pico", nullptr},
-				{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}
-			};
+			static const array<array<const char*, 4>, 6> sysNames_BR = {{
+				{{"Sega Mega Drive", "Mega Drive", "MD", nullptr}},
+				{{"Sega CD", "Sega CD", "MCD", nullptr}},
+				{{"Sega Mega 32X", "Mega 32X", "32X", nullptr}},
+				{{"Sega CD 32X", "Sega CD 32X", "MCD32X", nullptr}},
+				{{"Sega Pico", "Pico", "Pico", nullptr}},
+				{{"Sega Teradrive", "Teradrive", "Teradrive", nullptr}}
+			}};
 			return sysNames_BR[romSys][idx];
 		}
 	}
@@ -1393,7 +1384,7 @@ int MegaDrive::loadFieldData(void)
 	if (d->pRomHeaderLockOn) {
 		// Locked-on ROM is present.
 		d->fields.addTab(C_("MegaDrive", "Locked-On ROM Header"));
-		d->addFields_romHeader(d->pRomHeaderLockOn, true);
+		d->addFields_romHeader(d->pRomHeaderLockOn.get(), true);
 	}
 
 	// Try to open the ISO-9660 object.
@@ -1505,7 +1496,7 @@ int MegaDrive::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) 
 	// If this is S&K plus a locked-on ROM, use the
 	// locked-on ROM's serial number with region "S&K".
 	const MD_RomHeader *const pRomHeader = (d->pRomHeaderLockOn != nullptr
-						? d->pRomHeaderLockOn
+						? d->pRomHeaderLockOn.get()
 						: &d->romHeader);
 
 	const bool isEarlyRomHeader = d->checkIfEarlyRomHeader(pRomHeader);
@@ -1902,4 +1893,4 @@ int MegaDrive::checkViewedAchievements(void) const
 	return ret;
 }
 
-}
+} // namespace LibRomData

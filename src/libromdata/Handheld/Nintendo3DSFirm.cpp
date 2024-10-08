@@ -30,7 +30,7 @@ namespace LibRomData {
 class Nintendo3DSFirmPrivate final : public RomDataPrivate
 {
 public:
-	Nintendo3DSFirmPrivate(const IRpFilePtr &file);
+	explicit Nintendo3DSFirmPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -175,9 +175,9 @@ const char *Nintendo3DSFirm::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// TODO: *New* Nintendo 3DS for N3DS-exclusive titles; iQue for China.
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo 3DS", "Nintendo 3DS", "3DS", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -411,4 +411,4 @@ int Nintendo3DSFirm::loadFieldData(void)
 	return static_cast<int>(d->fields.count());
 }
 
-}
+} // namespace LibRomData

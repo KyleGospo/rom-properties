@@ -28,7 +28,7 @@ namespace LibRomData {
 class SNESPrivate final : public RomDataPrivate
 {
 public:
-	SNESPrivate(const IRpFilePtr &file);
+	explicit SNESPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -820,7 +820,7 @@ SNES::SNES(const IRpFilePtr &file)
 	if (d->romType == SNESPrivate::RomType::Unknown) {
 		// Check for BS-X "Memory Pack" headers.
 		static constexpr array<uint16_t, 2> bsx_addrs = {{0x7F00, 0xFF00}};
-		static constexpr uint8_t bsx_mempack_magic[6] = {'M', 0, 'P', 0, 0, 0};
+		static constexpr array<uint8_t, 6> bsx_mempack_magic = {{'M', 0, 'P', 0, 0, 0}};
 		uint8_t buf[7];
 
 		for (const uint16_t bsx_addr : bsx_addrs) {
@@ -831,7 +831,7 @@ SNES::SNES(const IRpFilePtr &file)
 				return;
 			}
 
-			if (!memcmp(buf, bsx_mempack_magic, sizeof(bsx_mempack_magic))) {
+			if (!memcmp(buf, bsx_mempack_magic.data(), bsx_mempack_magic.size())) {
 				// Found BS-X memory pack magic.
 				// Check the memory pack type.
 				// (7 is ROM; 1 to 4 is FLASH.)
@@ -1049,7 +1049,7 @@ const char *SNES::systemName(unsigned int type) const
 	unsigned int idx = (type & SYSNAME_TYPE_MASK);
 
 	// Localized SNES/SFC system names.
-	static const char *const sysNames[16] = {
+	static const array<const char*, 4*4> sysNames = {{
 		// Japan: Super Famicom
 		"Nintendo Super Famicom", "Super Famicom", "SFC", nullptr,
 		// South Korea: Super Comboy
@@ -1058,12 +1058,12 @@ const char *SNES::systemName(unsigned int type) const
 		"Super Nintendo Entertainment System", "Super NES", "SNES", nullptr,
 		// Reserved.
 		nullptr, nullptr, nullptr, nullptr
-	};
+	}};
 
 	// BS-X system names.
-	static const char *const sysNames_BSX[4] = {
+	static const array<const char*, 4> sysNames_BSX = {{
 		"Satellaview BS-X", "Satellaview", "BS-X", nullptr
-	};
+	}};
 
 	switch (d->romType) {
 		case SNESPrivate::RomType::SNES:
@@ -1642,4 +1642,4 @@ int SNES::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	return 0;
 }
 
-}
+} // namespace LibRomData

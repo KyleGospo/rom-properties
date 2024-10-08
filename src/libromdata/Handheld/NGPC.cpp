@@ -16,6 +16,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -24,7 +25,7 @@ namespace LibRomData {
 class NGPCPrivate final : public RomDataPrivate
 {
 public:
-	NGPCPrivate(const IRpFilePtr &file);
+	explicit NGPCPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -209,10 +210,10 @@ const char *NGPC::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// Bit 2: Machine type. (0 == NGP, 1 == NGPC)
-	static const char *const sysNames[2][4] = {
-		{"Neo Geo Pocket", "NGP", "NGP", nullptr},
-		{"Neo Geo Pocket Color", "NGPC", "NGPC", nullptr}
-	};
+	static const array<array<const char*, 4>, 2> sysNames = {{
+		{{"Neo Geo Pocket", "NGP", "NGP", nullptr}},
+		{{"Neo Geo Pocket Color", "NGPC", "NGPC", nullptr}},
+	}};
 
 	// NOTE: This might return an incorrect system name if
 	// d->romType is RomType::TYPE_UNKNOWN.
@@ -314,11 +315,10 @@ int NGPC::loadFieldData(void)
 		romHeader->version, RomFields::Base::Dec, 2);
 
 	// System
-	static const char *const system_bitfield_names[] = {
+	static const array<const char*, 2> system_bitfield_names = {{
 		"NGP (Monochrome)", "NGP Color"
-	};
-	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(
-		system_bitfield_names, ARRAY_SIZE(system_bitfield_names));
+	}};
+	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(system_bitfield_names);
 	d->fields.addField_bitfield(C_("NGPC", "System"),
 		v_system_bitfield_names, 0,
 			(d->romType == NGPCPrivate::RomType::NGPC ? 3 : 1));
@@ -491,4 +491,4 @@ int NGPC::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	return 0;
 }
 
-}
+} // namespace LibRomData

@@ -52,8 +52,7 @@ namespace LibRomData {
 class Xbox360_XEX_Private final : public RomDataPrivate
 {
 public:
-	Xbox360_XEX_Private(const IRpFilePtr &file);
-	~Xbox360_XEX_Private() final;
+	explicit Xbox360_XEX_Private(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -207,8 +206,8 @@ public:
 	// CBC reader for encrypted PE executables.
 	// Also used for unencrypted executables.
 	CBCReaderPtr peReader;
-	EXE *pe_exe;
-	Xbox360_XDBF *pe_xdbf;
+	unique_ptr<EXE> pe_exe;
+	unique_ptr<Xbox360_XDBF> pe_xdbf;
 
 	/**
 	 * Initialize the PE executable reader.
@@ -293,20 +292,12 @@ Xbox360_XEX_Private::Xbox360_XEX_Private(const IRpFilePtr &file)
 	, xexType(XexType::Unknown)
 	, isExecutionIDLoaded(false)
 	, keyInUse(-1)
-	, pe_exe(nullptr)
-	, pe_xdbf(nullptr)
 {
 	// Clear the headers.
 	memset(&xex2Header, 0, sizeof(xex2Header));
 	memset(&secInfo, 0, sizeof(secInfo));
 	memset(&executionID, 0, sizeof(executionID));
 	memset(&fileFormatInfo, 0, sizeof(fileFormatInfo));
-}
-
-Xbox360_XEX_Private::~Xbox360_XEX_Private()
-{
-	delete pe_xdbf;
-	delete pe_exe;
 }
 
 /**
@@ -703,6 +694,7 @@ int Xbox360_XEX_Private::initPeReader(void)
 
 	// Check the compression type.
 	switch (fileFormatInfo.compression_type) {
+		default:
 		case XEX2_COMPRESSION_TYPE_NONE:
 			// No compression.
 			break;
@@ -1065,39 +1057,39 @@ void Xbox360_XEX_Private::convertGameRatings(
 	// - If rating A is 0, and rating B is 2:
 	//   - The value for "A" gets slot 0.
 	//   - The value for "B" gets slots 1 and 2.
-	static constexpr int8_t region_values[14][16] = {
+	static const array<array<int8_t, 16>, 14> region_values = {{
 		// USA (ESRB)
-		{3, 6, 6, 10, 10, 13, 13, 17, 17, 18, 18, 18, 18, 18, 18, -1},
+		{{3, 6, 6, 10, 10, 13, 13, 17, 17, 18, 18, 18, 18, 18, 18, -1}},
 		// Europe (PEGI)
-		{3, 4, 4, 4, 4, 12, 12, 12, 12, 12, 16, 16, 16, 16, 18, -1},
+		{{3, 4, 4, 4, 4, 12, 12, 12, 12, 12, 16, 16, 16, 16, 18, -1}},
 		// Finland (PEGI-FI/MEKU)
-		{3, 7, 7, 7, 7, 11, 11, 11, 11, 15, 15, 15, 15, 18, 18, -1},
+		{{3, 7, 7, 7, 7, 11, 11, 11, 11, 15, 15, 15, 15, 18, 18, -1}},
 		// Portugal (PEGI-PT)
-		{4, 4, 6, 6, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 18, -1},
+		{{4, 4, 6, 6, 12, 12, 12, 12, 12, 12, 16, 16, 16, 16, 18, -1}},
 		// England (BBFC)
 		// TODO: How are Universal and PG handled for Nintendo?
-		{3, 3, 7, 7, 7, 7, 12, 12, 12, 12, 15, 15, 15, 16, 18, -1},
+		{{3, 3, 7, 7, 7, 7, 12, 12, 12, 12, 15, 15, 15, 16, 18, -1}},
 		// Japan (CERO)
-		{0, 12, 12, 15, 15, 17, 17, 18, 18,    -1,-1,-1,-1,-1,-1,-1},
+		{{0, 12, 12, 15, 15, 17, 17, 18, 18,    -1,-1,-1,-1,-1,-1,-1}},
 		// Germany (USK)
-		{0, 6, 6, 12, 12, 16, 16, 18, 18,      -1,-1,-1,-1,-1,-1,-1},
+		{{0, 6, 6, 12, 12, 16, 16, 18, 18,      -1,-1,-1,-1,-1,-1,-1}},
 		// Australia (OFLC_AU)
 		// TODO: Is R18+ available on Xbox 360?
-		{0, 7, 7, 14, 14, 15, 15, -1,       -1,-1,-1,-1,-1,-1,-1,-1},
+		{{0, 7, 7, 14, 14, 15, 15, -1,       -1,-1,-1,-1,-1,-1,-1,-1}},
 		// TODO: NZ
-		{-1,-1,-1,-1,-1,-1,-1,-1,           -1,-1,-1,-1,-1,-1,-1,-1},
+		{{-1,-1,-1,-1,-1,-1,-1,-1,           -1,-1,-1,-1,-1,-1,-1,-1}},
 		// South Korea (KMRB/GRB)
-		{0, 12, 12, 15, 15, 18, 18, -1,     -1,-1,-1,-1,-1,-1,-1,-1},
+		{{0, 12, 12, 15, 15, 18, 18, -1,     -1,-1,-1,-1,-1,-1,-1,-1}},
 
 		// TODO: Brazil
-		{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1},
+		{{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1}},
 		// TODO: FPB?
-		{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1},
+		{{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1}},
 		// TODO: Taiwan
-		{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1},
+		{{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1}},
 		// TODO: Singapore
-		{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1},
-	};
+		{{-1,-1,-1,-1,-1,-1,-1,-1, -1,-1,-1,-1,-1,-1,-1,-1}},
+	}};
 
 	// 14 ratings for Xbox 360 games.
 	for (unsigned int ridx = 0; ridx < 14; ridx++) {
@@ -1175,7 +1167,7 @@ const EXE *Xbox360_XEX_Private::initEXE(void)
 {
 	if (pe_exe) {
 		// EXE is already initialized.
-		return pe_exe;
+		return pe_exe.get();
 	}
 
 	// Initialize the PE reader.
@@ -1194,7 +1186,7 @@ const EXE *Xbox360_XEX_Private::initEXE(void)
 		if (peFile_tmp->isOpen()) {
 			EXE *const pe_exe_tmp = new EXE(peFile_tmp);
 			if (pe_exe_tmp->isOpen()) {
-				pe_exe = pe_exe_tmp;
+				pe_exe.reset(pe_exe_tmp);
 			} else {
 				delete pe_exe_tmp;
 			}
@@ -1204,13 +1196,13 @@ const EXE *Xbox360_XEX_Private::initEXE(void)
 	{
 		EXE *const pe_exe_tmp = new EXE(peReader);
 		if (pe_exe_tmp->isOpen()) {
-			pe_exe = pe_exe_tmp;
+			pe_exe.reset(pe_exe_tmp);
 		} else {
 			delete pe_exe_tmp;
 		}
 	}
 
-	return pe_exe;
+	return pe_exe.get();
 }
 
 /**
@@ -1221,7 +1213,7 @@ const Xbox360_XDBF *Xbox360_XEX_Private::initXDBF(void)
 {
 	if (pe_xdbf) {
 		// XDBF is already initialized.
-		return pe_xdbf;
+		return pe_xdbf.get();
 	}
 
 	// Initialize the PE reader.
@@ -1272,13 +1264,13 @@ const Xbox360_XDBF *Xbox360_XEX_Private::initXDBF(void)
 		// FIXME: XEX1 XDBF is either encrypted or garbage...
 		Xbox360_XDBF *const pe_xdbf_tmp = new Xbox360_XDBF(peFile_tmp, true);
 		if (pe_xdbf_tmp->isOpen()) {
-			pe_xdbf = pe_xdbf_tmp;
+			pe_xdbf.reset(pe_xdbf_tmp);
 		} else {
 			delete pe_xdbf_tmp;
 		}
 	}
 
-	return pe_xdbf;
+	return pe_xdbf.get();
 }
 
 /**
@@ -1507,9 +1499,9 @@ const char *Xbox360_XEX::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// TODO: XEX-specific, or just use Xbox 360?
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Microsoft Xbox 360", "Xbox 360", "X360", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -1679,7 +1671,7 @@ int Xbox360_XEX::loadFieldData(void)
 	d->fields.addField_string(C_("Xbox360_XEX", "Min. Kernel"), s_minver);
 
 	// Module flags
-	static const char *const module_flags_tbl[] = {
+	static const array<const char*, 8> module_flags_tbl = {{
 		NOP_C_("Xbox360_XEX", "Title"),
 		NOP_C_("Xbox360_XEX", "Exports"),
 		NOP_C_("Xbox360_XEX", "Debugger"),
@@ -1688,9 +1680,8 @@ int Xbox360_XEX::loadFieldData(void)
 		NOP_C_("Xbox360_XEX", "Full Patch"),
 		NOP_C_("Xbox360_XEX", "Delta Patch"),
 		NOP_C_("Xbox360_XEX", "User Mode"),
-	};
-	vector<string> *const v_module_flags = RomFields::strArrayToVector_i18n(
-		"Xbox360_XEX", module_flags_tbl, ARRAY_SIZE(module_flags_tbl));
+	}};
+	vector<string> *const v_module_flags = RomFields::strArrayToVector_i18n("Xbox360_XEX", module_flags_tbl);
 	d->fields.addField_bitfield(C_("Xbox360_XEX", "Module Flags"),
 		v_module_flags, 4, xex2Header->module_flags);
 
@@ -1772,7 +1763,7 @@ int Xbox360_XEX::loadFieldData(void)
 
 	// Region code
 	// TODO: Special handling for region-free?
-	static const char *const region_code_tbl[] = {
+	static const array<const char*, 7> region_code_tbl = {{
 		NOP_C_("Region", "USA"),
 		NOP_C_("Region", "Japan"),
 		NOP_C_("Region", "China"),
@@ -1780,7 +1771,7 @@ int Xbox360_XEX::loadFieldData(void)
 		NOP_C_("Region", "Europe"),
 		NOP_C_("Region", "Australia"),
 		NOP_C_("Region", "New Zealand"),
-	};
+	}};
 
 	// Convert region code to a bitfield.
 	const uint32_t region_code_xbx = be32_to_cpu(
@@ -1808,8 +1799,7 @@ int Xbox360_XEX::loadFieldData(void)
 		region_code |= (1U << 5) | (1U << 6);
 	}
 
-	vector<string> *const v_region_code = RomFields::strArrayToVector_i18n(
-		"Region", region_code_tbl, ARRAY_SIZE(region_code_tbl));
+	vector<string> *const v_region_code = RomFields::strArrayToVector_i18n("Region", region_code_tbl);
 	d->fields.addField_bitfield(C_("RomData", "Region Code"),
 		v_region_code, 4, region_code);
 
@@ -2110,4 +2100,4 @@ const uint8_t *Xbox360_XEX::encryptionVerifyData_static(int keyIdx)
 }
 #endif /* ENABLE_DECRYPTION */
 
-}
+} // namespace LibRomData

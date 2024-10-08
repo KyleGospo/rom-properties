@@ -45,7 +45,6 @@ class KeyStoreUIPrivate
 {
 public:
 	explicit KeyStoreUIPrivate(KeyStoreUI *q);
-	~KeyStoreUIPrivate();
 
 private:
 	KeyStoreUI *const q_ptr;
@@ -71,7 +70,7 @@ public:
 	vector<Section> sections;
 
 	// IAesCipher for verifying keys
-	IAesCipher *cipher;
+	unique_ptr<IAesCipher> cipher;
 
 public:
 	/**
@@ -250,8 +249,7 @@ KeyStoreUIPrivate::KeyStoreUIPrivate(KeyStoreUI *q)
 	} else {
 		// Cipher is not usable.
 		// We won't be able to verify keys.
-		delete cipher;
-		cipher = nullptr;
+		cipher.reset();
 	}
 
 	// Load the key names from the various classes.
@@ -313,11 +311,6 @@ KeyStoreUIPrivate::KeyStoreUIPrivate(KeyStoreUI *q)
 	// Keys will NOT be auto-loaded due to multiple inheritance issues.
 	// The subclass must load the keys.
 	//reset();
-}
-
-KeyStoreUIPrivate::~KeyStoreUIPrivate()
-{
-	delete cipher;
 }
 
 /**
@@ -971,10 +964,16 @@ const KeyStoreUI::Key *KeyStoreUI::getKey(int idx) const
  */
 int KeyStoreUI::setKey(int sectIdx, int keyIdx, const char *value)
 {
+	assert(value != nullptr);
+	if (!value) {
+		return -EINVAL;
+	}
+
 	RP_D(KeyStoreUI);
 	const int idx = d->sectKeyToIdx(sectIdx, keyIdx);
-	if (idx < 0)
+	if (idx < 0) {
 		return -ERANGE;
+	}
 
 	// Expected key length, in hex digits.
 	// TODO: Support more than 128-bit keys.
@@ -991,7 +990,7 @@ int KeyStoreUI::setKey(int sectIdx, int keyIdx, const char *value)
 		// NOTE 2: convertKanjiToHex() only errors if the string is
 		// non-ASCII and cannot be converted properly, so valid hex
 		// strings will always return the original string.
-		if (value && value[0] != '\0') {
+		if (value[0] != '\0') {
 			string convKey = d->convertKanjiToHex(value);
 			if (convKey.empty()) {
 				// Invalid kanji key.

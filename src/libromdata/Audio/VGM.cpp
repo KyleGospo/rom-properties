@@ -26,7 +26,7 @@ namespace LibRomData {
 class VGMPrivate final : public RomDataPrivate
 {
 public:
-	VGMPrivate(const IRpFilePtr &file);
+	explicit VGMPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -301,9 +301,9 @@ const char *VGM::systemName(unsigned int type) const
 		"VGM::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Video Game Music", "VGM", "VGM", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -492,14 +492,14 @@ int VGM::loadFieldData(void)
 			// No PSG flags.
 			psg_flags = 0;
 		}
-		static const char *const psg_flags_bitfield_names[] = {
+		static const array<const char*, 4> psg_flags_bitfield_names = {{
 			NOP_C_("VGM|PSGFlags", "Freq 0 is 0x400"),
 			NOP_C_("VGM|PSGFlags", "Output Negate"),
 			NOP_C_("VGM|PSGFlags", "Stereo"),
 			NOP_C_("VGM|PSGFlags", "/8 Clock Divider"),
-		};
+		}};
 		vector<string> *const v_psg_flags_bitfield_names = RomFields::strArrayToVector_i18n(
-			"VGM|PSGFlags", psg_flags_bitfield_names, ARRAY_SIZE(psg_flags_bitfield_names));
+			"VGM|PSGFlags", psg_flags_bitfield_names);
 		d->fields.addField_bitfield(rp_sprintf(s_flags, chip_name).c_str(),
 			v_psg_flags_bitfield_names, 2, psg_flags);
 	}
@@ -548,12 +548,12 @@ int VGM::loadFieldData(void)
 
 		// AY8910 flags.
 		// Used for YM2203, YM2608, and AY8910.
-		static const char *const ay8910_flags_bitfield_names[] = {
+		static const array<const char*, 4> ay8910_flags_bitfield_names = {{
 			NOP_C_("VGM|AY8910Flags", "Legacy Output"),
 			NOP_C_("VGM|AY8910Flags", "Single Output"),
 			NOP_C_("VGM|AY8910Flags", "Discrete Output"),
 			NOP_C_("VGM|AY8910Flags", "Raw Output"),
-		};
+		}};
 
 		// YM2203 [1.51]
 		if (offsetof(VGM_Header, ym2203_ay8910_flags) < data_offset) {
@@ -569,7 +569,7 @@ int VGM::loadFieldData(void)
 
 				// TODO: Is AY8910 type needed?
 				vector<string> *const v_ay8910_flags_bitfield_names = RomFields::strArrayToVector_i18n(
-					"VGM|AY8910Flags", ay8910_flags_bitfield_names, ARRAY_SIZE(ay8910_flags_bitfield_names));
+					"VGM|AY8910Flags", ay8910_flags_bitfield_names);
 				d->fields.addField_bitfield(rp_sprintf(s_flags, "YM2203 (AY8910)").c_str(),
 					v_ay8910_flags_bitfield_names, 2, vgmHeader->ym2203_ay8910_flags);
 			}
@@ -589,7 +589,7 @@ int VGM::loadFieldData(void)
 
 				// TODO: Is AY8910 type needed?
 				vector<string> *const v_ay8910_flags_bitfield_names = RomFields::strArrayToVector_i18n(
-					"VGM|AY8910Flags", ay8910_flags_bitfield_names, ARRAY_SIZE(ay8910_flags_bitfield_names));
+					"VGM|AY8910Flags", ay8910_flags_bitfield_names);
 				d->fields.addField_bitfield(rp_sprintf(s_flags, "YM2608 (AY8910)").c_str(),
 					v_ay8910_flags_bitfield_names, 2, vgmHeader->ym2608_ay8910_flags);
 			}
@@ -674,7 +674,7 @@ int VGM::loadFieldData(void)
 						(clk_full & VGM_CLK_FLAG_DUALCHIP) ? d->s_yes : d->s_no);
 
 				vector<string> *const v_ay8910_flags_bitfield_names = RomFields::strArrayToVector_i18n(
-					"VGM|AY8910Flags", ay8910_flags_bitfield_names, ARRAY_SIZE(ay8910_flags_bitfield_names));
+					"VGM|AY8910Flags", ay8910_flags_bitfield_names);
 				d->fields.addField_bitfield(rp_sprintf(s_flags, chip_name).c_str(),
 					v_ay8910_flags_bitfield_names, 2, vgmHeader->ay8910_flags);
 			}
@@ -920,4 +920,4 @@ int VGM::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData

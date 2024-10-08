@@ -129,8 +129,9 @@ rp_item_convert_to_png(GtkAction *item, gpointer user_data)
 static GList*
 rp_thunar_menu_provider_get_file_menu_items(ThunarxMenuProvider *provider, GtkWidget *window, GList *files)
 {
-	RP_UNUSED(provider);
 	RP_UNUSED(window);
+	assert(RP_IS_THUNAR_MENU_PROVIDER(provider));
+	g_return_val_if_fail(RP_IS_THUNAR_MENU_PROVIDER(provider), NULL);
 
 	// Verify that all specified files are supported.
 	bool is_supported = false;

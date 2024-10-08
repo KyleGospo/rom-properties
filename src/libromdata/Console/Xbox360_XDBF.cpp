@@ -1004,13 +1004,13 @@ int Xbox360_XDBF_Private::addFields_achievements_SPA(void)
 	// a virtual column, much like checkboxes.
 
 	// Columns
-	static const char *const xach_col_names[] = {
+	static const array<const char*, 3> xach_col_names = {{
 		NOP_C_("Xbox360_XDBF|Achievements", "ID"),
 		NOP_C_("Xbox360_XDBF|Achievements", "Description"),
 		NOP_C_("Xbox360_XDBF|Achievements", "Gamerscore"),
-	};
+	}};
 	vector<string> *const v_xach_col_names = RomFields::strArrayToVector_i18n(
-		"Xbox360_XDBF|Achievements", xach_col_names, ARRAY_SIZE(xach_col_names));
+		"Xbox360_XDBF|Achievements", xach_col_names);
 
 	// Vectors.
 	array<RomFields::ListData_t*, XDBF_LANGUAGE_MAX> pvv_xach;
@@ -1217,12 +1217,12 @@ int Xbox360_XDBF_Private::addFields_avatarAwards_SPA(void)
 	// a virtual column, much like checkboxes.
 
 	// Columns
-	static const char *const xgaa_col_names[] = {
+	static const array<const char*, 2> xgaa_col_names = {
 		NOP_C_("Xbox360_XDBF|AvatarAwards", "ID"),
 		NOP_C_("Xbox360_XDBF|AvatarAwards", "Description"),
 	};
 	vector<string> *const v_xgaa_col_names = RomFields::strArrayToVector_i18n(
-		"Xbox360_XDBF|AvatarAwards", xgaa_col_names, ARRAY_SIZE(xgaa_col_names));
+		"Xbox360_XDBF|AvatarAwards", xgaa_col_names);
 
 	// Vectors.
 	array<RomFields::ListData_t*, XDBF_LANGUAGE_MAX> pvv_xgaa;
@@ -1397,13 +1397,13 @@ int Xbox360_XDBF_Private::addFields_achievements_GPD(void)
 	// a virtual column, much like checkboxes.
 
 	// Columns
-	static const char *const xach_col_names[] = {
+	static const array<const char*, 3> xach_col_names = {{
 		NOP_C_("Xbox360_XDBF|Achievements", "ID"),
 		NOP_C_("Xbox360_XDBF|Achievements", "Description"),
 		NOP_C_("Xbox360_XDBF|Achievements", "Gamerscore"),
-	};
+	}};
 	vector<string> *const v_xach_col_names = RomFields::strArrayToVector_i18n(
-		"Xbox360_XDBF|Achievements", xach_col_names, ARRAY_SIZE(xach_col_names));
+		"Xbox360_XDBF|Achievements", xach_col_names);
 
 	RomFields::ListData_t *vv_xach = new RomFields::ListData_t();
 	auto vv_icons = new RomFields::ListDataIcons_t();
@@ -1553,37 +1553,7 @@ int Xbox360_XDBF_Private::addFields_achievements_GPD(void)
  *
  * NOTE: Check isValid() to determine if this is a valid ROM.
  *
- * @param file Open XDBF file and/or section.
- */
-Xbox360_XDBF::Xbox360_XDBF(const IRpFilePtr &file)
-	: super(new Xbox360_XDBF_Private(file, false))
-{
-	// This class handles XDBF files and/or sections only.
-	// NOTE: Using the same image settings as Xbox360_XEX.
-	RP_D(Xbox360_XDBF);
-	d->mimeType = "application/x-xbox360-xdbf";	// unofficial, not on fd.o
-	d->fileType = FileType::ResourceFile;
-
-	if (!d->file) {
-		// Could not ref() the file handle.
-		return;
-	}
-
-	init();
-}
-
-/**
- * Read an Xbox 360 XDBF file and/or section.
- *
- * A ROM image must be opened by the caller. The file handle
- * will be ref()'d and must be kept open in order to load
- * data from the file.
- *
- * To close the file, either delete this object or call close().
- *
- * NOTE: Check isValid() to determine if this is a valid ROM.
- *
- * @param file Open XDBF file and/or section.
+ * @param file Open XDBF file and/or section
  * @param xex If true, hide fields that are displayed separately in XEX executables.
  */
 Xbox360_XDBF::Xbox360_XDBF(const IRpFilePtr &file, bool xex)
@@ -1598,16 +1568,6 @@ Xbox360_XDBF::Xbox360_XDBF(const IRpFilePtr &file, bool xex)
 		// Could not ref() the file handle.
 		return;
 	}
-
-	init();
-}
-
-/**
- * Common initialization function for the constructors.
- */
-void Xbox360_XDBF::init(void)
-{
-	RP_D(Xbox360_XDBF);
 
 	// Read the Xbox360_XDBF header.
 	// NOTE: Reading 512 bytes so we can detect SPA vs. GPD.
@@ -1760,9 +1720,9 @@ const char *Xbox360_XDBF::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// TODO: XDBF-specific, or just use Xbox 360?
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Microsoft Xbox 360", "Xbox 360", "X360", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -1993,4 +1953,4 @@ string Xbox360_XDBF::getString(LibRpBase::Property property) const
 	return s_ret;
 }
 
-}
+} // namespace LibRomData

@@ -35,7 +35,7 @@ namespace LibRomData {
 class DMGPrivate final : public RomDataPrivate
 {
 public:
-	DMGPrivate(const IRpFilePtr &file);
+	explicit DMGPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -625,11 +625,10 @@ void DMGPrivate::addFields_romHeader(const DMG_RomHeader *pRomHeader)
 
 	// System
 	const uint32_t dmg_system = systemID(pRomHeader);
-	static const char *const system_bitfield_names[] = {
+	static const array<const char*, 3> system_bitfield_names = {{
 		"DMG", "SGB", "CGB"
-	};
-	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(
-		system_bitfield_names, ARRAY_SIZE(system_bitfield_names));
+	}};
+	vector<string> *const v_system_bitfield_names = RomFields::strArrayToVector(system_bitfield_names);
 	fields.addField_bitfield(C_("DMG", "System"),
 		v_system_bitfield_names, 0, dmg_system);
 
@@ -674,15 +673,15 @@ void DMGPrivate::addFields_romHeader(const DMG_RomHeader *pRomHeader)
 		DMGPrivate::dmg_hardware_names[static_cast<int>(cart_type.hardware)]);
 
 	// Features
-	static const char *const feature_bitfield_names[] = {
+	static const array<const char*, 5> feature_bitfield_names = {{
 		NOP_C_("DMG|Features", "RAM"),
 		NOP_C_("DMG|Features", "Battery"),
 		NOP_C_("DMG|Features", "Timer"),
 		NOP_C_("DMG|Features", "Rumble"),
 		NOP_C_("DMG|Features", "Tilt Sensor"),
-	};
+	}};
 	vector<string> *const v_feature_bitfield_names = RomFields::strArrayToVector_i18n(
-		"DMG|Features", feature_bitfield_names, ARRAY_SIZE(feature_bitfield_names));
+		"DMG|Features", feature_bitfield_names);
 	fields.addField_bitfield(C_("DMG", "Features"),
 		v_feature_bitfield_names, 3, cart_type.features);
 
@@ -1017,12 +1016,12 @@ const char *DMG::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// Bits 2-3: System type. (DMG-specific)
-	static const char *const sysNames[4][4] = {
-		{"Nintendo Game Boy", "Game Boy", "GB", nullptr},
-		{"Nintendo Game Boy Color", "Game Boy Color", "GBC", nullptr},
-		{"Analogue Pocket", "Analogue Pocket", "AP", nullptr},
-		{nullptr, nullptr, nullptr, nullptr},
-	};
+	static const array<array<const char*, 4>, 4> sysNames = {{
+		{{"Nintendo Game Boy", "Game Boy", "GB", nullptr}},
+		{{"Nintendo Game Boy Color", "Game Boy Color", "GBC", nullptr}},
+		{{"Analogue Pocket", "Analogue Pocket", "AP", nullptr}},
+		{{nullptr, nullptr, nullptr, nullptr}},
+	}};
 
 	// NOTE: This might return an incorrect system name if
 	// d->romType is ROM_TYPE_UNKNOWN.
@@ -1301,13 +1300,13 @@ int DMG::loadFieldData(void)
 			gbx_features |= (1U << 2);
 		}
 
-		static const char *const gbx_feature_bitfield_names[] = {
+		static const array<const char*, 3> gbx_feature_bitfield_names = {{
 			NOP_C_("DMG|Features", "Battery"),
 			NOP_C_("DMG|Features", "Rumble"),
 			NOP_C_("DMG|Features", "Timer"),
-		};
+		}};
 		vector<string> *const v_gbx_feature_bitfield_names = RomFields::strArrayToVector_i18n(
-			"DMG|Features", gbx_feature_bitfield_names, ARRAY_SIZE(gbx_feature_bitfield_names));
+			"DMG|Features", gbx_feature_bitfield_names);
 		d->fields.addField_bitfield(C_("DMG", "Features"),
 			v_gbx_feature_bitfield_names, 0, gbx_features);
 
@@ -1610,4 +1609,4 @@ int DMG::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) const
 	return 0;
 }
 
-}
+} // namespace LibRomData

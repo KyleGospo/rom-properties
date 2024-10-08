@@ -45,7 +45,6 @@ using namespace LibRpTexture;
 // C++ STL classes
 using std::array;
 using std::string;
-using std::unique_ptr;
 using std::vector;
 
 namespace LibRomData {
@@ -53,7 +52,7 @@ namespace LibRomData {
 class GameCubePrivate final : public RomDataPrivate
 {
 public:
-	GameCubePrivate(const IRpFilePtr &file);
+	explicit GameCubePrivate(const IRpFilePtr &file);
 	~GameCubePrivate() final;
 
 private:
@@ -458,6 +457,15 @@ int GameCubePrivate::loadOpeningBnr(void)
 	if (opening_bnr.romData) {
 		// Banner is already loaded.
 		return 0;
+	}
+
+	// FIXME: No DiscReader for WIA or RVZ yet.
+	switch (discType & DISC_FORMAT_MASK) {
+		default:
+			break;
+		case DISC_FORMAT_WIA:
+		case DISC_FORMAT_RVZ:
+			return -EIO;
 	}
 
 	assert((bool)discReader);
@@ -1158,12 +1166,12 @@ const char *GameCube::systemName(unsigned int type) const
 
 	// Bits 0-1: Type. (long, short, abbreviation)
 	// Bits 2-3: DISC_SYSTEM_MASK (GCN, Wii, Triforce)
-	static const char *const sysNames[4][4] = {
-		{"Nintendo GameCube", "GameCube", "GCN", nullptr},
-		{"Nintendo/Sega/Namco Triforce", "Triforce", "TF", nullptr},
-		{"Nintendo Wii", "Wii", "Wii", nullptr},
-		{nullptr, nullptr, nullptr, nullptr},
-	};
+	static const array<array<const char*, 4>, 4> sysNames = {{
+		{{"Nintendo GameCube", "GameCube", "GCN", nullptr}},
+		{{"Nintendo/Sega/Namco Triforce", "Triforce", "TF", nullptr}},
+		{{"Nintendo Wii", "Wii", "Wii", nullptr}},
+		{{nullptr, nullptr, nullptr, nullptr}},
+	}};
 
 	// Special check for GCN abbreviation in Japan.
 	if ((type & SYSNAME_REGION_MASK) == SYSNAME_REGION_ROM_LOCAL) {
@@ -1729,7 +1737,7 @@ int GameCube::loadFieldData(void)
 		}
 
 		// Fields
-		static const char *const partitions_names[] = {
+		static const array<const char*, 5> partitions_names = {{
 			// tr: Partition number.
 			NOP_C_("Wii|Partition", "#"),
 			// tr: Partition type.
@@ -1740,9 +1748,9 @@ int GameCube::loadFieldData(void)
 			NOP_C_("Wii|Partition", "Used Size"),
 			// tr: Total size of the partition.
 			NOP_C_("Wii|Partition", "Total Size"),
-		};
+		}};
 		vector<string> *const v_partitions_names = RomFields::strArrayToVector_i18n(
-			"Wii|Partition", partitions_names, ARRAY_SIZE(partitions_names));
+			"Wii|Partition", partitions_names);
 
 		RomFields::AFLD_PARAMS params;
 		params.headers = v_partitions_names;
@@ -2034,7 +2042,6 @@ int GameCube::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) c
 
 	pExtURLs->resize(vsz);
 	auto extURL_iter = pExtURLs->begin();
-	const auto tdb_lc_cend = tdb_lc.cend();
 
 	// Is this not the first disc?
 	if (isDisc2) {
@@ -2044,27 +2051,25 @@ int GameCube::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) c
 		snprintf(discName, sizeof(discName), "%.16s%u",
 			 imageTypeName, static_cast<unsigned int>(discHeader->disc_number) + 1);
 
-		for (auto tdb_iter = tdb_lc.cbegin();
-		     tdb_iter != tdb_lc_cend; ++tdb_iter, ++extURL_iter)
-		{
-			const string lc_str = SystemRegion::lcToStringUpper(*tdb_iter);
+		for (const uint16_t lc : tdb_lc) {
+			const string lc_str = SystemRegion::lcToStringUpper(lc);
 			extURL_iter->url = d->getURL_GameTDB("wii", discName, lc_str.c_str(), id6, ".png");
 			extURL_iter->cache_key = d->getCacheKey_GameTDB("wii", discName, lc_str.c_str(), id6, ".png");
 			extURL_iter->width = sizeDef->width;
 			extURL_iter->height = sizeDef->height;
+			++extURL_iter;
 		}
 	}
 
 	// First disc, or not a disc scan.
-	for (auto tdb_iter = tdb_lc.cbegin();
-	     tdb_iter != tdb_lc_cend; ++tdb_iter, ++extURL_iter)
-	{
-		const string lc_str = SystemRegion::lcToStringUpper(*tdb_iter);
+	for (const uint16_t lc : tdb_lc) {
+		const string lc_str = SystemRegion::lcToStringUpper(lc);
 		extURL_iter->url = d->getURL_GameTDB("wii", imageTypeName, lc_str.c_str(), id6, ".png");
 		extURL_iter->cache_key = d->getCacheKey_GameTDB("wii", imageTypeName, lc_str.c_str(), id6, ".png");
 		extURL_iter->width = sizeDef->width;
 		extURL_iter->height = sizeDef->height;
 		extURL_iter->high_res = false;	// Only one size is available.
+		++extURL_iter;
 	}
 
 	// All URLs added.
@@ -2130,4 +2135,4 @@ int GameCube::checkViewedAchievements(void) const
 	return ret;
 }
 
-}
+} // namespace LibRomData

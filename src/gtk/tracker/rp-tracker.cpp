@@ -32,7 +32,10 @@ using namespace LibRpFile;
 using namespace LibRomData;
 
 // C includes (C++ namespace)
-#include <stdlib.h>
+#include <cstdlib>
+
+// C++ STL classes
+using std::array;
 
 static void
 add_metadata_properties_v1(const RomMetaData *metaData, TrackerSparqlBuilder *builder)
@@ -300,7 +303,7 @@ tracker_extract_get_metadata(TrackerExtractInfo *info, GError **error)
 
 	// Determine the file type.
 	// TODO: Better NFOs for some of these.
-	const char *fileTypes[2] = {nullptr, nullptr};
+	array<const char*, 2> fileTypes = {{nullptr, nullptr}};
 	switch (romData->fileType()) {
 		default:
 			assert(!"Unhandled file type!");

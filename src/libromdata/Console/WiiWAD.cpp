@@ -40,6 +40,7 @@ using namespace LibRpTexture;
 #include "Handheld/NintendoDS.hpp"
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -589,18 +590,18 @@ const char *WiiWAD::systemName(unsigned int type) const
 		case NINTENDO_SYSID_IOS:
 		case NINTENDO_SYSID_RVL: {
 			// Wii
-			static const char *const sysNames_Wii[4] = {
+			static const array<const char*, 4> sysNames_Wii = {{
 				"Nintendo Wii", "Wii", "Wii", nullptr
-			};
+			}};
 			return sysNames_Wii[type];
 		}
 
 		case NINTENDO_SYSID_TWL: {
 			// DSi
 			// TODO: iQue DSi for China?
-			static const char *const sysNames_DSi[4] = {
+			static const array<const char*, 4> sysNames_DSi = {{
 				"Nintendo DSi", "DSi", "DSi", nullptr
-			};
+			}};
 			return sysNames_DSi[type];
 		}
 	}
@@ -1353,7 +1354,6 @@ int WiiWAD::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) con
 	// Add the URLs.
 	pExtURLs->resize(szdef_count * tdb_lc.size());
 	auto extURL_iter = pExtURLs->begin();
-	const auto tdb_lc_cend = tdb_lc.cend();
 	for (unsigned int i = 0; i < szdef_count; i++) {
 		// Current image type.
 		char imageTypeName[16];
@@ -1361,15 +1361,14 @@ int WiiWAD::extURLs(ImageType imageType, vector<ExtURL> *pExtURLs, int size) con
 			 imageTypeName_base, (szdefs_dl[i]->name ? szdefs_dl[i]->name : ""));
 
 		// Add the images.
-		for (auto tdb_iter = tdb_lc.cbegin();
-		     tdb_iter != tdb_lc_cend; ++tdb_iter, ++extURL_iter)
-		{
-			const string lc_str = SystemRegion::lcToStringUpper(*tdb_iter);
+		for (const uint16_t lc : tdb_lc) {
+			const string lc_str = SystemRegion::lcToStringUpper(lc);
 			extURL_iter->url = d->getURL_GameTDB(sysDir, imageTypeName, lc_str.c_str(), id4, ext);
 			extURL_iter->cache_key = d->getCacheKey_GameTDB(sysDir, imageTypeName, lc_str.c_str(), id4, ext);
 			extURL_iter->width = szdefs_dl[i]->width;
 			extURL_iter->height = szdefs_dl[i]->height;
 			extURL_iter->high_res = (szdefs_dl[i]->index >= 2);
+			++extURL_iter;
 		}
 	}
 
@@ -1408,4 +1407,4 @@ int WiiWAD::checkViewedAchievements(void) const
 	return ret;
 }
 
-}
+} // namespace LibRomData

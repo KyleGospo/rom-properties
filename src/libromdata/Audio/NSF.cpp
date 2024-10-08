@@ -16,6 +16,7 @@ using namespace LibRpFile;
 using namespace LibRpText;
 
 // C++ STL classes
+using std::array;
 using std::string;
 using std::vector;
 
@@ -24,7 +25,7 @@ namespace LibRomData {
 class NSFPrivate final : public RomDataPrivate
 {
 public:
-	NSFPrivate(const IRpFilePtr &file);
+	explicit NSFPrivate(const IRpFilePtr &file);
 
 private:
 	typedef RomDataPrivate super;
@@ -166,9 +167,9 @@ const char *NSF::systemName(unsigned int type) const
 		"NSF::systemName() array index optimization needs to be updated.");
 
 	// Bits 0-1: Type. (long, short, abbreviation)
-	static const char *const sysNames[4] = {
+	static const array<const char*, 4> sysNames = {{
 		"Nintendo Sound Format", "NSF", "NSF", nullptr
-	};
+	}};
 
 	return sysNames[type & SYSNAME_TYPE_MASK];
 }
@@ -243,27 +244,25 @@ int NSF::loadFieldData(void)
 	// TV System.
 	// TODO: NTSC/PAL framerates?
 	// NOTE: NSF uses an enum, not a bitfield.
-	static const char *const tv_system_bitfield_names[] = {
+	static const array<const char*, 2> tv_system_bitfield_names = {{
 		"NTSC", "PAL",
-	};
+	}};
 	uint32_t bfval = nsfHeader->tv_system;
 	if (bfval < NSF_TV_MAX) {
 		bfval++;
 	} else {
 		bfval = 0;
 	}
-	vector<string> *const v_tv_system_bitfield_names = RomFields::strArrayToVector(
-		tv_system_bitfield_names, ARRAY_SIZE(tv_system_bitfield_names));
+	vector<string> *const v_tv_system_bitfield_names = RomFields::strArrayToVector(tv_system_bitfield_names);
 	d->fields.addField_bitfield(C_("NSF", "TV System"),
 		v_tv_system_bitfield_names, 0, bfval);
 
 	// Expansion audio.
-	static const char *const expansion_bitfield_names[] = {
+	static const array<const char*, 6> expansion_bitfield_names = {{
 		"Konami VRC6", "Konami VRC7", "2C33 (FDS)",
 		"MMC5", "Namco N163", "Sunsoft 5B",
-	};
-	vector<string> *const v_expansion_bitfield_names = RomFields::strArrayToVector(
-		expansion_bitfield_names, ARRAY_SIZE(expansion_bitfield_names));
+	}};
+	vector<string> *const v_expansion_bitfield_names = RomFields::strArrayToVector(expansion_bitfield_names);
 	d->fields.addField_bitfield(C_("NSF", "Expansion"),
 		v_expansion_bitfield_names, 3, nsfHeader->expansion_audio);
 
@@ -319,4 +318,4 @@ int NSF::loadMetaData(void)
 	return static_cast<int>(d->metaData->count());
 }
 
-}
+} // namespace LibRomData
